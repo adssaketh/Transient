@@ -1,5 +1,6 @@
 package com.demonlab.lune.ui.data
 
+import com.demonlab.lune.ui.components.FastScrollbarGrid
 import com.demonlab.lune.ui.utils.pinchToChangeColumns
 import android.net.Uri
 import androidx.compose.foundation.background
@@ -53,7 +54,8 @@ fun AlbumGrid(
     hasBlurBackground: Boolean = false,
     isDarkTheme: Boolean = false,
     customActiveColor: Color? = null,
-    activePlaylistId: Long? = null
+    activePlaylistId: Long? = null,
+    indexLetter: (Album) -> String = { it.name }
 ) {
     val initialIndex = remember(activePlaylistId, albums) {
         if (activePlaylistId != null) {
@@ -107,6 +109,19 @@ fun AlbumGrid(
             }
         }
 
+        if (settingsManager.isAlphabetIndexerEnabled) {
+            FastScrollbarGrid(
+                gridState = gridState,
+                items = albums,
+                itemKeyOrLetter = indexLetter,
+                hasBlurBackground = hasBlurBackground,
+                accentColor = customActiveColor,
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .padding(bottom = bottomPadding)
+            )
+        }
+
         ScrollToTopPill(
             visible = isScrollToTopVisible.value,
             onClick = {
@@ -131,8 +146,10 @@ fun AlbumCard(
     hasBlurBackground: Boolean = false,
     isPlaying: Boolean = false
 ) {
-    val cardShape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp, bottomStart = 8.dp, bottomEnd = 8.dp)
-    val coverShape = RoundedCornerShape(24.dp)
+    // Corner radius is a share of the tile width so a small tile looks like a scaled-down player cover
+    // (a fixed 24dp turned 4-column tiles into blobby squircles).
+    val cardShape = RoundedCornerShape(topStartPercent = 8, topEndPercent = 8, bottomStartPercent = 3, bottomEndPercent = 3)
+    val coverShape = RoundedCornerShape(percent = 8)
     val showYear = SettingsManager.getInstance(LocalContext.current).showAlbumYear
     val albumSubtitle = remember(album, showYear) { albumSubtitleWithYear(album, showYear) }
     Column(

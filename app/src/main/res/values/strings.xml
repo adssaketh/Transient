@@ -267,8 +267,8 @@
     <string name="option_repeat_all">Repeat All</string>
     <string name="option_repeat_off">Off</string>
     <string name="output_speaker">Speaker</string>
-    <string name="output_headphones">Auriculares</string>
-    <string name="no_song_playing">Sin reproducción</string>
+    <string name="output_headphones">Headphones</string>
+    <string name="no_song_playing">Nothing playing</string>
     <string name="output_bluetooth">Bluetooth</string>
     <string name="queue_now_playing">Now Playing</string>
     <string name="queue_up_next">Up Next</string>
@@ -587,4 +587,5 @@
     <string name="exit_title">Exit %1$s?</string>
     <string name="exit_message">Are you sure you want to exit?</string>
     <string name="exit">Exit</string>
+    <string name="custom_title_label">Title</string>
 </resources>

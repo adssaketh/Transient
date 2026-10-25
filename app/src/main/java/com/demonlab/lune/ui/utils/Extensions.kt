@@ -1,5 +1,8 @@
 package com.demonlab.lune.ui.utils
 
+import kotlinx.coroutines.CoroutineStart
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
@@ -148,76 +151,40 @@ fun Modifier.songSwipeGestures(
     if (!enabled) return@composed this
 
     val coroutineScope = rememberCoroutineScope()
-    var dragTranslationX by remember { mutableFloatStateOf(0f) }
-    var dragScale by remember { mutableFloatStateOf(1f) }
-    val animOffsetX = remember { Animatable(0f) }
-    val animScale = remember { Animatable(1f) }
-    var isDragging by remember { mutableStateOf(false) }
+    // One animated value drives everything, so letting go never flips between two sources
+    // (the old two-state version jumped for a frame at the end of every drag).
+    val offsetX = remember { Animatable(0f) }
+    val currentOnNext by rememberUpdatedState(onNext)
+    val currentOnPrevious by rememberUpdatedState(onPrevious)
 
     this
         .graphicsLayer {
-            translationX = if (isDragging) dragTranslationX else animOffsetX.value
-            scaleX = if (isDragging) dragScale else animScale.value
-            scaleY = if (isDragging) dragScale else animScale.value
+            val x = offsetX.value
+            translationX = x
+            val s = (1f - kotlin.math.abs(x) / 1600f).coerceIn(0.96f, 1f)
+            scaleX = s
+            scaleY = s
         }
         .pointerInput(Unit) {
-            var gestureConsumed = false
-            detectDragGestures(
+            var triggered = false
+            val settle = spring<Float>(
+                dampingRatio = Spring.DampingRatioMediumBouncy,
+                stiffness = Spring.StiffnessMediumLow
+            )
+            // Horizontal-only: vertical drags are left alone for the player's own swipe up/down gestures.
+            detectHorizontalDragGestures(
                 onDragStart = {
-                    isDragging = true
-                    dragTranslationX = 0f
-                    dragScale = 1f
-                    gestureConsumed = false
+                    triggered = false
+                    coroutineScope.launch { offsetX.stop() }
                 },
-                onDragEnd = {
-                    isDragging = false
-                    val currentX = dragTranslationX
-                    val currentS = dragScale
-                    coroutineScope.launch {
-                        animOffsetX.snapTo(currentX)
-                        animScale.snapTo(currentS)
-                        if (gestureConsumed) {
-                            animScale.animateTo(0.94f, tween(50))
-                        }
-                        launch {
-                            animOffsetX.animateTo(
-                                0f,
-                                spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow)
-                            )
-                        }
-                        launch {
-                            animScale.animateTo(
-                                1f,
-                                spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow)
-                            )
-                        }
-                    }
-                },
-                onDragCancel = {
-                    isDragging = false
-                    val currentX = dragTranslationX
-                    val currentS = dragScale
-                    coroutineScope.launch {
-                        animOffsetX.snapTo(currentX)
-                        animScale.snapTo(currentS)
-                        launch {
-                            animOffsetX.animateTo(0f, spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow))
-                        }
-                        launch {
-                            animScale.animateTo(1f, spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow))
-                        }
-                    }
-                },
-                onDrag = { change, dragAmount ->
-                    dragTranslationX = (dragTranslationX + dragAmount.x * 0.35f).coerceIn(-75f, 75f)
-                    val absX = kotlin.math.abs(dragTranslationX)
-                    val absY = kotlin.math.abs(dragAmount.y)
-                    dragScale = (1f - (absX / 1600f)).coerceIn(0.96f, 1f)
-
-                    if (!gestureConsumed && absX > 45 && absX > absY * 1.2f) {
-                        change.consume()
-                        gestureConsumed = true
-                        if (dragTranslationX < 0) onNext() else onPrevious()
+                onDragEnd = { coroutineScope.launch { offsetX.animateTo(0f, settle) } },
+                onDragCancel = { coroutineScope.launch { offsetX.animateTo(0f, settle) } },
+                onHorizontalDrag = { _, dragAmount ->
+                    val target = (offsetX.value + dragAmount * 0.35f).coerceIn(-75f, 75f)
+                    coroutineScope.launch(start = CoroutineStart.UNDISPATCHED) { offsetX.snapTo(target) }
+                    if (!triggered && kotlin.math.abs(target) > 45f) {
+                        triggered = true
+                        if (target < 0) currentOnNext() else currentOnPrevious()
                     }
                 }
             )

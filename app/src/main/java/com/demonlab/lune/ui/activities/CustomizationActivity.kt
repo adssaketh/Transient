@@ -167,7 +167,7 @@ fun CustomizationScreen(
                 OutlinedTextField(
                     value = tempTitle,
                     onValueChange = { tempTitle = it },
-                    label = { Text("Titulo") },
+                    label = { Text(stringResource(R.string.custom_title_label)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(

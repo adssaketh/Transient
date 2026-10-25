@@ -1,5 +1,7 @@
 package com.demonlab.lune.ui.player
 
+import coil.size.Precision
+import coil.imageLoader
 import android.Manifest
 import android.app.Activity
 import android.content.Context
@@ -932,17 +934,23 @@ fun FullPlayer(
         }
     }
 
-    val handleNext = remember(onNext, triggerCoverBounce) {
-        {
-            triggerCoverBounce()
-            onNext()
-        }
-    }
+    // The cover bounce fires once, when the song actually changes (LaunchedEffect above). Triggering it here
+    // as well stacked a second bounce on top of the swipe animation.
+    val handleNext = remember(onNext) { { onNext() } }
+    val handlePrevious = remember(onPrevious) { { onPrevious() } }
 
-    val handlePrevious = remember(onPrevious, triggerCoverBounce) {
-        {
-            triggerCoverBounce()
-            onPrevious()
+    // Warm the image cache for the neighbouring tracks so the cover swaps instantly instead of flashing blank.
+    val prefetchContext = LocalContext.current
+    LaunchedEffect(song.id) {
+        val loader = prefetchContext.imageLoader
+        listOfNotNull(playbackManager.getNextSong(), playbackManager.getPreviousSong()).forEach { neighbour ->
+            loader.enqueue(
+                ImageRequest.Builder(prefetchContext)
+                    .data(neighbour.coverUrl ?: neighbour.uri)
+                    .size(1400)
+                    .precision(Precision.INEXACT)
+                    .build()
+            )
         }
     }
 

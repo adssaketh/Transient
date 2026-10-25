@@ -306,7 +306,7 @@ fun LyricsScreen(onBack: () -> Unit, isDarkTheme: Boolean = false) {
                             ) {
                                 Icon(
                                     imageVector = if (alignments[textAlignIndex] == TextAlign.Start) Icons.AutoMirrored.Filled.FormatAlignLeft else Icons.Default.FormatAlignCenter,
-                                    contentDescription = "Alineación",
+                                    contentDescription = "Alignment",
                                     tint = itemColor,
                                     modifier = Modifier.size(17.dp)
                                 )
@@ -368,7 +368,7 @@ fun LyricsScreen(onBack: () -> Unit, isDarkTheme: Boolean = false) {
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Tune,
-                                    contentDescription = "Ajustar sincronización",
+                                    contentDescription = "Adjust sync",
                                     tint = if (isOffsetActive && !isBlurActive) MaterialTheme.colorScheme.onPrimaryContainer else itemColor,
                                     modifier = Modifier.size(17.dp)
                                 )

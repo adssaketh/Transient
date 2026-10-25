@@ -911,7 +911,7 @@ fun MainScreen(
             .groupBy {
                 val g = it.genre?.trim()
                 if (g.isNullOrEmpty() || g.equals("<unknown>", ignoreCase = true) || g.equals("unknown", ignoreCase = true)) {
-                    "Desconocido"
+                    "Unknown"
                 } else {
                     g
                 }
@@ -929,9 +929,9 @@ fun MainScreen(
         val comparator: Comparator<Album> = when (genreSortOption) {
             "TRACK_COUNT" -> compareBy { it.songs.size }
             else -> if (genreCaseSensitive) {
-                compareBy { if (it.name == "Desconocido") "\uffff" else it.name }
+                compareBy { if (it.name == "Unknown") "\uffff" else it.name }
             } else {
-                compareBy { if (it.name == "Desconocido") "\uffff" else it.name.lowercase(java.util.Locale.getDefault()) }
+                compareBy { if (it.name == "Unknown") "\uffff" else it.name.lowercase(java.util.Locale.getDefault()) }
             }
         }
         if (genreSortAscending) base.sortedWith(comparator) else base.sortedWith(comparator.reversed())
@@ -1355,7 +1355,7 @@ fun MainScreen(
                                     onSelectedFolderChange("ARTISTS")
                                 },
                                 onGenreClick = { genreName ->
-                                    val genreSongs = if (genreName == "Desconocido") {
+                                    val genreSongs = if (genreName == "Unknown") {
                                         visibleSongs.filter {
                                             val g = it.genre?.trim()
                                             g.isNullOrEmpty() || g.equals("<unknown>", ignoreCase = true) || g.equals("unknown", ignoreCase = true)
@@ -1431,6 +1431,13 @@ fun MainScreen(
                                     if (viewStyle == 0) {
                                         AlbumGrid(
                                             albums = albumsList,
+                                            indexLetter = {
+                                                when (albumSortOption) {
+                                                    "ARTIST" -> it.artist
+                                                    "TRACK_COUNT", "DATE_ADDED", "DURATION" -> ""
+                                                    else -> it.name
+                                                }
+                                            },
                                             onAlbumClick = { selectedAlbum = it },
                                             bottomPadding = bottomPadding,
                                             hasBlurBackground = hasBlurBackgroundMini && currentSong != null,
@@ -1489,6 +1496,9 @@ fun MainScreen(
                                     if (viewStyle == 0) {
                                         AlbumGrid(
                                             albums = artistsList,
+                                            indexLetter = {
+                                                if (artistSortOption == "TRACK_COUNT" || artistSortOption == "ALBUM_COUNT") "" else it.name
+                                            },
                                             onAlbumClick = { selectedAlbum = it },
                                             bottomPadding = bottomPadding,
                                             hasBlurBackground = hasBlurBackgroundMini && currentSong != null,
@@ -1549,6 +1559,7 @@ fun MainScreen(
                                     if (viewStyle == 0) {
                                         AlbumGrid(
                                             albums = genresList,
+                                            indexLetter = { if (genreSortOption == "TRACK_COUNT") "" else it.name },
                                             onAlbumClick = { selectedAlbum = it },
                                             bottomPadding = bottomPadding,
                                             hasBlurBackground = hasBlurBackgroundMini && currentSong != null,
@@ -2241,7 +2252,7 @@ fun MainScreen(
                 val albumSongs = remember(albumRender.name, visibleSongs, selectedFolder, isAlbumView) {
                     when (selectedFolder) {
                         "GENRES" -> {
-                            if (albumRender.name == "Desconocido") {
+                            if (albumRender.name == "Unknown") {
                                 visibleSongs.filter {
                                     val g = it.genre?.trim()
                                     g.isNullOrEmpty() || g.equals("<unknown>", ignoreCase = true) || g.equals("unknown", ignoreCase = true)
@@ -3094,7 +3105,7 @@ fun MainScreen(
                                 ) {
                                     Icon(
                                         imageVector = if (isDefaultSection) Icons.Default.Bookmark else Icons.Outlined.BookmarkBorder,
-                                        contentDescription = if (isDefaultSection) "Restaurar estado predeterminado" else "Definir como sección favorita al abrir",
+                                        contentDescription = if (isDefaultSection) "Restore default" else "Set as the section to open on launch",
                                         tint = if (isDefaultSection) blurColors.primaryTint else (if (blurColors.hasBlur) Color.White.copy(alpha = 0.55f) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f)),
                                         modifier = Modifier.size(22.dp)
                                     )

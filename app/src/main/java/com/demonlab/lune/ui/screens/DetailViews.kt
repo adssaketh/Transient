@@ -1158,8 +1158,8 @@ fun AlbumDetailView(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                if (album.artist.isNotEmpty()) "No hay canciones de este álbum"
-                                else "No hay canciones de este artista",
+                                if (album.artist.isNotEmpty()) "No songs in this album"
+                                else "No songs by this artist",
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = if (hasBlurBackground) Color.White else MaterialTheme.colorScheme.onSurface
                             )

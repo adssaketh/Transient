@@ -164,7 +164,7 @@ fun ResumeScreen(
         allSongs.groupBy { song ->
             val g = song.genre?.trim()
             if (g.isNullOrEmpty() || g.equals("<unknown>", ignoreCase = true) || g.equals("unknown", ignoreCase = true)) {
-                "Desconocido"
+                "Unknown"
             } else {
                 g
             }

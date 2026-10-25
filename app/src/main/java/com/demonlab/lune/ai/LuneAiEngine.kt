@@ -426,7 +426,7 @@ class LuneAiEngine private constructor(private val context: Context) {
                         songs = generateSmartShuffle(dailySongs),
                         gradientColors = listOf(Color(0xFF6366F1), Color(0xFF8B5CF6), Color(0xFFEC4899)),
                         iconName = "auto_awesome",
-                        description = "Generado combinando afinidad en tiempo real, hábitos horarios y transiciones armónicas."
+                        description = "Built from your real-time taste, listening hours and smooth harmonic transitions."
                     )
                 )
             }
@@ -443,7 +443,7 @@ class LuneAiEngine private constructor(private val context: Context) {
                         songs = discoverySongs,
                         gradientColors = listOf(Color(0xFF0D9488), Color(0xFF059669), Color(0xFF10B981)),
                         iconName = "explore",
-                        description = "Explora canciones de tu biblioteca con alta compatibilidad matemática con tus gustos."
+                        description = "Explore songs in your library that closely match your taste."
                     )
                 )
             }
@@ -474,7 +474,7 @@ class LuneAiEngine private constructor(private val context: Context) {
                         songs = generateSmartShuffle(energySongs),
                         gradientColors = listOf(Color(0xFFF97316), Color(0xFFEF4444), Color(0xFFEC4899)),
                         iconName = "bolt",
-                        description = "Selección de canciones con pulsos vivos y tempos energéticos según tu biblioteca."
+                        description = "Songs with lively beats and energetic tempos from your library."
                     )
                 )
             }
@@ -505,7 +505,7 @@ class LuneAiEngine private constructor(private val context: Context) {
                         songs = generateSmartShuffle(chillSongs),
                         gradientColors = listOf(Color(0xFF06B6D4), Color(0xFF3B82F6), Color(0xFF6366F1)),
                         iconName = "spa",
-                        description = "Sonidos acústicos y texturas pausadas para momentos de tranquilidad."
+                        description = "Acoustic sounds and slow textures for quiet moments."
                     )
                 )
             }
@@ -547,7 +547,7 @@ class LuneAiEngine private constructor(private val context: Context) {
                         songs = generateSmartShuffle(timeSongs),
                         gradientColors = timeGradients,
                         iconName = if (currentTime == TimeOfDay.NIGHT) "bedtime" else "wb_sunny",
-                        description = "Adaptado al contexto horario actual con base en tus hábitos pasados."
+                        description = "Adapted to the current time of day, based on your past habits."
                     )
                 )
             }
@@ -571,7 +571,7 @@ class LuneAiEngine private constructor(private val context: Context) {
                         songs = forgottenSongs,
                         gradientColors = listOf(Color(0xFF10B981), Color(0xFF059669), Color(0xFF047857)),
                         iconName = "history",
-                        description = "Redescubre temas con alta puntuación en tu historial que han quedado atrás."
+                        description = "Rediscover highly rated tracks from your history that you have left behind."
                     )
                 )
             }
@@ -588,7 +588,7 @@ class LuneAiEngine private constructor(private val context: Context) {
                         songs = generateSmartShuffle(acousticLiveSongs),
                         gradientColors = listOf(Color(0xFFD97706), Color(0xFFB45309), Color(0xFF78350F)),
                         iconName = "mic_external_on",
-                        description = "Detección inteligente de pistas acústicas y grabaciones en vivo."
+                        description = "Smart detection of acoustic tracks and live recordings."
                     )
                 )
             }
@@ -616,7 +616,7 @@ class LuneAiEngine private constructor(private val context: Context) {
                             songs = generateSmartShuffle(spotlightPool),
                             gradientColors = listOf(Color(0xFFE11D48), Color(0xFFBE123C), Color(0xFF881337)),
                             iconName = "person",
-                            description = "Sesión continua generada en torno a uno de tus artistas con mayor afinidad."
+                            description = "A continuous session built around one of your most-played artists."
                         )
                     )
                 }
