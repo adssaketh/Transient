@@ -1165,7 +1165,7 @@ fun MainScreen(
                             AnimatedLogo(
                                 isPlaying = isPlaying,
                                 tintColor = titleColor,
-                                modifier = Modifier.padding(end = 10.dp)
+                                modifier = Modifier.padding(end = 0.dp)
                             )
                             if (customTitle.isEmpty()) {
                                 // Default title: the Transient lettering. A user-set custom title stays plain text.

@@ -31,6 +31,9 @@ object UsbSignalPathStore {
         /** Goes straight to the DAC, but the source was lossy so it is decoded output, not the original bits. */
         DIRECT_DECODED,
 
+        /** The phone volume is below maximum, so the samples are scaled digitally (no longer bit-for-bit). */
+        DIGITAL_VOLUME,
+
         /** Something does not line up (rate mismatch, source deeper than the DAC, clock not locked). */
         CHECK
     }
@@ -48,12 +51,18 @@ object UsbSignalPathStore {
     private val _notice = MutableStateFlow<Notice?>(null)
     val notice: StateFlow<Notice?> = _notice.asStateFlow()
 
+    private val _gain = MutableStateFlow(1f)
+    /** Digital gain applied to the USB stream (1.0 = untouched). */
+    val gain: StateFlow<Float> = _gain.asStateFlow()
+    fun setGain(value: Float) { _gain.value = value }
+
     fun setActive(value: Boolean) {
         _active.value = value
         if (value) _notice.value = null
         if (!value) {
             _output.value = null
             _source.value = null
+            _gain.value = 1f
         }
     }
 
@@ -80,7 +89,7 @@ object UsbSignalPathStore {
      * Honest summary of what the driver reports. It reflects configuration (rate, depth, clock lock),
      * not a measurement at the DAC — see the verification guide in decent/docs for hardware-level proof.
      */
-    fun verdict(out: UsbOutputStatus?, source: SourceFormat?, song: Song?): Verdict? {
+    fun verdict(out: UsbOutputStatus?, source: SourceFormat?, song: Song?, gain: Float = 1f): Verdict? {
         if (out == null) return null
         val fileRate = song?.sampleRate?.takeIf { it > 0 } ?: source?.sampleRateHz?.takeIf { it > 0 }
         val rateOk = fileRate == null || fileRate == out.sampleRateHz
@@ -88,6 +97,7 @@ object UsbSignalPathStore {
         val depthOk = fileDepth == null || fileDepth <= out.usbBitDepth
         val clockOk = out.clockLocked != false
         if (!rateOk || !depthOk || !clockOk) return Verdict.CHECK
+        if (gain < 0.9999f) return Verdict.DIGITAL_VOLUME
         return if (isLossless(source, song)) Verdict.BIT_PERFECT else Verdict.DIRECT_DECODED
     }
 

@@ -1,5 +1,7 @@
 package com.demonlab.lune.ui.activities
 
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import com.demonlab.lune.tools.usb.UsbVolumeController
 import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
@@ -94,6 +96,7 @@ fun AudioSettingsScreen(onBack: () -> Unit) {
 
     // ── USB bit-perfect output ──
     var usbEnabled by remember { mutableStateOf(settingsManager.isUsbBitPerfectEnabled) }
+    var usbSoftwareVolume by remember { mutableStateOf(settingsManager.isUsbSoftwareVolumeEnabled) }
     val usbSupported = remember { UsbDacSupport.isSupported(context) }
     val usbActive by UsbSignalPathStore.active.collectAsState()
     val usbOutput by UsbSignalPathStore.output.collectAsState()
@@ -308,6 +311,31 @@ fun AudioSettingsScreen(onBack: () -> Unit) {
                             thumbContent = {
                                 Icon(
                                     imageVector = if (usbEnabled && usbSupported) Icons.Default.Check else Icons.Default.Close,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(SwitchDefaults.IconSize)
+                                )
+                            }
+                        )
+                    }
+                )
+
+                SettingsPreferenceItem(
+                    headlineText = stringResource(R.string.usb_software_volume),
+                    supportingText = stringResource(R.string.usb_software_volume_desc),
+                    icon = Icons.AutoMirrored.Filled.VolumeUp,
+                    position = SectionPosition.MIDDLE,
+                    trailingContent = {
+                        BouncySwitch(
+                            checked = usbSoftwareVolume,
+                            enabled = usbSupported,
+                            onCheckedChange = { enabled ->
+                                usbSoftwareVolume = enabled
+                                settingsManager.isUsbSoftwareVolumeEnabled = enabled
+                                UsbVolumeController.refreshActive()
+                            },
+                            thumbContent = {
+                                Icon(
+                                    imageVector = if (usbSoftwareVolume) Icons.Default.Check else Icons.Default.Close,
                                     contentDescription = null,
                                     modifier = Modifier.size(SwitchDefaults.IconSize)
                                 )

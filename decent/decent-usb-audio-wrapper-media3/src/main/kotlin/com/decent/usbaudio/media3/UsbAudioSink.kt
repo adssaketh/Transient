@@ -66,6 +66,18 @@ class UsbAudioSink(
     @Volatile
     var onOutputStatusChanged: ((UsbOutputStatus?) -> Unit)? = null
 
+    /**
+     * Digital volume for the ExoPlayer pipeline route: 1.0 leaves every sample untouched (bit-perfect),
+     * anything lower scales the PCM before it is written to the DAC. Added by the Lune integration.
+     * The native FLAC engine has no gain stage, so set [nativeEngineAllowed] = false whenever this is used.
+     */
+    @Volatile
+    var softwareVolume: Float = 1f
+
+    /** When false, FLAC goes through the ExoPlayer pipeline too (so [softwareVolume] applies to it). */
+    @Volatile
+    var nativeEngineAllowed: Boolean = true
+
     private var activeDeviceName: String = ""
     private var activeUsbBitDepth: Int = 0
     private var lastClockValid: Boolean? = null
@@ -353,6 +365,10 @@ class UsbAudioSink(
                 if (totalSamples > 0) {
                     val floatBuf = FloatArray(totalSamples)
                     snapshot.asFloatBuffer().get(floatBuf)
+                    val gain = softwareVolume
+                    if (gain < 0.9999f) {
+                        for (i in floatBuf.indices) floatBuf[i] *= gain
+                    }
                     if (handleBufferCallCount <= 3) {
                         Log.i(TAG, "handleBuffer #$handleBufferCallCount: FLOAT samples=$totalSamples")
                     }
@@ -363,6 +379,7 @@ class UsbAudioSink(
                 if (remaining > 0) {
                     val rawBytes = ByteArray(remaining)
                     snapshot.get(rawBytes)
+                    applySoftwareGain(rawBytes, currentEncoding, softwareVolume)
                     if (handleBufferCallCount <= 3) {
                         val bps = PcmUtils.bytesPerSample(currentEncoding)
                         Log.i(TAG, "handleBuffer #$handleBufferCallCount: RAW ${bps*8}bit bytes=$remaining")
@@ -378,6 +395,53 @@ class UsbAudioSink(
 
         unmuteDelegateIfNeeded()
         return super.handleBuffer(buffer, presentationTimeUs, encodedAccessUnitCount)
+    }
+
+    /** Scales little-endian integer PCM in place. A gain of ~1.0 returns immediately (no change to the data). */
+    private fun applySoftwareGain(bytes: ByteArray, encoding: Int, gain: Float) {
+        if (gain >= 0.9999f) return
+        when (encoding) {
+            C.ENCODING_PCM_16BIT -> {
+                var i = 0
+                while (i + 1 < bytes.size) {
+                    val sample = ((bytes[i].toInt() and 0xFF) or (bytes[i + 1].toInt() shl 8)).toShort().toInt()
+                    val scaled = Math.round(sample * gain).coerceIn(-32768, 32767)
+                    bytes[i] = scaled.toByte()
+                    bytes[i + 1] = (scaled shr 8).toByte()
+                    i += 2
+                }
+            }
+            C.ENCODING_PCM_24BIT -> {
+                var i = 0
+                while (i + 2 < bytes.size) {
+                    // b2 is sign-extended by toInt(), which gives the 24-bit sign extension for free.
+                    val sample = (bytes[i].toInt() and 0xFF) or
+                        ((bytes[i + 1].toInt() and 0xFF) shl 8) or
+                        (bytes[i + 2].toInt() shl 16)
+                    val scaled = Math.round(sample * gain).coerceIn(-8388608, 8388607)
+                    bytes[i] = scaled.toByte()
+                    bytes[i + 1] = (scaled shr 8).toByte()
+                    bytes[i + 2] = (scaled shr 16).toByte()
+                    i += 3
+                }
+            }
+            C.ENCODING_PCM_32BIT -> {
+                var i = 0
+                while (i + 3 < bytes.size) {
+                    val sample = (bytes[i].toInt() and 0xFF) or
+                        ((bytes[i + 1].toInt() and 0xFF) shl 8) or
+                        ((bytes[i + 2].toInt() and 0xFF) shl 16) or
+                        (bytes[i + 3].toInt() shl 24)
+                    val scaled = Math.round(sample.toDouble() * gain)
+                        .coerceIn(Int.MIN_VALUE.toLong(), Int.MAX_VALUE.toLong()).toInt()
+                    bytes[i] = scaled.toByte()
+                    bytes[i + 1] = (scaled shr 8).toByte()
+                    bytes[i + 2] = (scaled shr 16).toByte()
+                    bytes[i + 3] = (scaled shr 24).toByte()
+                    i += 4
+                }
+            }
+        }
     }
 
     // ── Position tracking via USB framesWritten ────────────────────────
@@ -652,7 +716,7 @@ class UsbAudioSink(
         usbStreamingThread = null
 
         val path = currentTrackPath
-        if (path != null && path.lowercase().endsWith(".flac")) {
+        if (nativeEngineAllowed && path != null && path.lowercase().endsWith(".flac")) {
             val engine = NativeAudioEngine()
             try {
                 val fd = android.os.ParcelFileDescriptor.open(

@@ -128,6 +128,14 @@ class UsbPlaybackEngine(
 
     private val player: ExoPlayer = buildPlayer()
 
+    /**
+     * Phone volume buttons -> digital gain on the USB stream. The native FLAC engine has no gain stage, so
+     * the first time the volume drops below maximum the current track restarts on the ExoPlayer pipeline
+     * (one brief gap, same position); changes after that are instant. Back at maximum, the next track
+     * returns to the native engine and the output is bit-perfect again.
+     */
+    private val volumeController = UsbVolumeController(appContext) { gain -> applyGain(gain) }
+
     private val snapshotTicker = object : Runnable {
         override fun run() {
             refreshSnapshot()
@@ -138,6 +146,20 @@ class UsbPlaybackEngine(
     init {
         UsbSignalPathStore.setActive(true)
         mainHandler.post(snapshotTicker)
+        volumeController.start()
+    }
+
+    private fun applyGain(gain: Float) {
+        val sink = usbSink ?: return
+        val needsPipeline = gain < 0.9999f
+        val nativeRunning = sink.isNativeEngineActive
+        sink.softwareVolume = gain
+        sink.nativeEngineAllowed = !needsPipeline
+        UsbSignalPathStore.setGain(gain)
+        if (needsPipeline && nativeRunning) {
+            val current = song ?: return
+            load(current, player.currentPosition, player.playWhenReady)
+        }
     }
 
     private fun buildPlayer(): ExoPlayer {
@@ -282,6 +304,7 @@ class UsbPlaybackEngine(
     }
 
     fun release() = runOnMain {
+        volumeController.stop()
         mainHandler.removeCallbacks(snapshotTicker)
         mainHandler.removeCallbacks(outputWatchdog)
         usbSink?.onOutputStatusChanged = null

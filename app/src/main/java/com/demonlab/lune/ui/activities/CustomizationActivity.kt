@@ -313,53 +313,79 @@ fun CustomizationScreen(
                         color = if (hasBlurBackground) (if (isDarkTheme) Color.White.copy(alpha = 0.09f) else Color.Black.copy(alpha = 0.22f)) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                         tonalElevation = if (hasBlurBackground) 0.dp else 1.dp
                     ) {
-                        Row(
+                        // One row per section: icon + name + switch (the old row of bare icons was unreadable).
+                        Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 12.dp),
-                            horizontalArrangement = Arrangement.SpaceEvenly
+                                .padding(horizontal = 12.dp, vertical = 8.dp)
                         ) {
                             val sectionItems = listOf(
-                                "ALL" to Icons.Default.LibraryMusic,
-                                "FAVORITES" to Icons.Default.Favorite,
-                                "PLAYLISTS" to Icons.AutoMirrored.Filled.QueueMusic,
-                                "ALBUMS" to Icons.Default.Album,
-                                "ARTISTS" to Icons.Default.Person,
-                                "GENRES" to Icons.Default.Category,
-                                "FOLDERS" to Icons.Default.Folder
+                                Triple("ALL", Icons.Default.LibraryMusic, R.string.tab_songs),
+                                Triple("FAVORITES", Icons.Default.Favorite, R.string.tab_favorites),
+                                Triple("PLAYLISTS", Icons.AutoMirrored.Filled.QueueMusic, R.string.playlists),
+                                Triple("ALBUMS", Icons.Default.Album, R.string.tab_albums_real),
+                                Triple("ARTISTS", Icons.Default.Person, R.string.tab_artists),
+                                Triple("GENRES", Icons.Default.Category, R.string.tab_genres),
+                                Triple("FOLDERS", Icons.Default.Folder, R.string.tab_folders)
                             )
 
-                            sectionItems.forEach { (key, icon) ->
+                            sectionItems.forEach { (key, icon, label) ->
                                 val isActive = key !in hiddenSectionTabs
-                                Surface(
-                                    onClick = {
-                                        val newHidden = hiddenSectionTabs.toMutableSet()
-                                        if (isActive) newHidden.add(key) else newHidden.remove(key)
-                                        hiddenSectionTabs = newHidden
-                                        settingsManager.hiddenSectionTabs = newHidden
-                                    },
-                                    shape = CircleShape,
-                                    color = if (isActive) {
-                                        if (hasBlurBackground) Color.White else MaterialTheme.colorScheme.primary
-                                    } else {
-                                        if (hasBlurBackground) Color.White.copy(alpha = 0.15f) else MaterialTheme.colorScheme.secondaryContainer
-                                    },
+                                val toggle = {
+                                    val newHidden = hiddenSectionTabs.toMutableSet()
+                                    if (isActive) newHidden.add(key) else newHidden.remove(key)
+                                    hiddenSectionTabs = newHidden
+                                    settingsManager.hiddenSectionTabs = newHidden
+                                }
+                                Row(
                                     modifier = Modifier
-                                        .size(44.dp)
-                                        .bounceClick()
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(16.dp))
+                                        .clickable(onClick = toggle)
+                                        .padding(horizontal = 4.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        Icon(
-                                            icon,
-                                            contentDescription = null,
-                                            tint = if (isActive) {
-                                                if (hasBlurBackground) Color.Black else MaterialTheme.colorScheme.onPrimary
-                                            } else {
-                                                if (hasBlurBackground) Color.White.copy(alpha = 0.75f) else MaterialTheme.colorScheme.onSecondaryContainer
-                                            },
-                                            modifier = Modifier.size(22.dp)
-                                        )
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = if (isActive) {
+                                            if (hasBlurBackground) Color.White else MaterialTheme.colorScheme.primary
+                                        } else {
+                                            if (hasBlurBackground) Color.White.copy(alpha = 0.15f) else MaterialTheme.colorScheme.secondaryContainer
+                                        },
+                                        modifier = Modifier.size(40.dp)
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Icon(
+                                                icon,
+                                                contentDescription = null,
+                                                tint = if (isActive) {
+                                                    if (hasBlurBackground) Color.Black else MaterialTheme.colorScheme.onPrimary
+                                                } else {
+                                                    if (hasBlurBackground) Color.White.copy(alpha = 0.75f) else MaterialTheme.colorScheme.onSecondaryContainer
+                                                },
+                                                modifier = Modifier.size(22.dp)
+                                            )
+                                        }
                                     }
+                                    Spacer(modifier = Modifier.width(16.dp))
+                                    Text(
+                                        text = stringResource(label),
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = if (hasBlurBackground) Color.White else MaterialTheme.colorScheme.onSurface,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    BouncySwitch(
+                                        checked = isActive,
+                                        onCheckedChange = { toggle() },
+                                        thumbContent = {
+                                            Icon(
+                                                imageVector = if (isActive) Icons.Default.Check else Icons.Default.Close,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(SwitchDefaults.IconSize)
+                                            )
+                                        }
+                                    )
                                 }
                             }
                         }

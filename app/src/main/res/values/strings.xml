@@ -545,7 +545,7 @@
     <string name="usb_decoder_float">FFmpeg · 32-bit float</string>
     <string name="usb_decoder_float_detail">Converted back to integers exactly before it leaves the phone.</string>
     <string name="usb_processing_none">None</string>
-    <string name="usb_processing_none_detail">Android\'s mixer, resampler, equalizer, effects and volume are bypassed. Set the volume on the DAC.</string>
+    <string name="usb_processing_none_detail">Android\'s mixer, resampler, equalizer and effects are bypassed. Volume is at maximum, so the samples are untouched.</string>
     <string name="usb_driver_detail">Isochronous USB transfers · clock %1$s</string>
     <string name="usb_clock_locked">locked</string>
     <string name="usb_clock_unconfirmed">not confirmed</string>
@@ -588,4 +588,12 @@
     <string name="exit_message">Are you sure you want to exit?</string>
     <string name="exit">Exit</string>
     <string name="custom_title_label">Title</string>
+
+    <!-- USB volume -->
+    <string name="usb_software_volume">USB volume control</string>
+    <string name="usb_software_volume_desc">Use the phone\'s volume buttons to set the volume of USB output. At maximum volume the output stays bit-perfect; below it the samples are scaled digitally.</string>
+    <string name="usb_verdict_volume">Digital volume</string>
+    <string name="usb_verdict_volume_desc">Your phone\'s volume is below maximum, so the samples are scaled digitally. Set it to maximum for bit-perfect output.</string>
+    <string name="usb_processing_volume">Digital volume · %1$s</string>
+    <string name="usb_processing_volume_detail">Scaled by your phone\'s volume buttons. Android\'s mixer, resampler, equalizer and effects are still bypassed.</string>
 </resources>

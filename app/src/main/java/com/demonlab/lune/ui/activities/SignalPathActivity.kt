@@ -132,6 +132,7 @@ fun SignalPathScreen(onBack: () -> Unit) {
     val output by UsbSignalPathStore.output.collectAsState()
     val source by UsbSignalPathStore.source.collectAsState()
     val notice by UsbSignalPathStore.notice.collectAsState()
+    val gain by UsbSignalPathStore.gain.collectAsState()
 
     // Plugging a DAC in or granting permission doesn't touch any of our flows, so re-check once a second.
     var availability by remember { mutableStateOf(UsbDacSupport.availability(context, settingsManager)) }
@@ -155,7 +156,7 @@ fun SignalPathScreen(onBack: () -> Unit) {
         playbackManager.isPlaying && !active -> PathState.STANDARD
         else -> PathState.IDLE
     }
-    val verdict = if (state == PathState.ACTIVE) UsbSignalPathStore.verdict(output, source, currentSong) else null
+    val verdict = if (state == PathState.ACTIVE) UsbSignalPathStore.verdict(output, source, currentSong, gain) else null
 
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
@@ -223,7 +224,8 @@ fun SignalPathScreen(onBack: () -> Unit) {
                             song = currentSong,
                             source = source,
                             out = out,
-                            verdict = verdict
+                            verdict = verdict,
+                            gain = gain
                         )
                     }
                 } else if (state == PathState.OFF || state == PathState.NO_DAC || state == PathState.NEEDS_PERMISSION) {
@@ -280,6 +282,12 @@ private fun HeroCard(state: PathState, verdict: Verdict?, output: UsbOutputStatu
             icon = Icons.Filled.Verified
             title = stringResource(R.string.usb_verdict_bit_perfect)
             description = stringResource(R.string.usb_verdict_bit_perfect_desc)
+        }
+        state == PathState.ACTIVE && verdict == Verdict.DIGITAL_VOLUME -> {
+            container = scheme.tertiaryContainer; content = scheme.onTertiaryContainer
+            icon = Icons.Filled.Usb
+            title = stringResource(R.string.usb_verdict_volume)
+            description = stringResource(R.string.usb_verdict_volume_desc)
         }
         state == PathState.ACTIVE && verdict == Verdict.DIRECT_DECODED -> {
             container = scheme.secondaryContainer; content = scheme.onSecondaryContainer
@@ -385,7 +393,8 @@ private fun PathCard(
     song: Song?,
     source: UsbSignalPathStore.SourceFormat?,
     out: UsbOutputStatus,
-    verdict: Verdict?
+    verdict: Verdict?,
+    gain: Float
 ) {
     val fileRate = song?.sampleRate?.takeIf { it > 0 } ?: source?.sampleRateHz?.takeIf { it > 0 }
     val fileBits = song?.bitDepth?.takeIf { it > 0 } ?: out.sourceBitDepth.takeIf { it > 0 }
@@ -425,12 +434,22 @@ private fun PathCard(
     val stages = listOf(
         Stage(Icons.Filled.MusicNote, stringResource(R.string.usb_stage_source), sourceMain, song?.title),
         Stage(Icons.Filled.Memory, stringResource(R.string.usb_stage_decoder), decoderMain, decoderDetail),
-        Stage(
-            Icons.Filled.Tune,
-            stringResource(R.string.usb_stage_processing),
-            stringResource(R.string.usb_processing_none),
-            stringResource(R.string.usb_processing_none_detail)
-        ),
+        if (gain < 0.9999f) {
+            val db = 20.0 * kotlin.math.log10(gain.toDouble().coerceAtLeast(1e-6))
+            Stage(
+                Icons.Filled.Tune,
+                stringResource(R.string.usb_stage_processing),
+                stringResource(R.string.usb_processing_volume, String.format(java.util.Locale.getDefault(), "%.0f dB", db)),
+                stringResource(R.string.usb_processing_volume_detail)
+            )
+        } else {
+            Stage(
+                Icons.Filled.Tune,
+                stringResource(R.string.usb_stage_processing),
+                stringResource(R.string.usb_processing_none),
+                stringResource(R.string.usb_processing_none_detail)
+            )
+        },
         Stage(
             Icons.Filled.Usb,
             stringResource(R.string.usb_stage_driver),

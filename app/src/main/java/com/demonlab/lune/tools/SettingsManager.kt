@@ -81,6 +81,11 @@ class SettingsManager(context: Context) {
         get() = prefs.getBoolean("show_more_albums_by_artist", true)
         set(value) = prefs.edit().putBoolean("show_more_albums_by_artist", value).apply()
 
+    /** Phone volume buttons control the volume of USB output (digital gain; max volume stays bit-perfect). */
+    var isUsbSoftwareVolumeEnabled: Boolean
+        get() = prefs.getBoolean("usb_software_volume", true)
+        set(value) = prefs.edit().putBoolean("usb_software_volume", value).apply()
+
     /** Columns in the Albums / Artists / Genres grids; changed by pinching. */
     var albumGridColumns: Int
         get() = prefs.getInt("album_grid_columns", 2).coerceIn(1, 5)
