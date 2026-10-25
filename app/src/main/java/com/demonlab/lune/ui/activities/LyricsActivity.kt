@@ -514,7 +514,7 @@ fun LyricsScreen(onBack: () -> Unit, isDarkTheme: Boolean = false) {
                                 label = "TextBounce"
                             )
                             
-                            com.demonlab.lune.ui.components.BrandLogo(size = 120.dp, pulsing = true)
+                            com.demonlab.lune.ui.components.BrandLogo(size = 88.dp, pulsing = true)
                             
                             Spacer(modifier = Modifier.height(24.dp))
                             

@@ -111,7 +111,7 @@ fun WelcomeStep(onStartClick: () -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            BrandLogo(size = 200.dp, pulsing = true)
+            BrandLogo(size = 140.dp, pulsing = true)
 
             Spacer(modifier = Modifier.height(24.dp))
 

@@ -990,7 +990,7 @@ fun MainScreen(
         tintColor: Color = MaterialTheme.colorScheme.primary
     ) {
         // The Transient mark; it pulses while music is playing. (tintColor kept for call-site compatibility.)
-        BrandLogo(modifier = modifier, size = 60.dp, pulsing = isPlaying)
+        BrandLogo(modifier = modifier, size = 42.dp, pulsing = isPlaying)
     }
 
     val playPrevious = {
@@ -1164,7 +1164,7 @@ fun MainScreen(
                             AnimatedLogo(
                                 isPlaying = isPlaying,
                                 tintColor = titleColor,
-                                modifier = Modifier.padding(end = 4.dp)
+                                modifier = Modifier.padding(end = 10.dp)
                             )
                             ResponsiveText(
                                 text = appDefaultTitle,

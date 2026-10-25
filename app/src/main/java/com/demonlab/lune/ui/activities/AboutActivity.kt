@@ -180,7 +180,7 @@ fun AboutScreen() {
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 // Logo Section
-                BrandLogo(size = 160.dp, pulsing = true)
+                BrandLogo(size = 112.dp, pulsing = true)
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
                     text = stringResource(R.string.app_name),
