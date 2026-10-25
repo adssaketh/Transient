@@ -1,0 +1,39 @@
+name: Build Transient Debug APK
+
+# Unsigned-by-secrets debug build — handy for testing USB DAC output on a real phone.
+# Run it from the Actions tab, then download the "Transient-debug-apk" artifact.
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      # Native code (USB audio driver + libFLAC) needs the NDK and CMake.
+      # libFLAC's sources are cloned by Gradle (:decent-media3-decoder-flac:fetchLibflac).
+      - name: Install NDK and CMake
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;29.0.14206865" "cmake;3.22.1"
+
+      - name: Make gradlew executable
+        run: chmod +x gradlew
+
+      - name: Build debug APK
+        run: ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Transient-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
