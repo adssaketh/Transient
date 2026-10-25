@@ -754,7 +754,7 @@ class MusicService : MediaLibraryService() {
                 .add(SessionCommand(ACTION_FAVORITE, Bundle.EMPTY))
                 .build()
             val customLayout = buildCustomLayout()
-            return MediaSession.ConnectionResult.AcceptedResultBuilder(session, controller)
+            return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
                 .setAvailableSessionCommands(sessionCommands)
                 .setAvailablePlayerCommands(MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS)
                 .setCustomLayout(customLayout)
