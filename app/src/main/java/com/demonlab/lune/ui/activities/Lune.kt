@@ -1,4 +1,5 @@
 package com.demonlab.lune.ui.activities
+import com.demonlab.lune.ui.components.BrandWordmark
 import com.demonlab.lune.ui.components.BrandLogo
 import android.Manifest
 import android.content.ContentUris
@@ -1166,14 +1167,19 @@ fun MainScreen(
                                 tintColor = titleColor,
                                 modifier = Modifier.padding(end = 10.dp)
                             )
-                            ResponsiveText(
-                                text = appDefaultTitle,
-                                modifier = Modifier.fillMaxWidth(),
-                                targetTextSize = 26.sp,
-                                color = titleColor,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1
-                            )
+                            if (customTitle.isEmpty()) {
+                                // Default title: the Transient lettering. A user-set custom title stays plain text.
+                                BrandWordmark(height = 24.dp, color = titleColor)
+                            } else {
+                                ResponsiveText(
+                                    text = appDefaultTitle,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    targetTextSize = 26.sp,
+                                    color = titleColor,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1
+                                )
+                            }
                         }
                     },
                     scrollBehavior = scrollBehavior,

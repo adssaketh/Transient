@@ -1,5 +1,6 @@
 package com.demonlab.lune.ui.screens
 
+import com.demonlab.lune.ui.components.BrandWordmark
 import com.demonlab.lune.ui.components.BrandLogo
 import android.Manifest
 import android.content.Intent
@@ -115,13 +116,7 @@ fun WelcomeStep(onStartClick: () -> Unit) {
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            Text(
-                text = stringResource(id = R.string.app_name),
-                style = MaterialTheme.typography.headlineLarge,
-                color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.Bold,
-                fontSize = 40.sp
-            )
+            BrandWordmark(height = 44.dp, color = MaterialTheme.colorScheme.primary)
 
             Spacer(modifier = Modifier.height(16.dp))
 

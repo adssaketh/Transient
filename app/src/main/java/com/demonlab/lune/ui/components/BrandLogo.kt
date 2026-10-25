@@ -1,5 +1,11 @@
 package com.demonlab.lune.ui.components
 
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.Alignment
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.layout.height
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -48,5 +54,25 @@ fun BrandLogo(
                 scaleX = s
                 scaleY = s
             }
+    )
+}
+
+/**
+ * The "Transient" lettering as an image, tinted with [color] so it follows the theme (light/dark/blur).
+ * Use it wherever the app name stands alone as a title; keep plain text inside sentences.
+ */
+@Composable
+fun BrandWordmark(
+    modifier: Modifier = Modifier,
+    height: Dp = 24.dp,
+    color: Color = MaterialTheme.colorScheme.onSurface
+) {
+    Image(
+        painter = painterResource(id = R.drawable.ic_brand_wordmark),
+        contentDescription = stringResource(R.string.app_name),
+        colorFilter = ColorFilter.tint(color),
+        contentScale = ContentScale.Fit,
+        alignment = Alignment.CenterStart,
+        modifier = modifier.height(height)
     )
 }

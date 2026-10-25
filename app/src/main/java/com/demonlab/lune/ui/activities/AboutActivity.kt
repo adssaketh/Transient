@@ -1,5 +1,6 @@
 package com.demonlab.lune.ui.activities
 
+import com.demonlab.lune.ui.components.BrandWordmark
 import com.demonlab.lune.ui.components.BrandLogo
 import android.R.attr.icon
 import android.content.ClipData
@@ -182,11 +183,9 @@ fun AboutScreen() {
                 // Logo Section
                 BrandLogo(size = 112.dp, pulsing = true)
                 Spacer(modifier = Modifier.height(12.dp))
-                Text(
-                    text = stringResource(R.string.app_name),
-                    fontWeight = FontWeight.Bold,
-                    color = if (hasBlurBackground) Color.White else MaterialTheme.colorScheme.onSurface,
-                    style = MaterialTheme.typography.headlineLarge
+                BrandWordmark(
+                    height = 34.dp,
+                    color = if (hasBlurBackground) Color.White else MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(modifier = Modifier.height(4.dp))
 
