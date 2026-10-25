@@ -2,7 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- The USB bit-perfect libraries need API 29+. Lune still supports API 24:
+    <!-- The USB bit-perfect libraries need API 29+. Transient still supports API 24:
          every call into them is gated by UsbDacSupport.isSupported(). -->
     <uses-sdk tools:overrideLibrary="com.decent.usbaudio, com.decent.usbaudio.media3, com.decent.media3.decoder.flac" />
 
@@ -40,7 +40,7 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
-            <!-- USB DAC plugged in: lets Lune claim it for bit-perfect output.
+            <!-- USB DAC plugged in: lets Transient claim it for bit-perfect output.
                  Filter (USB Audio Class) comes from the decent-usb-audio-driver library. -->
             <intent-filter>
                 <action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" />

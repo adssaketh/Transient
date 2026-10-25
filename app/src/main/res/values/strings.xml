@@ -276,8 +276,8 @@
     <string name="visualizer_full_player">Show in Full Player</string>
     <string name="visualizer_mini_player">Show in Mini Player</string>
     <string name="credits">Credits</string>
-    <string name="credits_desc">Testing, design suggestions, and logo</string>
-    <string name="creator_desc">Creator and maintainer of lune music player</string>
+    <string name="credits_desc">Testing and design suggestions for the original Lune</string>
+    <string name="creator_desc">Creator and maintainer of Transient</string>
     <string name="gesture">Gesture</string>
     <string name="gesture_desc">Customize the app gestures</string>
     <string name="enable_gestures">Enable gestures</string>
@@ -554,4 +554,13 @@
     <string name="usb_footnote">This reflects the driver\'s configuration, not a measurement taken at the DAC.</string>
     <string name="usb_eq_banner">USB bit-perfect is active. The equalizer and effects are bypassed so the signal stays untouched.</string>
 
+    <!-- About / branding -->
+    <string name="author_name">adssaketh</string>
+    <string name="about_original_lune">Original Lune</string>
+    <string name="credit_lune_desc">Creator of Lune, the music player Transient is built on (GPLv3)</string>
+    <string name="credit_decent_desc">decent-player: bit-perfect USB audio driver (MIT)</string>
+    <string name="lib_media3_desc">Playback engine used for USB DAC output.\nLicense: Apache License 2.0</string>
+    <string name="lib_flac_desc">Reference FLAC decoder from Xiph.Org.\nLicense: BSD-3-Clause</string>
+    <string name="lib_ffmpeg_desc">Decodes non-FLAC formats without truncating to 16-bit.\nLicense: LGPL v2.1+</string>
+    <string name="cannot_play_track">This file can\'t be played. Playback was stopped.</string>
 </resources>

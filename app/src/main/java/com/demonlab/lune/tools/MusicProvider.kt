@@ -185,7 +185,7 @@ class MusicProvider(private val context: Context) {
 
                 val folderName = data.substringBeforeLast("/").substringAfterLast("/")
                 val extension = data.substringAfterLast(".").lowercase()
-                val isHiFiFile = extension == "flac" || extension == "wav" || extension == "alac" || extension == "dsf" || extension == "dff"
+                val isHiFiFile = extension == "flac" || extension == "wav" || extension == "alac" || extension == "aiff" || extension == "aif" || extension == "aifc" || extension == "dsf" || extension == "dff"
                 val isHiFi = settingsManager.enableHiFi && isHiFiFile
                 val format = when (extension) {
                     "mp3" -> "MP3"

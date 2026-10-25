@@ -52,6 +52,11 @@ class SettingsManager(context: Context) {
         get() = prefs.getBoolean("is_usb_bit_perfect_enabled", false)
         set(value) = prefs.edit().putBoolean("is_usb_bit_perfect_enabled", value).apply()
 
+    /** Columns in the Albums / Artists / Genres grids; changed by pinching. */
+    var albumGridColumns: Int
+        get() = prefs.getInt("album_grid_columns", 2).coerceIn(1, 5)
+        set(value) = prefs.edit().putInt("album_grid_columns", value.coerceIn(1, 5)).apply()
+
     var stopOnTaskRemoved: Boolean
         get() = prefs.getBoolean("stop_on_task_removed", false)
         set(value) = prefs.edit().putBoolean("stop_on_task_removed", value).apply()

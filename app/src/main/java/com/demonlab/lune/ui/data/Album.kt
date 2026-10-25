@@ -1,5 +1,6 @@
 package com.demonlab.lune.ui.data
 
+import com.demonlab.lune.ui.utils.pinchToChangeColumns
 import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -65,6 +66,7 @@ fun AlbumGrid(
     val settingsManager = remember { SettingsManager.getInstance(context) }
     val scope = rememberCoroutineScope()
     val isScrollToTopVisible = rememberScrollToTopVisibility(gridState, settingsManager.isScrollToTopEnabled)
+    var columns by remember { mutableIntStateOf(settingsManager.albumGridColumns) }
 
     LaunchedEffect(activePlaylistId) {
         if (initialIndex > 0) {
@@ -75,8 +77,13 @@ fun AlbumGrid(
     Box(modifier = Modifier.fillMaxSize()) {
         LazyVerticalGrid(
             state = gridState,
-            columns = GridCells.Fixed(2),
-            modifier = Modifier.fillMaxSize(),
+            columns = GridCells.Fixed(columns),
+            modifier = Modifier
+                .fillMaxSize()
+                .pinchToChangeColumns(columns = columns, minColumns = 1, maxColumns = 5) {
+                    columns = it
+                    settingsManager.albumGridColumns = it
+                },
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = bottomPadding + 16.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -89,12 +96,14 @@ fun AlbumGrid(
                 val isFirst = index == 0
                 val isLast = index == albums.lastIndex
                 val isPlaying = album.id == activePlaylistId
-                AlbumCard(
-                    album = album,
-                    onClick = { onAlbumClick(album) },
-                    hasBlurBackground = hasBlurBackground,
-                    isPlaying = isPlaying
-                )
+                Box(modifier = Modifier.animateItem()) {
+                    AlbumCard(
+                        album = album,
+                        onClick = { onAlbumClick(album) },
+                        hasBlurBackground = hasBlurBackground,
+                        isPlaying = isPlaying
+                    )
+                }
             }
         }
 

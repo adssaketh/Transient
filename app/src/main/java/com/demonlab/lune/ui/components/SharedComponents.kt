@@ -1673,7 +1673,7 @@ fun SongCoverImage(
                 modifier = Modifier.fillMaxSize()
             ) {
                 Icon(
-                    painter = painterResource(id = R.drawable.ic_launcher_monochrome),
+                    painter = painterResource(id = R.drawable.ic_brand_mono),
                     contentDescription = null,
                     tint = iconColor,
                     modifier = Modifier.fillMaxSize(iconScale)

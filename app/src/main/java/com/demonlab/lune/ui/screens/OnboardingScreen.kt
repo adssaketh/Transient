@@ -1,5 +1,6 @@
 package com.demonlab.lune.ui.screens
 
+import com.demonlab.lune.ui.components.BrandLogo
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -110,25 +111,7 @@ fun WelcomeStep(onStartClick: () -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier.size(200.dp)
-            ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_logo_diamonds),
-                    contentDescription = null,
-                    tint = diamondsColor,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .graphicsLayer(rotationZ = rotation)
-                )
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_logo_note),
-                    contentDescription = null,
-                    tint = noteColor,
-                    modifier = Modifier.fillMaxSize(0.9f)
-                )
-            }
+            BrandLogo(size = 200.dp, pulsing = true)
 
             Spacer(modifier = Modifier.height(24.dp))
 

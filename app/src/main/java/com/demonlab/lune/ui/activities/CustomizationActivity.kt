@@ -271,7 +271,7 @@ fun CustomizationScreen(
             SettingsSection(title = stringResource(R.string.general)) {
                 SettingsPreferenceItem(
                     headlineText = stringResource(R.string.custom_title),
-                    supportingText = if (customTitle.isEmpty()) "Lune" else customTitle,
+                    supportingText = if (customTitle.isEmpty()) stringResource(R.string.app_name) else customTitle,
                     icon = Icons.Default.Edit,
                     position = SectionPosition.FIRST,
                     onClick = { showCustomTitleDialog = true }

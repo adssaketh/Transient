@@ -79,6 +79,8 @@ class MusicService : MediaLibraryService() {
     /** Song that failed on the USB path; it is retried once on the standard engine. */
     private var usbSkipSongId: Long? = null
     private var usbConsecutiveFailures = 0
+    /** Tracks in a row that failed to play; stops an unplayable queue from skipping forever. */
+    private var consecutivePlaybackErrors = 0
     /** After repeated failures USB stays off for the session (until the DAC is re-plugged). */
     private var usbSuppressed = false
     private var mediaSession: MediaLibrarySession? = null
@@ -229,6 +231,7 @@ class MusicService : MediaLibraryService() {
         const val ACTION_DISMISS = "com.demonlab.lune.ACTION_DISMISS"
         const val ACTION_UPDATE_WIDGET = "com.demonlab.lune.ACTION_UPDATE_WIDGET"
         const val PAUSE_TIMEOUT_MS = 5 * 60 * 1000L
+        const val MAX_CONSECUTIVE_ERRORS = 3
     }
 
     inner class MusicBinder : Binder() {
@@ -822,6 +825,19 @@ class MusicService : MediaLibraryService() {
     }
 
     private fun setPlayerDataSource(player: MediaPlayer, song: Song): Boolean {
+        // Android's MediaPlayer cannot decode AIFF; serve it as an on-the-fly WAV view instead.
+        if (AiffSupport.isAiff(song)) {
+            val reader = AiffWavReader.open(applicationContext, song.uri)
+            if (reader != null) {
+                try {
+                    player.setDataSource(AiffMediaDataSource(reader))
+                    return true
+                } catch (e: Exception) {
+                    Log.w("MusicService", "AIFF data source failed for ${song.title}: ${e.message}")
+                    reader.close()
+                }
+            }
+        }
         try {
             player.setDataSource(applicationContext, song.uri)
             return true
@@ -914,6 +930,7 @@ class MusicService : MediaLibraryService() {
                 isLooping = pm.shouldLoopCurrentSong()
                 setOnPreparedListener {
                     try {
+                        consecutivePlaybackErrors = 0
                         acquireWakeLock()
                         val sessionId = audioSessionId
                         setupAudioFx(sessionId, false)
@@ -963,8 +980,10 @@ class MusicService : MediaLibraryService() {
                         }
                         true
                     } else {
-                        // Returning false triggers onCompletionListener to automatically advance to next song
-                        false
+                        // Do NOT return false here: that fires the completion listener, which auto-advances
+                        // and, on a queue of unplayable files with Repeat All, never stops.
+                        handleTrackError(song, autoAdvance = true)
+                        true
                     }
                 }
                 prepareAsync()
@@ -1537,6 +1556,7 @@ class MusicService : MediaLibraryService() {
                 isLooping = pm.shouldLoopCurrentSong()
                 setOnPreparedListener {
                     try {
+                        consecutivePlaybackErrors = 0
                         val sessionId = audioSessionId
                         setupAudioFx(sessionId, false)
                         isDucked = false
@@ -1593,7 +1613,9 @@ class MusicService : MediaLibraryService() {
                         }
                         true
                     } else {
-                        false
+                        // Restoring at launch must never start playing the next track by itself.
+                        handleTrackError(song, autoAdvance = andPlay)
+                        true
                     }
                 }
                 prepareAsync()
@@ -1929,7 +1951,7 @@ class MusicService : MediaLibraryService() {
         )
 
         val builder = NotificationCompat.Builder(this, channelId)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(R.drawable.ic_stat_transient)
             .setLargeIcon(effectiveArt)
             .setContentTitle(song.title)
             .setContentText(song.artist)
@@ -1987,6 +2009,41 @@ class MusicService : MediaLibraryService() {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
         }
+    }
+
+    // ───────────────────────────── Unplayable tracks ─────────────────────────────
+
+    /**
+     * A track failed to prepare/play. Skip ahead at most [MAX_CONSECUTIVE_ERRORS] times, then stop and
+     * tell the user, instead of chaining through the whole queue (or looping forever on Repeat All).
+     * With [autoAdvance] = false (e.g. restoring the last session at launch) nothing is skipped.
+     */
+    private fun handleTrackError(song: Song, autoAdvance: Boolean) {
+        val pm = PlaybackManager.getInstance(applicationContext)
+        consecutivePlaybackErrors++
+        Log.w("MusicService", "Cannot play '${song.title}' (${song.format}); failures in a row: $consecutivePlaybackErrors")
+
+        val giveUp = !autoAdvance || consecutivePlaybackErrors >= MAX_CONSECUTIVE_ERRORS
+        if (!giveUp) {
+            serviceScope.launch {
+                delay(300)
+                pm.playNextFromService(true)
+            }
+            return
+        }
+
+        try {
+            mediaPlayer?.setOnCompletionListener(null)
+            mediaPlayer?.setOnErrorListener(null)
+            mediaPlayer?.release()
+        } catch (_: Exception) {}
+        mediaPlayer = null
+        consecutivePlaybackErrors = 0
+        releaseWakeLock()
+        pm.updatePlayingState(false)
+        updatePlaybackState()
+        stopWidgetUpdateTimer()
+        Toast.makeText(applicationContext, R.string.cannot_play_track, Toast.LENGTH_LONG).show()
     }
 
     // ───────────────────────────── Bit-perfect USB output ─────────────────────────────
@@ -2066,6 +2123,7 @@ class MusicService : MediaLibraryService() {
         override fun onReady(song: Song, playing: Boolean) {
             val pm = PlaybackManager.getInstance(applicationContext)
             usbConsecutiveFailures = 0
+            consecutivePlaybackErrors = 0
             isDucked = false
             if (playing) acquireWakeLock()
             pm.updatePlayingState(playing)

@@ -1,4 +1,5 @@
 package com.demonlab.lune.ui.activities
+import com.demonlab.lune.ui.components.BrandLogo
 import android.Manifest
 import android.content.ContentUris
 import android.content.Intent
@@ -988,41 +989,8 @@ fun MainScreen(
         modifier: Modifier = Modifier,
         tintColor: Color = MaterialTheme.colorScheme.primary
     ) {
-        val rotation = remember { Animatable(0f) }
-
-        LaunchedEffect(isPlaying) {
-            if (isPlaying) {
-                while (true) {
-                    rotation.animateTo(
-                        targetValue = 360f,
-                        animationSpec = tween(durationMillis = 2000, easing = LinearEasing)
-                    )
-                    rotation.snapTo(0f)
-                }
-            } else {
-                rotation.snapTo(0f)
-            }
-        }
-
-        Box(
-            modifier = modifier.size(60.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                painter = painterResource(id = R.drawable.ic_logo_diamonds),
-                contentDescription = null,
-                tint = tintColor.copy(alpha = 0.3f),
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer(rotationZ = rotation.value)
-            )
-            Icon(
-                painter = painterResource(id = R.drawable.ic_logo_note),
-                contentDescription = null,
-                tint = tintColor,
-                modifier = Modifier.fillMaxSize()
-            )
-        }
+        // The Transient mark; it pulses while music is playing. (tintColor kept for call-site compatibility.)
+        BrandLogo(modifier = modifier, size = 60.dp, pulsing = isPlaying)
     }
 
     val playPrevious = {
@@ -1187,7 +1155,7 @@ fun MainScreen(
                 LargeTopAppBar(
                     title = { 
                         val customTitle by settingsManager.customTitleFlow.collectAsState()
-                        val appDefaultTitle = if (customTitle.isEmpty()) "Lune" else customTitle
+                        val appDefaultTitle = if (customTitle.isEmpty()) stringResource(R.string.app_name) else customTitle
 
                         Row(
                             verticalAlignment = Alignment.CenterVertically,

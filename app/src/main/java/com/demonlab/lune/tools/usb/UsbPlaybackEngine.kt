@@ -1,5 +1,8 @@
 package com.demonlab.lune.tools.usb
 
+import com.demonlab.lune.tools.AiffSupport
+import androidx.media3.exoplayer.source.ProgressiveMediaSource
+import androidx.media3.datasource.DataSource
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
@@ -239,7 +242,15 @@ class UsbPlaybackEngine(
             .setUri(song.uri)
             .setMediaId("${song.id}#$loadToken")
             .build()
-        player.setMediaItem(item, startPositionMs.coerceAtLeast(0L))
+        val start = startPositionMs.coerceAtLeast(0L)
+        if (AiffSupport.isAiff(song)) {
+            // No AIFF extractor exists in Media3: feed the WAV extractor a virtual WAV view of the file.
+            val source = ProgressiveMediaSource.Factory(DataSource.Factory { AiffWavDataSource(appContext) })
+                .createMediaSource(item)
+            player.setMediaSource(source, start)
+        } else {
+            player.setMediaItem(item, start)
+        }
         player.playWhenReady = playWhenReady
         player.prepare()
         refreshSnapshot()

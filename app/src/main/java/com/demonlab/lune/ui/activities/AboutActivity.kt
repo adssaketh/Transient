@@ -1,5 +1,6 @@
 package com.demonlab.lune.ui.activities
 
+import com.demonlab.lune.ui.components.BrandLogo
 import android.R.attr.icon
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -179,36 +180,15 @@ fun AboutScreen() {
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 // Logo Section
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier.size(200.dp)
-                ) {
-                    val infiniteTransition = rememberInfiniteTransition(label = "rotation")
-                    val rotation by infiniteTransition.animateFloat(
-                        initialValue = 0f,
-                        targetValue = 360f,
-                        animationSpec = infiniteRepeatable(
-                            animation = tween(durationMillis = 10000, easing = LinearEasing),
-                            repeatMode = RepeatMode.Restart
-                        ),
-                        label = "diamond_rotation"
-                    )
-
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_logo_diamonds),
-                        contentDescription = null,
-                        tint = if (hasBlurBackground) Color.White.copy(alpha = 0.4f) else MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .rotate(rotation)
-                    )
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_logo_note),
-                        contentDescription = null,
-                        tint = if (hasBlurBackground) Color.White else MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(200.dp)
-                    )
-                }
+                BrandLogo(size = 160.dp, pulsing = true)
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = stringResource(R.string.app_name),
+                    fontWeight = FontWeight.Bold,
+                    color = if (hasBlurBackground) Color.White else MaterialTheme.colorScheme.onSurface,
+                    style = MaterialTheme.typography.headlineLarge
+                )
+                Spacer(modifier = Modifier.height(4.dp))
 
                 // Version
                 Text(
@@ -235,7 +215,7 @@ fun AboutScreen() {
                 ) {
                     Button(
                         onClick = { 
-                            runCatching { uriHandler.openUri("https://github.com/MrDemonc/Lune/tree/main") }
+                            runCatching { uriHandler.openUri("https://github.com/adssaketh/Transient") }
                         },
                         modifier = Modifier
                             .weight(1f)
@@ -261,7 +241,7 @@ fun AboutScreen() {
                     }
                     Button(
                         onClick = { 
-                            runCatching { uriHandler.openUri("https://mrdemonc.github.io/Lune/") }
+                            runCatching { uriHandler.openUri("https://github.com/MrDemonc/Lune") }
                         },
                         modifier = Modifier
                             .weight(1f)
@@ -275,37 +255,12 @@ fun AboutScreen() {
                     ) {
                         Icon(
                             painter = painterResource(id = R.drawable.ic_web),
-                            contentDescription = stringResource(R.string.website),
+                            contentDescription = stringResource(R.string.about_original_lune),
                             modifier = Modifier.size(18.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = stringResource(R.string.website),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                    Button(
-                        onClick = { showDonateDialog = true },
-                        modifier = Modifier
-                            .weight(1f)
-                            .bounceClick(),
-                        shape = RoundedCornerShape(16.dp),
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (hasBlurBackground) Color.White else MaterialTheme.colorScheme.primary,
-                            contentColor = if (hasBlurBackground) Color.Black else MaterialTheme.colorScheme.onPrimary
-                        )
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.LocalCafe,
-                            contentDescription = "Donation",
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "Donate",
-                            fontWeight = FontWeight.Bold,
+                            text = stringResource(R.string.about_original_lune),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -330,7 +285,7 @@ fun AboutScreen() {
                         color = if (hasBlurBackground) Color.White else MaterialTheme.colorScheme.secondary
                     )
                     Text(
-                        text = stringResource(R.string.demon),
+                        text = stringResource(R.string.author_name),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = if (hasBlurBackground) Color.White else MaterialTheme.colorScheme.onSurface
@@ -352,17 +307,9 @@ fun AboutScreen() {
                         style = MaterialTheme.typography.labelLarge,
                         color = if (hasBlurBackground) Color.White else MaterialTheme.secondary濃(0.7f)
                     )
-                    Text(
-                        text = stringResource(R.string.desukia),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = if (hasBlurBackground) Color.White else MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = stringResource(R.string.credits_desc),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = if (hasBlurBackground) Color.White.copy(alpha = 0.75f) else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    CreditEntry(stringResource(R.string.demon), stringResource(R.string.credit_lune_desc), hasBlurBackground)
+                    CreditEntry("Marcelo Silva", stringResource(R.string.credit_decent_desc), hasBlurBackground)
+                    CreditEntry(stringResource(R.string.desukia), stringResource(R.string.credits_desc), hasBlurBackground)
 
                     Spacer(modifier = Modifier.height(24.dp))
                     HorizontalDivider(thickness = 0.5.dp, color = if (hasBlurBackground) Color.White.copy(alpha = 0.20f) else MaterialTheme.colorScheme.outlineVariant)
@@ -455,6 +402,11 @@ fun AboutScreen() {
                         style = MaterialTheme.typography.bodyMedium,
                         color = if (hasBlurBackground) Color.White.copy(alpha = 0.75f) else MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    CreditEntry("AndroidX Media3 (ExoPlayer)", stringResource(R.string.lib_media3_desc), hasBlurBackground)
+                    CreditEntry("libFLAC", stringResource(R.string.lib_flac_desc), hasBlurBackground)
+                    CreditEntry("FFmpeg decoder (Jellyfin)", stringResource(R.string.lib_ffmpeg_desc), hasBlurBackground)
                 }
 
                 Spacer(modifier = Modifier.weight(1f))
@@ -591,4 +543,20 @@ fun DonateDialog(
             }
         }
     )
+}
+
+@Composable
+private fun CreditEntry(name: String, description: String, hasBlurBackground: Boolean) {
+    Text(
+        text = name,
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.SemiBold,
+        color = if (hasBlurBackground) Color.White else MaterialTheme.colorScheme.onSurface
+    )
+    Text(
+        text = description,
+        style = MaterialTheme.typography.bodyMedium,
+        color = if (hasBlurBackground) Color.White.copy(alpha = 0.75f) else MaterialTheme.colorScheme.onSurfaceVariant
+    )
+    Spacer(modifier = Modifier.height(8.dp))
 }

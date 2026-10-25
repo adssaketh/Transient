@@ -514,20 +514,7 @@ fun LyricsScreen(onBack: () -> Unit, isDarkTheme: Boolean = false) {
                                 label = "TextBounce"
                             )
                             
-                            Box(modifier = Modifier.size(120.dp), contentAlignment = Alignment.Center) {
-                                Icon(
-                                    painter = painterResource(id = com.demonlab.lune.R.drawable.ic_logo_diamonds),
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
-                                    modifier = Modifier.fillMaxSize().graphicsLayer { rotationZ = rotation }
-                                )
-                                Icon(
-                                    painter = painterResource(id = com.demonlab.lune.R.drawable.ic_logo_note),
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.fillMaxSize(0.6f)
-                                )
-                            }
+                            com.demonlab.lune.ui.components.BrandLogo(size = 120.dp, pulsing = true)
                             
                             Spacer(modifier = Modifier.height(24.dp))
                             
