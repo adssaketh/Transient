@@ -1,5 +1,6 @@
 package com.demonlab.lune.ui.activities
 
+import androidx.compose.material.icons.filled.Image
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -109,6 +110,7 @@ fun PlayerLibraryOptionsScreen(onBack: () -> Unit) {
     var askToExit by remember { mutableStateOf(settingsManager.askToExit) }
     var alphabetIndexer by remember { mutableStateOf(settingsManager.isAlphabetIndexerEnabled) }
     var swipeTabs by remember { mutableStateOf(settingsManager.isSwipeBetweenTabsEnabled) }
+    var preferEmbedded by remember { mutableStateOf(settingsManager.preferEmbeddedArt) }
     var hiResLogo by remember { mutableStateOf(settingsManager.showHiResLogo) }
     var trackNumbers by remember { mutableStateOf(settingsManager.showTrackNumbersInAlbum) }
     var albumYear by remember { mutableStateOf(settingsManager.showAlbumYear) }
@@ -188,8 +190,12 @@ fun PlayerLibraryOptionsScreen(onBack: () -> Unit) {
 
                 SettingsSection(title = stringResource(R.string.options_section_display)) {
                     OptionSwitch(
+                        R.string.opt_prefer_embedded, R.string.opt_prefer_embedded_desc,
+                        Icons.Default.Image, SectionPosition.FIRST, preferEmbedded
+                    ) { preferEmbedded = it; settingsManager.preferEmbeddedArt = it }
+                    OptionSwitch(
                         R.string.opt_hires_logo, R.string.opt_hires_logo_desc,
-                        Icons.Default.HighQuality, SectionPosition.FIRST, hiResLogo
+                        Icons.Default.HighQuality, SectionPosition.MIDDLE, hiResLogo
                     ) { hiResLogo = it; settingsManager.showHiResLogo = it }
                     OptionSwitch(
                         R.string.opt_track_numbers, R.string.opt_track_numbers_desc,

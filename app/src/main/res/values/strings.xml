@@ -596,4 +596,6 @@
     <string name="usb_verdict_volume_desc">Your phone\'s volume is below maximum, so the samples are scaled digitally. Set it to maximum for bit-perfect output.</string>
     <string name="usb_processing_volume">Digital volume · %1$s</string>
     <string name="usb_processing_volume_detail">Scaled by your phone\'s volume buttons. Android\'s mixer, resampler, equalizer and effects are still bypassed.</string>
+    <string name="opt_prefer_embedded">Prefer embedded art</string>
+    <string name="opt_prefer_embedded_desc">Shows the cover stored inside each song\'s file instead of an image found in the folder. Turn off to use Android\'s folder artwork first. Reopen the list to see the change.</string>
 </resources>

@@ -81,6 +81,11 @@ class SettingsManager(context: Context) {
         get() = prefs.getBoolean("show_more_albums_by_artist", true)
         set(value) = prefs.edit().putBoolean("show_more_albums_by_artist", value).apply()
 
+    /** Use each song's own embedded cover before Android's (album/folder-level) thumbnail. */
+    var preferEmbeddedArt: Boolean
+        get() = prefs.getBoolean("prefer_embedded_art", true)
+        set(value) = prefs.edit().putBoolean("prefer_embedded_art", value).apply()
+
     /** Phone volume buttons control the volume of USB output (digital gain; max volume stays bit-perfect). */
     var isUsbSoftwareVolumeEnabled: Boolean
         get() = prefs.getBoolean("usb_software_volume", true)
