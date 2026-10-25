@@ -133,6 +133,8 @@ fun AlbumCard(
 ) {
     val cardShape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp, bottomStart = 8.dp, bottomEnd = 8.dp)
     val coverShape = RoundedCornerShape(24.dp)
+    val showYear = SettingsManager.getInstance(LocalContext.current).showAlbumYear
+    val albumSubtitle = remember(album, showYear) { albumSubtitleWithYear(album, showYear) }
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -180,7 +182,7 @@ fun AlbumCard(
             )
         }
         Text(
-            text = album.artist,
+            text = albumSubtitle,
             style = MaterialTheme.typography.bodySmall,
             maxLines = 1,
             color = if (hasBlurBackground) Color.White.copy(alpha = 0.75f) else MaterialTheme.colorScheme.onSurfaceVariant,
@@ -188,5 +190,18 @@ fun AlbumCard(
             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
         )
         Spacer(modifier = Modifier.height(4.dp))
+    }
+}
+
+/** First known release year among an album's songs, or 0. */
+fun albumYear(album: Album): Int = album.songs.firstOrNull { it.year > 0 }?.year ?: 0
+
+/** "Artist • 2011" when the year is known, wanted, and not already part of the album title. */
+fun albumSubtitleWithYear(album: Album, showYear: Boolean): String {
+    val year = albumYear(album)
+    return if (showYear && year > 0 && album.artist.isNotEmpty() && !album.name.contains(year.toString())) {
+        "${album.artist} \u2022 $year"
+    } else {
+        album.artist
     }
 }

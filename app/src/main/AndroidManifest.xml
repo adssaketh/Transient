@@ -148,6 +148,11 @@
             android:label="@string/audio_settings"
             android:theme="@style/Theme.Lune" />
         <activity
+            android:name=".ui.activities.PlayerLibraryOptionsActivity"
+            android:exported="false"
+            android:label="@string/options_title"
+            android:theme="@style/Theme.Lune" />
+        <activity
             android:name=".ui.activities.SignalPathActivity"
             android:exported="false"
             android:label="@string/usb_signal_path"

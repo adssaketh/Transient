@@ -124,6 +124,7 @@ class MusicProvider(private val context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             projectionList.add(MediaStore.Audio.Media.BITRATE)
         }
+        projectionList.add(MediaStore.Audio.Media.YEAR)
         val projection = projectionList.toTypedArray()
 
         val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0"
@@ -147,6 +148,7 @@ class MusicProvider(private val context: Context) {
             val dataColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
             val dateAddedColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_ADDED)
             val trackColumn = cursor.getColumnIndex(MediaStore.Audio.Media.TRACK)
+            val yearColumn = cursor.getColumnIndex(MediaStore.Audio.Media.YEAR)
             val genreColumn = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 cursor.getColumnIndex(MediaStore.Audio.Media.GENRE)
             } else -1
@@ -164,6 +166,7 @@ class MusicProvider(private val context: Context) {
                 val data = cursor.getString(dataColumn)
                 val dateAdded = cursor.getLong(dateAddedColumn)
                 var trackNumber = if (trackColumn != -1) cursor.getInt(trackColumn) else 0
+                val year = if (yearColumn != -1) cursor.getInt(yearColumn).coerceAtLeast(0) else 0
                 var genre = if (genreColumn != -1) cursor.getString(genreColumn) else null
 
                 val override = overrides[id]
@@ -221,7 +224,7 @@ class MusicProvider(private val context: Context) {
                         val header = audioFile.audioHeader
                         sampleRate = header.sampleRateAsNumber
                         bitDepth = header.bitsPerSample
-                        if ((sampleRate >= 48000 && bitDepth >= 24) || sampleRate >= 88200 || extension == "dsf" || extension == "dff") {
+                        if (bitDepth >= 24 || sampleRate > 48000 || extension == "dsf" || extension == "dff") {
                             isHiRes = true
                         }
 
@@ -273,7 +276,7 @@ class MusicProvider(private val context: Context) {
                     Song(
                         id, albumId, title, artist, album, duration, contentUri, data,
                         dateAdded, albumArtUri, genre, folderName, isHiFi, coverUrl, isFavorite, null,
-                        format, bitrate, trackNumber, isHiRes, sampleRate, bitDepth
+                        format, bitrate, trackNumber, isHiRes, sampleRate, bitDepth, year = year
                     )
                 )
             }

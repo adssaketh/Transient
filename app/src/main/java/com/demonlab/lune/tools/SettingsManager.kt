@@ -52,6 +52,35 @@ class SettingsManager(context: Context) {
         get() = prefs.getBoolean("is_usb_bit_perfect_enabled", false)
         set(value) = prefs.edit().putBoolean("is_usb_bit_perfect_enabled", value).apply()
 
+    // ── Player & library options (all on by default) ──
+    var askToExit: Boolean
+        get() = prefs.getBoolean("ask_to_exit", true)
+        set(value) = prefs.edit().putBoolean("ask_to_exit", value).apply()
+
+    var isAlphabetIndexerEnabled: Boolean
+        get() = prefs.getBoolean("alphabet_indexer", true)
+        set(value) = prefs.edit().putBoolean("alphabet_indexer", value).apply()
+
+    var isSwipeBetweenTabsEnabled: Boolean
+        get() = prefs.getBoolean("swipe_between_tabs", true)
+        set(value) = prefs.edit().putBoolean("swipe_between_tabs", value).apply()
+
+    var showHiResLogo: Boolean
+        get() = prefs.getBoolean("show_hires_logo", true)
+        set(value) = prefs.edit().putBoolean("show_hires_logo", value).apply()
+
+    var showTrackNumbersInAlbum: Boolean
+        get() = prefs.getBoolean("show_track_numbers_album", true)
+        set(value) = prefs.edit().putBoolean("show_track_numbers_album", value).apply()
+
+    var showAlbumYear: Boolean
+        get() = prefs.getBoolean("show_album_year", true)
+        set(value) = prefs.edit().putBoolean("show_album_year", value).apply()
+
+    var showMoreAlbumsByArtist: Boolean
+        get() = prefs.getBoolean("show_more_albums_by_artist", true)
+        set(value) = prefs.edit().putBoolean("show_more_albums_by_artist", value).apply()
+
     /** Columns in the Albums / Artists / Genres grids; changed by pinching. */
     var albumGridColumns: Int
         get() = prefs.getInt("album_grid_columns", 2).coerceIn(1, 5)

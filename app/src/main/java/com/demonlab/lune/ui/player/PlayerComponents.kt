@@ -289,11 +289,15 @@ fun AudioQualityBadges(
     val effectiveBitDepth = runtimeBitDepth ?: song.bitDepth
     val effectiveBitrate = runtimeBitrate ?: song.bitrate
 
-    val isHiRes = song.isHiRes ||
-        ((effectiveSampleRate ?: 0) >= 48000 && (effectiveBitDepth ?: 0) >= 24) ||
-        (effectiveSampleRate ?: 0) >= 88200 ||
+    // Hi-Res = lossless with at least 24-bit depth OR a sample rate above 48 kHz (or DSD).
+    val isLosslessFormat = format in listOf("FLAC", "WAV", "ALAC", "APE", "AIFF", "AIF", "AIFC", "WV", "TTA")
+    val hiResLogoEnabled = SettingsManager.getInstance(LocalContext.current).showHiResLogo
+    val isHiRes = hiResLogoEnabled && (
+        song.isHiRes ||
+        (isLosslessFormat && ((effectiveBitDepth ?: 0) >= 24 || (effectiveSampleRate ?: 0) > 48000)) ||
         format in listOf("DSF", "DFF") ||
         ((effectiveBitrate ?: 0) >= 2304000)
+    )
 
     val isHiFi = !isHiRes && (song.isHiFi ||
         format in listOf("FLAC", "WAV", "ALAC", "APE", "AIFF") ||

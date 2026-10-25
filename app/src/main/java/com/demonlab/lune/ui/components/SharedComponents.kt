@@ -323,7 +323,8 @@ fun SongItem(
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
     onOptionsClick: (() -> Unit)? = null,
-    onFavoriteClick: ((Song) -> Unit)? = null
+    onFavoriteClick: ((Song) -> Unit)? = null,
+    trackNumber: Int = 0
 ) {
     val context = LocalContext.current
     val settingsManager = remember { SettingsManager.getInstance(context) }
@@ -478,7 +479,7 @@ fun SongItem(
             }
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                if (song.isHiRes) {
+                if (song.isHiRes && settingsManager.showHiResLogo) {
                     val hiResBg = if (hasBlurBackground) Color(0xFF2E2400).copy(alpha = 0.70f) else Color(0xFF2E2400)
                     Surface(
                         shape = RoundedCornerShape(4.dp),
@@ -517,7 +518,7 @@ fun SongItem(
                     Spacer(modifier = Modifier.width(8.dp))
                 }
                 Text(
-                    song.title,
+                    if (trackNumber > 0) "$trackNumber. ${song.title}" else song.title,
                     maxLines = 1,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.weight(1f, fill = false).basicMarquee(),
@@ -592,7 +593,7 @@ fun SongGridItem(
                 }
             }
 
-            if (song.isHiRes) {
+            if (song.isHiRes && SettingsManager.getInstance(LocalContext.current).showHiResLogo) {
                 Surface(
                     shape = RoundedCornerShape(6.dp),
                     color = if (hasBlurBackground) Color(0xFF2E2400).copy(alpha = 0.75f) else Color(0xFF2E2400).copy(alpha = 0.9f),

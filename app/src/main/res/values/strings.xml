@@ -563,4 +563,28 @@
     <string name="lib_flac_desc">Reference FLAC decoder from Xiph.Org.\nLicense: BSD-3-Clause</string>
     <string name="lib_ffmpeg_desc">Decodes non-FLAC formats without truncating to 16-bit.\nLicense: LGPL v2.1+</string>
     <string name="cannot_play_track">This file can\'t be played. Playback was stopped.</string>
+
+    <!-- Player & library options -->
+    <string name="options_title">Player &amp; library</string>
+    <string name="options_desc">Exit prompt, indexer, Hi-Res logo and album page extras</string>
+    <string name="options_section_behaviour">Behaviour</string>
+    <string name="options_section_display">Display</string>
+    <string name="opt_ask_exit">Ask to exit</string>
+    <string name="opt_ask_exit_desc">Asks for confirmation when you press back on the main screen.</string>
+    <string name="opt_alphabet_indexer">Alphabet indexer</string>
+    <string name="opt_alphabet_indexer_desc">Fast-scroll bar with letters on long lists.</string>
+    <string name="opt_swipe_tabs">Swipe between tabs</string>
+    <string name="opt_swipe_tabs_desc">Turn off to avoid switching tabs by accident while scrolling.</string>
+    <string name="opt_hires_logo">Hi-Res logo</string>
+    <string name="opt_hires_logo_desc">Shows the Hi-Res badge when a lossless track is 24-bit or higher, or above 48 kHz.</string>
+    <string name="opt_track_numbers">Track numbers in album view</string>
+    <string name="opt_track_numbers_desc">Shows the track number in front of each title.</string>
+    <string name="opt_album_year">Show album year</string>
+    <string name="opt_album_year_desc">Shows the release year next to the artist. Appears after the library refreshes.</string>
+    <string name="opt_more_albums">More albums by artist</string>
+    <string name="opt_more_albums_desc">Shows the artist\'s other albums at the bottom of an album.</string>
+    <string name="more_albums_by_artist">More albums by %1$s</string>
+    <string name="exit_title">Exit %1$s?</string>
+    <string name="exit_message">Are you sure you want to exit?</string>
+    <string name="exit">Exit</string>
 </resources>

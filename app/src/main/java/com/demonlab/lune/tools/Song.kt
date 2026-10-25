@@ -24,7 +24,8 @@ data class Song(
     val trackNumber: Int = 0,
     val isHiRes: Boolean = false,
     val sampleRate: Int? = null,
-    val bitDepth: Int? = null
+    val bitDepth: Int? = null,
+    val year: Int = 0
 )
 
 data class SongArtwork(

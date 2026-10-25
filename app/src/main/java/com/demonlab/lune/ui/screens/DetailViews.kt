@@ -1,5 +1,7 @@
 package com.demonlab.lune.ui.screens
 
+import com.demonlab.lune.ui.data.albumSubtitleWithYear
+import com.demonlab.lune.ui.data.AlbumCard
 import android.os.Vibrator
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
@@ -637,7 +639,9 @@ fun AlbumDetailView(
     isDarkTheme: Boolean = false,
     useCustomControlsColor: Boolean = false,
     controlsColorPalette: Int = 0,
-    isArtistView: Boolean = album.artist.isEmpty()
+    isArtistView: Boolean = album.artist.isEmpty(),
+    moreByArtist: List<Album> = emptyList(),
+    onMoreAlbumClick: ((Album) -> Unit)? = null
 ) {
     val context = LocalContext.current
     val playbackManager = PlaybackManager.getInstance(context)
@@ -864,7 +868,7 @@ fun AlbumDetailView(
                         if (album.artist.isNotEmpty()) {
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = album.artist,
+                                text = albumSubtitleWithYear(album, settingsManager.showAlbumYear),
                                 style = MaterialTheme.typography.titleMedium,
                                 color = if (hasBlurBackground) Color.White.copy(alpha = 0.75f) else MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
@@ -1180,8 +1184,19 @@ fun AlbumDetailView(
                             controlsColorPalette = controlsColorPalette,
                             onClick = { onSongClick(song, sortedSongs) },
                             onOptionsClick = { onOptionsClick(song) },
-                            onFavoriteClick = onFavoriteClick
+                            onFavoriteClick = onFavoriteClick,
+                            trackNumber = if (!isArtistView && settingsManager.showTrackNumbersInAlbum) song.trackNumber % 1000 else 0
                         )
+                    }
+                    if (!isArtistView && settingsManager.showMoreAlbumsByArtist && moreByArtist.isNotEmpty() && onMoreAlbumClick != null) {
+                        item(key = "more_albums_by_artist") {
+                            MoreAlbumsByArtist(
+                                artist = album.artist,
+                                albums = moreByArtist,
+                                hasBlurBackground = hasBlurBackground,
+                                onAlbumClick = onMoreAlbumClick
+                            )
+                        }
                     }
                 }
             }
@@ -1199,18 +1214,20 @@ fun AlbumDetailView(
             }
         }
 
-        FastScrollbar(
-            listState = listState,
-            items = sortedSongs,
-            headerItemCount = 1,
-            itemKeyOrLetter = { if (sortOption == "ALPHABETICAL") it.title else "" },
-            hasBlurBackground = hasBlurBackground,
-            useCustomControlsColor = useCustomControlsColor,
-            controlsColorPalette = controlsColorPalette,
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .padding(bottom = bottomPadding)
-        )
+        if (settingsManager.isAlphabetIndexerEnabled) {
+            FastScrollbar(
+                listState = listState,
+                items = sortedSongs,
+                headerItemCount = 1,
+                itemKeyOrLetter = { if (sortOption == "ALPHABETICAL") it.title else "" },
+                hasBlurBackground = hasBlurBackground,
+                useCustomControlsColor = useCustomControlsColor,
+                controlsColorPalette = controlsColorPalette,
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .padding(bottom = bottomPadding)
+            )
+        }
 
         val isScrollToTopVisible = rememberScrollToTopVisibility(listState, settingsManager.isScrollToTopEnabled)
         ScrollToTopPill(
@@ -1795,5 +1812,40 @@ fun FolderDetailView(
             isDarkTheme = isDarkTheme,
             customActiveColor = if (useCustomControlsColor) activeControlsPrimary else null
         )
+    }
+}
+
+/** Horizontal strip of the artist's other albums, shown at the bottom of an album page. */
+@Composable
+private fun MoreAlbumsByArtist(
+    artist: String,
+    albums: List<Album>,
+    hasBlurBackground: Boolean,
+    onAlbumClick: (Album) -> Unit
+) {
+    Column(modifier = Modifier.fillMaxWidth().padding(top = 24.dp)) {
+        Text(
+            text = stringResource(R.string.more_albums_by_artist, artist),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = if (hasBlurBackground) Color.White else MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
+        )
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(albums, key = { it.id }) { other ->
+                Box(modifier = Modifier.width(150.dp)) {
+                    AlbumCard(
+                        album = other,
+                        onClick = { onAlbumClick(other) },
+                        hasBlurBackground = hasBlurBackground
+                    )
+                }
+            }
+        }
     }
 }

@@ -1273,7 +1273,8 @@ fun MainScreen(
                 HorizontalPager(
                     state = pagerState,
                     modifier = Modifier.weight(1f),
-                    beyondViewportPageCount = 1
+                    beyondViewportPageCount = 1,
+                    userScrollEnabled = settingsManager.isSwipeBetweenTabsEnabled
                 ) { pageIndex ->
                     val folder = folders.getOrElse(pageIndex) { "ALL" }
 
@@ -2087,7 +2088,7 @@ fun MainScreen(
                                         }
                                     }
 
-                                    if (!isGridMode) {
+                                    if (!isGridMode && settingsManager.isAlphabetIndexerEnabled) {
                                         FastScrollbar(
                                             listState = pageMainListState,
                                             items = pageSortedSongs,
@@ -2293,7 +2294,13 @@ fun MainScreen(
                     isDarkTheme = isDarkThemeMini,
                     useCustomControlsColor = useCustomControlsColor,
                     controlsColorPalette = controlsColorPalette,
-                    isArtistView = (if (selectedFolder == "GENRES") "GENRES" else if (selectedFolder == "ARTISTS") "ARTISTS" else "ALBUMS") == "ARTISTS" || (!isAlbumView && albumRender.artist.isEmpty() && selectedFolder != "GENRES")
+                    isArtistView = (if (selectedFolder == "GENRES") "GENRES" else if (selectedFolder == "ARTISTS") "ARTISTS" else "ALBUMS") == "ARTISTS" || (!isAlbumView && albumRender.artist.isEmpty() && selectedFolder != "GENRES"),
+                    moreByArtist = if (albumRender.artist.isNotEmpty()) {
+                        albumsList.filter {
+                            it.id != albumRender.id && it.artist.trim().equals(albumRender.artist.trim(), ignoreCase = true)
+                        }
+                    } else emptyList(),
+                    onMoreAlbumClick = { selectedAlbum = it }
                 )
             }
         }
@@ -2681,6 +2688,36 @@ fun MainScreen(
         }
         context.startService(intent)
         (context as? Activity)?.finishAffinity()
+    }
+
+    // "Ask to exit": confirm before leaving from the main screen (only when nothing else is open).
+    var showExitDialog by remember { mutableStateOf(false) }
+    BackHandler(enabled = settingsManager.askToExit && !isPlayerExpanded && selectedAlbum == null && selectedPlaylist == null && selectedFolderItem == null && !showSearchScreen) {
+        showExitDialog = true
+    }
+    if (showExitDialog) {
+        AlertDialog(
+            onDismissRequest = { showExitDialog = false },
+            title = { Text(stringResource(R.string.exit_title, stringResource(R.string.app_name))) },
+            text = { Text(stringResource(R.string.exit_message)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showExitDialog = false
+                    if (shouldStopOnClose) {
+                        PlaybackManager.getInstance(context).pause()
+                        context.startService(Intent(context, MusicService::class.java).apply {
+                            action = MusicService.ACTION_DISMISS
+                        })
+                        (context as? Activity)?.finishAffinity()
+                    } else {
+                        (context as? Activity)?.finish()
+                    }
+                }) { Text(stringResource(R.string.exit)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showExitDialog = false }) { Text(stringResource(android.R.string.cancel)) }
+            }
+        )
     }
 
     // Search Screen Overlay

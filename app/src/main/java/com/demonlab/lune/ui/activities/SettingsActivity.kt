@@ -1,5 +1,6 @@
 package com.demonlab.lune.ui.activities
 
+import androidx.compose.material.icons.filled.Tune
 import android.os.Bundle
 import android.content.Intent
 import androidx.appcompat.app.AppCompatActivity
@@ -301,8 +302,15 @@ fun SettingsScreen(
                         headlineText = stringResource(R.string.customization),
                         supportingText = stringResource(R.string.customization_desc),
                         icon = Icons.Default.Palette,
-                        position = SectionPosition.LAST,
+                        position = SectionPosition.MIDDLE,
                         onClick = { context.startActivity(Intent(context, CustomizationActivity::class.java)) }
+                    )
+                    SettingsPreferenceItem(
+                        headlineText = stringResource(R.string.options_title),
+                        supportingText = stringResource(R.string.options_desc),
+                        icon = Icons.Default.Tune,
+                        position = SectionPosition.LAST,
+                        onClick = { context.startActivity(Intent(context, PlayerLibraryOptionsActivity::class.java)) }
                     )
                 }
 
