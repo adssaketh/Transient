@@ -743,6 +743,7 @@ fun MainScreen(
     var isAlbumView by remember { mutableStateOf(settingsManager.albumBrowseMode) }
     var folderHierarchyMode by remember { mutableStateOf(settingsManager.folderHierarchyMode) }
     var tracksViewStyle by remember { mutableIntStateOf(settingsManager.tracksViewStyle) }
+    var songGridColumns by remember { mutableIntStateOf(settingsManager.songGridColumns) }
     var showSectionHeaders by remember { mutableStateOf(settingsManager.showSectionHeaders) }
 
     val pagerState = rememberPagerState(
@@ -1378,7 +1379,9 @@ fun MainScreen(
 
                 HorizontalPager(
                     state = pagerState,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .weight(1f)
+                        .scrollEdgeEffect(bottomBar = bottomPadding),
                     beyondViewportPageCount = 1,
                     userScrollEnabled = settingsManager.isSwipeBetweenTabsEnabled
                 ) { pageIndex ->
@@ -2096,13 +2099,35 @@ fun MainScreen(
                                     }
                                 }
 
-                                Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                                // Pinching on All songs works like on Albums: zoom out for more columns, zoom in down to the list.
+                                val songsPinch = if (folder == "ALL") {
+                                    Modifier.pinchToChangeColumns(
+                                        columns = if (isGridMode) songGridColumns else 1,
+                                        minColumns = 1,
+                                        maxColumns = 4
+                                    ) { newColumns ->
+                                        if (newColumns <= 1) {
+                                            tracksViewStyle = 0
+                                        } else {
+                                            songGridColumns = newColumns
+                                            settingsManager.songGridColumns = newColumns
+                                            tracksViewStyle = 1
+                                        }
+                                        settingsManager.tracksViewStyle = tracksViewStyle
+                                    }
+                                } else Modifier
+
+                                Box(modifier = Modifier.weight(1f).fillMaxWidth().then(songsPinch)) {
                                     if (isGridMode) {
                                         LazyVerticalGrid(
                                             state = pageMainGridState,
-                                            columns = GridCells.Fixed(2),
+                                            columns = GridCells.Fixed(songGridColumns),
                                             modifier = Modifier.fillMaxSize(),
-                                            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = bottomPadding + 16.dp),
+                                            contentPadding = PaddingValues(
+                                                start = 16.dp,
+                                                end = if (settingsManager.isAlphabetIndexerEnabled && pageSortedSongs.size > 15) 34.dp else 16.dp,
+                                                bottom = bottomPadding + 16.dp
+                                            ),
                                             horizontalArrangement = Arrangement.spacedBy(16.dp),
                                             verticalArrangement = Arrangement.spacedBy(16.dp)
                                         ) {
@@ -2199,6 +2224,19 @@ fun MainScreen(
                                             }
                                             scrollToCurrentTrigger.value = 0
                                         }
+                                    }
+
+                                    if (isGridMode && settingsManager.isAlphabetIndexerEnabled) {
+                                        FastScrollbarGrid(
+                                            gridState = pageMainGridState,
+                                            items = pageSortedSongs,
+                                            itemKeyOrLetter = { it.title },
+                                            hasBlurBackground = hasBlurBackgroundMini && currentSong != null,
+                                            accentColor = listActiveControlsColor,
+                                            modifier = Modifier
+                                                .align(Alignment.CenterEnd)
+                                                .padding(bottom = bottomPadding)
+                                        )
                                     }
 
                                     if (!isGridMode && settingsManager.isAlphabetIndexerEnabled) {

@@ -109,6 +109,38 @@ class SettingsManager(context: Context) {
         get() = prefs.getBoolean("usb_software_volume", true)
         set(value) = prefs.edit().putBoolean("usb_software_volume", value).apply()
 
+    /** Columns of the All songs grid (2-4); pinching to a single column switches back to the list. */
+    var songGridColumns: Int
+        get() = prefs.getInt("song_grid_columns", 2).coerceIn(2, 4)
+        set(value) = prefs.edit().putInt("song_grid_columns", value.coerceIn(2, 4)).apply()
+
+    // Scroll edge effect (as in Ping): lists fade out where they slide under the bars. 0 off, 1 fade, 2 fade + blur.
+    private val _scrollEdgeEffect = mutableStateOf(prefs.getInt("scroll_edge_effect", 1).coerceIn(0, 2))
+    var scrollEdgeEffect: Int
+        get() = _scrollEdgeEffect.value
+        set(value) {
+            _scrollEdgeEffect.value = value.coerceIn(0, 2)
+            prefs.edit().putInt("scroll_edge_effect", value.coerceIn(0, 2)).apply()
+        }
+
+    /** Blur strength of "Fade + blur": 0 light, 1 medium, 2 strong. */
+    private val _edgeBlurLevel = mutableStateOf(prefs.getInt("edge_blur_level", 1).coerceIn(0, 2))
+    var edgeBlurLevel: Int
+        get() = _edgeBlurLevel.value
+        set(value) {
+            _edgeBlurLevel.value = value.coerceIn(0, 2)
+            prefs.edit().putInt("edge_blur_level", value.coerceIn(0, 2)).apply()
+        }
+
+    /** How tall the fade zone is: 0 short, 1 medium, 2 tall. */
+    private val _edgeFadeHeight = mutableStateOf(prefs.getInt("edge_fade_height", 1).coerceIn(0, 2))
+    var edgeFadeHeight: Int
+        get() = _edgeFadeHeight.value
+        set(value) {
+            _edgeFadeHeight.value = value.coerceIn(0, 2)
+            prefs.edit().putInt("edge_fade_height", value.coerceIn(0, 2)).apply()
+        }
+
     /** Columns in the Albums / Artists / Genres grids; changed by pinching. */
     var albumGridColumns: Int
         get() = prefs.getInt("album_grid_columns", 2).coerceIn(1, 5)

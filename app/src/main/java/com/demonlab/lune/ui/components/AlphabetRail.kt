@@ -170,9 +170,13 @@ internal fun AlphabetIndexBar(
                     .fillMaxWidth(),
                 contentAlignment = Alignment.Center
             ) {
+                val letterSize = if (selected) fontSize + 2f else fontSize
                 Text(
                     text = letter,
-                    fontSize = (if (selected) fontSize + 2f else fontSize).sp,
+                    // Material's default text style has a 24sp line height; on a 9sp letter that pushed the glyph out
+                    // of its slot and cut it. A line height equal to the letter size keeps every letter whole.
+                    style = androidx.compose.ui.text.TextStyle(lineHeight = (letterSize * 1.1f).sp),
+                    fontSize = letterSize.sp,
                     fontWeight = if (selected) FontWeight.ExtraBold else FontWeight.Medium,
                     color = when {
                         selected -> activeColor

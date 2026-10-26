@@ -545,8 +545,14 @@ fun SongGridItem(
     val activePrimary = com.demonlab.lune.ui.theme.getControlsPrimaryColor(useCustomControlsColor, controlsColorPalette)
     val cardShape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp, bottomStart = 8.dp, bottomEnd = 8.dp)
     val coverShape = RoundedCornerShape(10.dp)
+    androidx.compose.foundation.layout.BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
+    // Text and buttons follow the tile, so 3 or 4 columns (pinch) stay readable instead of cutting every title.
+    val tileWidth = maxWidth.value
+    val titleSp = (3.9f + 0.0866f * tileWidth).coerceIn(9f, 20f)
+    val artistSp = (titleSp * 0.8f).coerceIn(8f, 15f)
+    val compact = tileWidth < 120f
     Column(
-        modifier = modifier
+        modifier = Modifier
             .fillMaxWidth()
             .bounceClick()
             .clip(cardShape)
@@ -647,8 +653,8 @@ fun SongGridItem(
                     color = favBg,
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .padding(8.dp)
-                        .size(32.dp)
+                        .padding(if (compact) 4.dp else 8.dp)
+                        .size(if (compact) 24.dp else 32.dp)
                         .bounceClick(scaleDown = 0.80f)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
@@ -656,7 +662,7 @@ fun SongGridItem(
                             imageVector = if (song.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                             contentDescription = stringResource(R.string.option_favorite),
                             tint = if (song.isFavorite) (if (hasBlurBackground) Color.White else activePrimary) else Color.White,
-                            modifier = Modifier.size(17.dp)
+                            modifier = Modifier.size(if (compact) 13.dp else 17.dp)
                         )
                     }
                 }
@@ -679,14 +685,17 @@ fun SongGridItem(
             }
             Text(
                 text = song.title,
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontSize = titleSp.sp,
+                    lineHeight = (titleSp * 1.25f).sp
+                ),
                 maxLines = 1,
                 fontWeight = FontWeight.Bold,
                 overflow = TextOverflow.Ellipsis,
                 color = if (currentlyPlaying) activePrimary else if (hasBlurBackground) Color.White else MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.weight(1f)
             )
-            if (onOptionsClick != null) {
+            if (onOptionsClick != null && !compact) {
                 IconButton(
                     onClick = onOptionsClick,
                     modifier = Modifier.size(28.dp)
@@ -703,13 +712,17 @@ fun SongGridItem(
 
         Text(
             text = song.artist,
-            style = MaterialTheme.typography.bodySmall,
+            style = MaterialTheme.typography.bodySmall.copy(
+                fontSize = artistSp.sp,
+                lineHeight = (artistSp * 1.25f).sp
+            ),
             maxLines = 1,
             color = if (hasBlurBackground) Color.White.copy(alpha = 0.75f) else MaterialTheme.colorScheme.onSurfaceVariant,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
         )
         Spacer(modifier = Modifier.height(4.dp))
+    }
     }
 }
 

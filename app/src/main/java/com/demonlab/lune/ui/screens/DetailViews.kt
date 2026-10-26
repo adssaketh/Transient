@@ -52,6 +52,7 @@ import com.demonlab.lune.ui.components.FastScrollbar
 import com.demonlab.lune.ui.components.ScrollToTopPill
 import com.demonlab.lune.ui.components.rememberScrollToTopVisibility
 import com.demonlab.lune.ui.components.SongCoverImage
+import com.demonlab.lune.ui.components.scrollEdgeEffect
 import com.demonlab.lune.ui.components.SongItem
 import com.demonlab.lune.ui.data.Album
 import kotlinx.coroutines.delay
@@ -192,6 +193,7 @@ fun PlaylistDetailView(
                 state = listState,
                 modifier = Modifier
                     .fillMaxSize()
+                    .scrollEdgeEffect(bottomBar = bottomPadding)
                     .then(if (isCustomOrder) Modifier.reorderable(reorderState) else Modifier),
                 contentPadding = PaddingValues(end = if (sortedSongs.size > 15) 28.dp else 0.dp, bottom = bottomPadding + 16.dp)
             ) {
@@ -730,7 +732,7 @@ fun AlbumDetailView(
             
             LazyColumn(
                 state = listState,
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().scrollEdgeEffect(bottomBar = bottomPadding),
                 contentPadding = PaddingValues(end = if (settingsManager.isAlphabetIndexerEnabled && sortedSongs.size > 15) 28.dp else 0.dp, bottom = bottomPadding + 16.dp)
             ) {
                 item {
@@ -1352,7 +1354,7 @@ fun FolderDetailView(
 
             LazyColumn(
                 state = listState,
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().scrollEdgeEffect(bottomBar = bottomPadding),
                 contentPadding = PaddingValues(end = if (sortedSongs.size > 15) 28.dp else 0.dp, bottom = bottomPadding + 16.dp)
             ) {
 
