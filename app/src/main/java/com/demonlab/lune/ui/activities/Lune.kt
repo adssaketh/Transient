@@ -297,16 +297,37 @@ class Lune : AppCompatActivity() {
             }
 
             if (showOnboarding) {
+                // Theme and palette picked during setup apply immediately and are saved right away.
+                var setupThemeMode by remember { mutableIntStateOf(settingsManager.themeMode) }
+                val setupSystemDark = isSystemInDarkTheme()
                 LuneTheme(
-                    darkTheme = isSystemInDarkTheme(),
+                    darkTheme = when (setupThemeMode) {
+                        1 -> false
+                        2 -> true
+                        else -> setupSystemDark
+                    },
                     useCustomColors = useCustomColors,
                     customColorPalette = customColorPalette,
                     useAmoledPitchBlack = useAmoledPitchBlack
                 ) {
-                    OnboardingScreen(onStartClick = {
-                        settingsManager.isFirstRun = false
-                        showOnboarding = false
-                    })
+                    OnboardingScreen(
+                        themeMode = setupThemeMode,
+                        onThemeModeChange = {
+                            setupThemeMode = it
+                            settingsManager.themeMode = it
+                        },
+                        palette = if (useCustomColors) customColorPalette else 6,
+                        onPaletteChange = {
+                            customColorPalette = it
+                            useCustomColors = true
+                            settingsManager.customColorPalette = it
+                            settingsManager.useCustomColors = true
+                        },
+                        onStartClick = {
+                            settingsManager.isFirstRun = false
+                            showOnboarding = false
+                        }
+                    )
                 }
                 return@setContent
             }
@@ -1517,13 +1538,7 @@ fun MainScreen(
                                     if (viewStyle == 0) {
                                         AlbumGrid(
                                             albums = albumsList,
-                                            indexLetter = {
-                                                when (albumSortOption) {
-                                                    "ARTIST" -> it.artist
-                                                    "TRACK_COUNT", "DATE_ADDED", "DURATION" -> ""
-                                                    else -> it.name
-                                                }
-                                            },
+                                            indexLetter = { if (albumSortOption == "ARTIST") it.artist else it.name },
                                             onAlbumClick = { selectedAlbum = it },
                                             bottomPadding = bottomPadding,
                                             hasBlurBackground = hasBlurBackgroundMini && currentSong != null,
@@ -1582,9 +1597,7 @@ fun MainScreen(
                                     if (viewStyle == 0) {
                                         AlbumGrid(
                                             albums = artistsList,
-                                            indexLetter = {
-                                                if (artistSortOption == "TRACK_COUNT" || artistSortOption == "ALBUM_COUNT") "" else it.name
-                                            },
+                                            indexLetter = { it.name },
                                             onAlbumClick = { selectedAlbum = it },
                                             bottomPadding = bottomPadding,
                                             hasBlurBackground = hasBlurBackgroundMini && currentSong != null,
@@ -1645,7 +1658,7 @@ fun MainScreen(
                                     if (viewStyle == 0) {
                                         AlbumGrid(
                                             albums = genresList,
-                                            indexLetter = { if (genreSortOption == "TRACK_COUNT") "" else it.name },
+                                            indexLetter = { it.name },
                                             onAlbumClick = { selectedAlbum = it },
                                             bottomPadding = bottomPadding,
                                             hasBlurBackground = hasBlurBackgroundMini && currentSong != null,
@@ -2129,7 +2142,7 @@ fun MainScreen(
                                             state = pageMainListState,
                                             modifier = Modifier.fillMaxSize(),
                                             contentPadding = PaddingValues(
-                                                end = if (settingsManager.isAlphabetIndexerEnabled && activeSortOption == "ALPHABETICAL" && pageSortedSongs.size > 15) 28.dp else 0.dp,
+                                                end = if (settingsManager.isAlphabetIndexerEnabled && pageSortedSongs.size > 15) 28.dp else 0.dp,
                                                 bottom = bottomPadding
                                             )
                                         ) {
@@ -2193,7 +2206,7 @@ fun MainScreen(
                                             listState = pageMainListState,
                                             items = pageSortedSongs,
                                             headerItemCount = 0,
-                                            itemKeyOrLetter = { if (activeSortOption == "ALPHABETICAL") it.title else "" },
+                                            itemKeyOrLetter = { it.title },
                                             hasBlurBackground = hasBlurBackgroundMini && currentSong != null,
                                             useCustomControlsColor = useCustomControlsColor,
                                             controlsColorPalette = controlsColorPalette,

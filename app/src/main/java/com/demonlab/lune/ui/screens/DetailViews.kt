@@ -193,7 +193,7 @@ fun PlaylistDetailView(
                 modifier = Modifier
                     .fillMaxSize()
                     .then(if (isCustomOrder) Modifier.reorderable(reorderState) else Modifier),
-                contentPadding = PaddingValues(end = if (sortOption == "ALPHABETICAL" && sortedSongs.size > 15) 28.dp else 0.dp, bottom = bottomPadding + 16.dp)
+                contentPadding = PaddingValues(end = if (sortedSongs.size > 15) 28.dp else 0.dp, bottom = bottomPadding + 16.dp)
             ) {
                 item {
                     Box(modifier = Modifier.fillMaxWidth()) {
@@ -541,7 +541,7 @@ fun PlaylistDetailView(
             listState = listState,
             items = sortedSongs,
             headerItemCount = 1,
-            itemKeyOrLetter = { if (sortOption == "ALPHABETICAL") it.title else "" },
+            itemKeyOrLetter = { it.title },
             hasBlurBackground = hasBlurBackground,
             useCustomControlsColor = useCustomControlsColor,
             controlsColorPalette = controlsColorPalette,
@@ -731,7 +731,7 @@ fun AlbumDetailView(
             LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(end = if (settingsManager.isAlphabetIndexerEnabled && sortOption == "ALPHABETICAL" && sortedSongs.size > 15) 28.dp else 0.dp, bottom = bottomPadding + 16.dp)
+                contentPadding = PaddingValues(end = if (settingsManager.isAlphabetIndexerEnabled && sortedSongs.size > 15) 28.dp else 0.dp, bottom = bottomPadding + 16.dp)
             ) {
                 item {
                     Box(modifier = Modifier.fillMaxWidth()) {
@@ -1113,7 +1113,7 @@ fun AlbumDetailView(
                 listState = listState,
                 items = sortedSongs,
                 headerItemCount = 1,
-                itemKeyOrLetter = { if (sortOption == "ALPHABETICAL") it.title else "" },
+                itemKeyOrLetter = { it.title },
                 hasBlurBackground = hasBlurBackground,
                 useCustomControlsColor = useCustomControlsColor,
                 controlsColorPalette = controlsColorPalette,
@@ -1353,7 +1353,7 @@ fun FolderDetailView(
             LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(end = if (sortOption == "ALPHABETICAL" && sortedSongs.size > 15) 28.dp else 0.dp, bottom = bottomPadding + 16.dp)
+                contentPadding = PaddingValues(end = if (sortedSongs.size > 15) 28.dp else 0.dp, bottom = bottomPadding + 16.dp)
             ) {
 
                 item {
@@ -1629,7 +1629,7 @@ fun FolderDetailView(
             listState = listState,
             items = sortedSongs,
             headerItemCount = 1,
-            itemKeyOrLetter = { if (sortOption == "ALPHABETICAL") it.title else "" },
+            itemKeyOrLetter = { it.title },
             hasBlurBackground = hasBlurBackground,
             useCustomControlsColor = useCustomControlsColor,
             controlsColorPalette = controlsColorPalette,

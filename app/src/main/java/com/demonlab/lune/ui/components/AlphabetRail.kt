@@ -31,36 +31,31 @@ import java.text.Normalizer
  * The letters a list actually contains, in list order, and the index of the first item of each letter.
  * The alphabet index on the right edge jumps straight to "M", "S", ... with it.
  */
-internal class LetterIndex(val letters: List<String>, val firstIndex: List<Int>) {
+internal class LetterIndex(
+    val letters: List<String>,
+    val firstIndex: List<Int>,
+    private val itemLetters: List<String>
+) {
     private val latin = letters.filter { it.length == 1 && it[0] in 'A'..'Z' }
-    private val ascending = latin.size < 2 || latin[0] < latin[1]
 
     /** What the index shows: digits / "#" that exist, then the whole A-Z (missing letters are dimmed), then "…". */
     val displayLetters: List<String> = buildList {
-        letters.filter { it.length == 1 && (it[0] in '0'..'9' || it == "#") }.forEach { add(it) }
-        val alphabet = ('A'..'Z').map { it.toString() }
-        addAll(if (ascending) alphabet else alphabet.reversed())
+        letters.filter { it.length == 1 && (it[0] in '0'..'9' || it == "#") }.sorted().forEach { add(it) }
+        addAll(('A'..'Z').map { it.toString() })
         if (letters.contains(OTHER_LETTER)) add(OTHER_LETTER)
     }
 
     fun hasLetter(display: String): Boolean = letters.contains(display)
 
-    /** The letter of the item at [itemIndex]. */
-    fun letterAt(itemIndex: Int): String {
-        var current = letters.first()
-        for (k in letters.indices) {
-            if (firstIndex[k] <= itemIndex) current = letters[k]
-        }
-        return current
-    }
+    /** The letter of the item at [itemIndex] (works for any sort order). */
+    fun letterAt(itemIndex: Int): String = itemLetters.getOrNull(itemIndex) ?: letters.first()
 
-    /** Item index to scroll to for a tapped [display] letter; a letter with no items jumps to the next one that has. */
+    /** Item index to scroll to for a tapped [display] letter; a letter with no items goes to the next one that has. */
     fun jumpIndexFor(display: String): Int {
         val exact = letters.indexOf(display)
         if (exact >= 0) return firstIndex[exact]
         if (display.length == 1 && display[0] in 'A'..'Z' && latin.isNotEmpty()) {
-            val next = if (ascending) latin.firstOrNull { it > display } else latin.firstOrNull { it < display }
-            val target = next ?: latin.last()
+            val target = latin.filter { it > display }.minOrNull() ?: latin.maxOrNull() ?: latin.first()
             return firstIndex[letters.indexOf(target)]
         }
         return firstIndex.first()
@@ -70,25 +65,25 @@ internal class LetterIndex(val letters: List<String>, val firstIndex: List<Int>)
 internal const val OTHER_LETTER = "\u2026"
 
 /**
- * Builds the [LetterIndex] for [items], using [key] (usually the title / name) for the first letter.
- * Returns null when the list is not ordered by that text (key returns "") or has too few / too many letters
- * for an index to make sense; the scrollbar then falls back to a plain drag handle.
+ * Builds the [LetterIndex] for [items], using [key] (usually the title / name) for the first letter. It works for any
+ * sort order: a letter jumps to the first item that starts with it. Returns null when the list has fewer than two
+ * different letters.
  */
 internal fun <T> buildLetterIndex(items: List<T>, key: (T) -> String): LetterIndex? {
     val letters = ArrayList<String>()
     val firsts = ArrayList<Int>()
+    val perItem = ArrayList<String>(items.size)
     for (i in items.indices) {
         val text = key(items[i]).trim()
-        if (text.isEmpty()) return null
-        val letter = letterOf(text)
+        val letter = if (text.isEmpty()) "#" else letterOf(text)
+        perItem.add(letter)
         if (!letters.contains(letter)) {
             letters.add(letter)
             firsts.add(i)
-            if (letters.size > 40) return null
         }
     }
     if (letters.size < 2) return null
-    return LetterIndex(letters, firsts)
+    return LetterIndex(letters, firsts, perItem)
 }
 
 /** First letter without accents ("É" -> "E"), digits as themselves, other scripts "…", symbols "#". */

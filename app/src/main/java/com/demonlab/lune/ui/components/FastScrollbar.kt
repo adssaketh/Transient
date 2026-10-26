@@ -114,7 +114,7 @@ fun <T> FastScrollbar(
                     val target = if (itemIndex == 0 && headerItemCount > 0) 0 else headerItemCount + itemIndex
                     coroutineScope.launch { listState.scrollToItem(target) }
                 },
-                modifier = Modifier.fillMaxHeight(0.82f)
+                modifier = Modifier.fillMaxHeight().padding(vertical = 6.dp)
             )
         }
         return

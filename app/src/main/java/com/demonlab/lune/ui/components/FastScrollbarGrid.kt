@@ -15,6 +15,7 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
@@ -127,7 +128,7 @@ fun <T> FastScrollbarGrid(
                 onJumpToItem = { itemIndex ->
                     coroutineScope.launch { gridState.scrollToItem(itemIndex) }
                 },
-                modifier = Modifier.fillMaxHeight(0.82f)
+                modifier = Modifier.fillMaxHeight().padding(vertical = 6.dp)
             )
         }
         return
