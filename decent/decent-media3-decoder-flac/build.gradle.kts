@@ -14,6 +14,13 @@ android {
                 targets += "flacJNI"
             }
         }
+
+        // APK size: only these CPU types are built and packaged. arm64-v8a runs on every phone made since about 2019
+        // and keeps the APK small; the native audio libraries (FFmpeg, FLAC, USB driver) were being included four times.
+        // Need more? Build with  -Ptransient.abis=arm64-v8a,armeabi-v7a,x86_64
+        ndk {
+            abiFilters += (rootProject.findProperty("transient.abis") as String? ?: "arm64-v8a").split(",").map { it.trim() }
+        }
     }
 
     ndkVersion = "29.0.14206865"

@@ -1379,9 +1379,7 @@ fun MainScreen(
 
                 HorizontalPager(
                     state = pagerState,
-                    modifier = Modifier
-                        .weight(1f)
-                        .scrollEdgeEffect(bottomBar = bottomPadding),
+                    modifier = Modifier.weight(1f),
                     beyondViewportPageCount = 1,
                     userScrollEnabled = settingsManager.isSwipeBetweenTabsEnabled
                 ) { pageIndex ->

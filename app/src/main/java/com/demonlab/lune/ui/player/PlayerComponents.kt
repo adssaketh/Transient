@@ -2257,9 +2257,9 @@ fun ScallopPlayPauseButtonWithProgress(
                 imageVector = Icons.Default.PlayArrow,
                 contentDescription = stringResource(R.string.play_state_play),
                 tint = iconTint,
-                modifier = Modifier
-                    .size(playIconSize)
-                    .offset(x = (1.5 * scaleRatio).dp)
+                // The PlayArrow glyph already leans right inside its 24dp box so that the triangle looks centred; an extra
+                // manual offset here pushed it about 4dp too far right.
+                modifier = Modifier.size(playIconSize)
             )
         }
     }
