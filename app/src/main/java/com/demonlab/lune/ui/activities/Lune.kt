@@ -2122,7 +2122,10 @@ fun MainScreen(
                                         LazyColumn(
                                             state = pageMainListState,
                                             modifier = Modifier.fillMaxSize(),
-                                            contentPadding = PaddingValues(bottom = bottomPadding)
+                                            contentPadding = PaddingValues(
+                                                end = if (settingsManager.isAlphabetIndexerEnabled && activeSortOption == "ALPHABETICAL" && pageSortedSongs.size > 15) 28.dp else 0.dp,
+                                                bottom = bottomPadding
+                                            )
                                         ) {
                                             itemsIndexed(
                                                 pageSortedSongs,
@@ -2754,6 +2757,27 @@ fun MainScreen(
                         isAlbumView = false
                         onIsPlayerExpandedChange(false)
                         onSelectedFolderChange("ARTISTS")
+                    },
+                    onAlbumClick = { albumName ->
+                        val albumSongs = visibleSongs
+                            .filter { it.album.trim().equals(albumName.trim(), ignoreCase = true) }
+                            .sortedWith(compareBy({ it.trackNumber }, { it.title }))
+                        if (albumSongs.isNotEmpty()) {
+                            selectedAlbum = Album(
+                                id = albumName.hashCode().toLong(),
+                                name = albumName,
+                                artist = albumSongs.first().artist,
+                                albumArtUri = albumSongs.first().albumArtUri,
+                                coverUrl = albumSongs.firstOrNull { it.coverUrl != null }?.coverUrl,
+                                songs = albumSongs
+                            )
+                            onIsPlayerExpandedChange(false)
+                            onSelectedFolderChange("ALBUMS")
+                        }
+                    },
+                    onDeleteSong = { songForDelete ->
+                        songToDelete = songForDelete
+                        showDeleteDialog = true
                     }
                 )
             }

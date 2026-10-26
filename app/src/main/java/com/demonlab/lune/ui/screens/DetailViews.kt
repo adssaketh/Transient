@@ -193,7 +193,7 @@ fun PlaylistDetailView(
                 modifier = Modifier
                     .fillMaxSize()
                     .then(if (isCustomOrder) Modifier.reorderable(reorderState) else Modifier),
-                contentPadding = PaddingValues(bottom = bottomPadding + 16.dp)
+                contentPadding = PaddingValues(end = if (sortOption == "ALPHABETICAL" && sortedSongs.size > 15) 28.dp else 0.dp, bottom = bottomPadding + 16.dp)
             ) {
                 item {
                     Box(modifier = Modifier.fillMaxWidth()) {
@@ -731,7 +731,7 @@ fun AlbumDetailView(
             LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = bottomPadding + 16.dp)
+                contentPadding = PaddingValues(end = if (settingsManager.isAlphabetIndexerEnabled && sortOption == "ALPHABETICAL" && sortedSongs.size > 15) 28.dp else 0.dp, bottom = bottomPadding + 16.dp)
             ) {
                 item {
                     Box(modifier = Modifier.fillMaxWidth()) {
@@ -1353,7 +1353,7 @@ fun FolderDetailView(
             LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = bottomPadding + 16.dp)
+                contentPadding = PaddingValues(end = if (sortOption == "ALPHABETICAL" && sortedSongs.size > 15) 28.dp else 0.dp, bottom = bottomPadding + 16.dp)
             ) {
 
                 item {

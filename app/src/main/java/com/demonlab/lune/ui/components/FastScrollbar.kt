@@ -81,10 +81,8 @@ fun <T> FastScrollbar(
     val currentHeaderCount by rememberUpdatedState(headerItemCount)
     val currentItemKeyOrLetter by rememberUpdatedState(itemKeyOrLetter)
 
-    // A-Z rail: letters the list really contains, so dragging to "M" lands on the first M.
+    // Alphabet index: letters the list really contains, so tapping "M" lands on the first M.
     val letterIndex = remember(items) { buildLetterIndex(items) { currentItemKeyOrLetter(it) } }
-    val currentLetterIndex by rememberUpdatedState(letterIndex)
-    val railPadPx = with(density) { 6.dp.toPx() }
 
     val thumbWidth by animateDpAsState(
         targetValue = if (isDragging) 10.dp else 4.dp,
@@ -96,6 +94,31 @@ fun <T> FastScrollbar(
         animationSpec = tween(durationMillis = 150),
         label = "thumbAlpha"
     )
+
+    if (letterIndex != null) {
+        val activeLetter by remember(letterIndex, headerItemCount) {
+            derivedStateOf {
+                letterIndex.letterAt((listState.firstVisibleItemIndex - headerItemCount).coerceAtLeast(0))
+            }
+        }
+        Box(
+            modifier = modifier.fillMaxHeight().width(30.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            AlphabetIndexBar(
+                letterIndex = letterIndex,
+                activeLetter = activeLetter,
+                textColor = if (hasBlurBackground) Color.White else MaterialTheme.colorScheme.onSurface,
+                activeColor = if (hasBlurBackground) Color.White else MaterialTheme.colorScheme.primary,
+                onLetterSelected = { position ->
+                    val target = if (position == 0 && headerItemCount > 0) 0 else headerItemCount + letterIndex.firstIndex[position]
+                    coroutineScope.launch { listState.scrollToItem(target) }
+                },
+                modifier = Modifier.fillMaxHeight(0.82f)
+            )
+        }
+        return
+    }
 
     Box(
         modifier = modifier
@@ -123,27 +146,6 @@ fun <T> FastScrollbar(
                         val totalSongs = currentItems.size
                         if (totalSongs <= 1) return
 
-                        val li = currentLetterIndex
-                        if (li != null) {
-                            val railTop = frozenTopPx + railPadPx
-                            val railHeight = (containerHeight - frozenTopPx - 2f * railPadPx).coerceAtLeast(1f)
-                            val letterPos = (((y - railTop) / railHeight) * li.letters.size).toInt()
-                                .coerceIn(0, li.letters.size - 1)
-                            val railLetter = li.letters[letterPos]
-                            dragThumbY = (railTop + (letterPos + 0.5f) / li.letters.size * railHeight - thumbHeightPx / 2f)
-                                .coerceIn(frozenTopPx, (containerHeight - thumbHeightPx).coerceAtLeast(frozenTopPx))
-                            if (railLetter != currentLetter) {
-                                currentLetter = railLetter
-                                hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            }
-                            val railTarget = if (letterPos == 0 && currentHeaderCount > 0) 0 else currentHeaderCount + li.firstIndex[letterPos]
-                            if (railTarget != lastTargetIndex) {
-                                lastTargetIndex = railTarget
-                                scrollJob?.cancel()
-                                scrollJob = coroutineScope.launch { listState.scrollToItem(railTarget) }
-                            }
-                            return
-                        }
                         val availableHeight = (containerHeight - frozenTopPx - thumbHeightPx).coerceAtLeast(0f)
                         val targetThumbY = (y - thumbHeightPx / 2f).coerceIn(frozenTopPx, frozenTopPx + availableHeight)
                         dragThumbY = targetThumbY
@@ -241,27 +243,6 @@ fun <T> FastScrollbar(
                 )
         )
 
-        // Alphabet rail (A-Z) while dragging
-        val rail = letterIndex
-        if (rail != null) {
-            AnimatedVisibility(
-                visible = isDragging,
-                enter = fadeIn(),
-                exit = fadeOut(),
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .offset { IntOffset(-30.dp.roundToPx(), (frozenTopPx + railPadPx).roundToInt()) }
-            ) {
-                AlphabetRail(
-                    letters = rail.letters,
-                    current = currentLetter,
-                    height = with(density) { (containerHeight - frozenTopPx - 2f * railPadPx).coerceAtLeast(0f).toDp() },
-                    backgroundColor = bubbleColor,
-                    textColor = bubbleTextColor
-                )
-            }
-        }
-
         // Bubble Indicator (Vertical Pill)
         AnimatedVisibility(
             visible = isDragging && currentLetter.isNotEmpty(),
@@ -271,7 +252,7 @@ fun <T> FastScrollbar(
                 .align(Alignment.TopEnd)
                 .offset {
                     IntOffset(
-                        (if (letterIndex != null) -88 else -56).dp.roundToPx(),
+                        -56.dp.roundToPx(),
                         (dragThumbY - 12.dp.toPx()).roundToInt()
                     )
                 }

@@ -23,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import androidx.compose.ui.draw.clip
 import com.demonlab.lune.ui.utils.bounceClick
@@ -86,7 +87,7 @@ fun AlbumGrid(
                     columns = it
                     settingsManager.albumGridColumns = it
                 },
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = bottomPadding + 16.dp),
+            contentPadding = PaddingValues(start = 16.dp, end = if (settingsManager.isAlphabetIndexerEnabled) 34.dp else 16.dp, top = 8.dp, bottom = bottomPadding + 16.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
@@ -152,61 +153,76 @@ fun AlbumCard(
     val coverShape = RoundedCornerShape(10.dp)
     val showYear = SettingsManager.getInstance(LocalContext.current).showAlbumYear
     val albumSubtitle = remember(album, showYear) { albumSubtitleWithYear(album, showYear) }
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .bounceClick()
-            .clip(cardShape)
-            .clickable(onClick = onClick)
-    ) {
-        Box {
-            Surface(
-                modifier = Modifier
-                    .aspectRatio(1f)
-                    .fillMaxWidth(),
-                shape = coverShape,
-                color = MaterialTheme.colorScheme.secondaryContainer
-            ) {
-                SongCoverImage(
-                    coverUrl = album.coverUrl ?: album.albumArtUri,
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
-                    shape = coverShape,
-                    iconScale = 0.68f
-                )
-            }
-        }
-        Spacer(modifier = Modifier.height(8.dp))
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(horizontal = 6.dp)
+    androidx.compose.foundation.layout.BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        // Text follows the tile: the smaller the album tile (pinch to more columns), the smaller its title and artist.
+        val tileWidth = maxWidth.value
+        val titleSp = (3.9f + 0.0866f * tileWidth).coerceIn(9f, 22f)
+        val subtitleSp = (titleSp * 0.8f).coerceIn(8f, 16f)
+        val gap = (tileWidth * 0.045f).coerceIn(3f, 9f).dp
+        val sidePadding = (tileWidth * 0.04f).coerceIn(2f, 8f).dp
+        val dot = (titleSp * 0.5f).coerceIn(4f, 9f).dp
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .bounceClick()
+                .clip(cardShape)
+                .clickable(onClick = onClick)
         ) {
-            if (isPlaying) {
-                Box(
+            Box {
+                Surface(
                     modifier = Modifier
-                        .size(8.dp)
-                        .background(MaterialTheme.colorScheme.primary, CircleShape)
+                        .aspectRatio(1f)
+                        .fillMaxWidth(),
+                    shape = coverShape,
+                    color = MaterialTheme.colorScheme.secondaryContainer
+                ) {
+                    SongCoverImage(
+                        coverUrl = album.coverUrl ?: album.albumArtUri,
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        shape = coverShape,
+                        iconScale = 0.68f
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(gap))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(horizontal = sidePadding)
+            ) {
+                if (isPlaying) {
+                    Box(
+                        modifier = Modifier
+                            .size(dot)
+                            .background(MaterialTheme.colorScheme.primary, CircleShape)
+                    )
+                    Spacer(modifier = Modifier.width(dot * 0.75f))
+                }
+                Text(
+                    text = album.name,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontSize = titleSp.sp,
+                        lineHeight = (titleSp * 1.25f).sp
+                    ),
+                    maxLines = 1,
+                    fontWeight = FontWeight.Bold,
+                    overflow = TextOverflow.Ellipsis,
+                    color = if (hasBlurBackground) Color.White else MaterialTheme.colorScheme.onSurface
                 )
-                Spacer(modifier = Modifier.width(6.dp))
             }
             Text(
-                text = album.name,
-                style = MaterialTheme.typography.titleMedium,
+                text = albumSubtitle,
+                style = MaterialTheme.typography.bodySmall.copy(
+                    fontSize = subtitleSp.sp,
+                    lineHeight = (subtitleSp * 1.25f).sp
+                ),
                 maxLines = 1,
-                fontWeight = FontWeight.Bold,
+                color = if (hasBlurBackground) Color.White.copy(alpha = 0.75f) else MaterialTheme.colorScheme.onSurfaceVariant,
                 overflow = TextOverflow.Ellipsis,
-                color = if (hasBlurBackground) Color.White else MaterialTheme.colorScheme.onSurface
+                modifier = Modifier.padding(horizontal = sidePadding, vertical = 2.dp)
             )
+            Spacer(modifier = Modifier.height(gap / 2))
         }
-        Text(
-            text = albumSubtitle,
-            style = MaterialTheme.typography.bodySmall,
-            maxLines = 1,
-            color = if (hasBlurBackground) Color.White.copy(alpha = 0.75f) else MaterialTheme.colorScheme.onSurfaceVariant,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-        )
-        Spacer(modifier = Modifier.height(4.dp))
     }
 }
 

@@ -13,7 +13,7 @@ class SettingsManager(context: Context) {
     init {
         // Design migrations run once per version (all of it can still be changed in settings).
         val designVersion = prefs.getInt("design_version", 0)
-        if (designVersion < 3) {
+        if (designVersion < 4) {
             val editor = prefs.edit()
             if (designVersion < 2) {
                 // Aurora redesign: Aurora Glass palette and glass look.
@@ -21,7 +21,9 @@ class SettingsManager(context: Context) {
                     .putInt("custom_color_palette", 6)
                     .putBoolean("glass_ui_enabled", true)
             }
-            editor.putInt("design_version", 3)
+            // Round covers turn like an audio CD while playing.
+            editor.putBoolean("cover_spin", true)
+            editor.putInt("design_version", 4)
                 .apply()
         }
     }

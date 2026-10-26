@@ -750,7 +750,9 @@ fun FullPlayer(
     useCustomControlsColor: Boolean,
     controlsColorPalette: Int,
     onShowLyrics: () -> Unit,
-    onArtistClick: ((String) -> Unit)? = null
+    onArtistClick: ((String) -> Unit)? = null,
+    onAlbumClick: ((String) -> Unit)? = null,
+    onDeleteSong: ((Song) -> Unit)? = null
 ) {
     val context = LocalContext.current
     val settingsManager = remember { SettingsManager.getInstance(context) }
@@ -863,16 +865,8 @@ fun FullPlayer(
     val blurContainerColor = if (isDarkTheme) Color.Black.copy(alpha = 0.55f) else Color.Black.copy(alpha = 0.35f)
     val blurPlayContainerColor = if (isDarkTheme) Color.Black.copy(alpha = 0.70f) else Color.Black.copy(alpha = 0.50f)
 
-    val infiniteSpinTransition = rememberInfiniteTransition(label = "PlayerCoverSpin")
-    val spinRotation by infiniteSpinTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(12000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "SpinAnimation"
-    )
+    // A round cover turns like an audio CD while the song plays and stops in place on pause.
+    val cdAngle = com.demonlab.lune.ui.components.rememberCdRotation(coverShape == 2 && coverSpin && isPlaying)
 
     // Animación de rebote (bounce) en la carátula al pasar o regresar de canción
     val coroutineScope = rememberCoroutineScope()
@@ -1473,25 +1467,28 @@ fun FullPlayer(
                                 if (coverShape == 2 && coverVinylEffect) {
                                     VinylRecordAsyncCover(
                                         model = targetSong.coverUrl ?: targetSong.uri,
-                                        rotation = if (coverSpin && isPlaying) spinRotation else 0f,
+                                        rotation = if (coverShape == 2) cdAngle.value else 0f,
                                         modifier = Modifier.fillMaxSize()
                                     )
                                 } else {
-                                    Surface(
-                                        shape = activeShape,
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .rotate(if (coverShape == 2 && coverSpin && isPlaying) spinRotation else 0f),
-                                        color = MaterialTheme.colorScheme.secondaryContainer,
-                                        tonalElevation = 8.dp
-                                    ) {
-                                        SongCoverImage(
-                                            coverUrl = targetSong.coverUrl ?: targetSong.uri,
-                                            contentDescription = null,
-                                            modifier = Modifier.fillMaxSize(),
+                                    Box(modifier = Modifier.fillMaxSize()) {
+                                        Surface(
                                             shape = activeShape,
-                                            iconScale = 0.68f
-                                        )
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .graphicsLayer { rotationZ = if (coverShape == 2) cdAngle.value else 0f },
+                                            color = MaterialTheme.colorScheme.secondaryContainer,
+                                            tonalElevation = 8.dp
+                                        ) {
+                                            SongCoverImage(
+                                                coverUrl = targetSong.coverUrl ?: targetSong.uri,
+                                                contentDescription = null,
+                                                modifier = Modifier.fillMaxSize(),
+                                                shape = activeShape,
+                                                iconScale = 0.68f
+                                            )
+                                        }
+                                        if (coverShape == 2) com.demonlab.lune.ui.components.CdCenterHole()
                                     }
                                 }
                             }
@@ -1538,18 +1535,66 @@ fun FullPlayer(
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Surface(
-                        onClick = { onShowLyrics() },
-                        shape = RoundedCornerShape(topStart = 24.dp, bottomStart = 24.dp, topEnd = 4.dp, bottomEnd = 4.dp),
-                        color = pillBg,
-                        modifier = Modifier.size(48.dp).bounceClick()
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = Icons.Default.Lyrics,
-                                contentDescription = stringResource(R.string.option_lyrics),
-                                tint = lyricsIconColor,
-                                modifier = Modifier.size(24.dp)
+                    var showMoreMenu by remember { mutableStateOf(false) }
+                    Box {
+                        Surface(
+                            onClick = { showMoreMenu = true },
+                            shape = RoundedCornerShape(topStart = 24.dp, bottomStart = 24.dp, topEnd = 4.dp, bottomEnd = 4.dp),
+                            color = pillBg,
+                            modifier = Modifier.size(48.dp).bounceClick()
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.MoreVert,
+                                    contentDescription = stringResource(R.string.more_options),
+                                    tint = if (useBlurControls) Color.White else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                        }
+                        DropdownMenu(
+                            expanded = showMoreMenu,
+                            onDismissRequest = { showMoreMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.option_lyrics)) },
+                                leadingIcon = { Icon(Icons.Default.Lyrics, contentDescription = null, tint = lyricsIconColor) },
+                                onClick = {
+                                    showMoreMenu = false
+                                    onShowLyrics()
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.menu_meta_data)) },
+                                leadingIcon = { Icon(Icons.Default.Info, contentDescription = null) },
+                                onClick = {
+                                    showMoreMenu = false
+                                    showAudioDetailsSheet = true
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.menu_go_to_artist)) },
+                                leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
+                                onClick = {
+                                    showMoreMenu = false
+                                    onArtistClick?.invoke(song.artist)
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.menu_show_album)) },
+                                leadingIcon = { Icon(Icons.Default.Album, contentDescription = null) },
+                                onClick = {
+                                    showMoreMenu = false
+                                    onAlbumClick?.invoke(song.album)
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.delete)) },
+                                leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null) },
+                                onClick = {
+                                    showMoreMenu = false
+                                    onDeleteSong?.invoke(song)
+                                }
                             )
                         }
                     }
@@ -2250,16 +2295,8 @@ fun MiniPlayer(
     onScrollToCurrent: (() -> Unit)? = null,
     onMinimize: (() -> Unit)? = null
 ) {
-    val infiniteSpinTransition = rememberInfiniteTransition(label = "MiniPlayerSpin")
-    val spinRotation by infiniteSpinTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(12000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "SpinAnimation"
-    )
+    // A round cover turns like an audio CD while the song plays and stops in place on pause.
+    val cdAngle = com.demonlab.lune.ui.components.rememberCdRotation(coverShape == 2 && coverSpin && isPlaying)
 
     val miniContext = LocalContext.current
     val blurContainerColorMini = if (isDarkTheme) Color.Black.copy(alpha = 0.25f) else Color.White.copy(alpha = 0.4f)
@@ -2474,22 +2511,25 @@ fun MiniPlayer(
                     if (isVinylActive) {
                         VinylRecordAsyncCover(
                             model = targetSong.coverUrl ?: targetSong.uri,
-                            rotation = if (isSpinActive) spinRotation else 0f,
+                            rotation = if (coverShape == 2) cdAngle.value else 0f,
                             modifier = Modifier.fillMaxSize()
                         )
                     } else {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .rotate(if (isSpinActive) spinRotation else 0f)
-                        ) {
-                            SongCoverImage(
-                                coverUrl = targetSong.coverUrl ?: targetSong.uri,
-                                contentDescription = "Minimize player",
-                                modifier = Modifier.fillMaxSize(),
-                                shape = CircleShape,
-                                iconScale = 0.68f
-                            )
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .graphicsLayer { rotationZ = if (coverShape == 2) cdAngle.value else 0f }
+                            ) {
+                                SongCoverImage(
+                                    coverUrl = targetSong.coverUrl ?: targetSong.uri,
+                                    contentDescription = "Minimize player",
+                                    modifier = Modifier.fillMaxSize(),
+                                    shape = CircleShape,
+                                    iconScale = 0.68f
+                                )
+                            }
+                            com.demonlab.lune.ui.components.CdCenterHole()
                         }
                     }
                 }
@@ -2595,16 +2635,8 @@ fun MiniPlayerMinimized(
         )
     }
 
-    val infiniteSpinTransition = rememberInfiniteTransition(label = "MiniSpin")
-    val spinRotation by infiniteSpinTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(12000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "SpinAnim"
-    )
+    // A round cover turns like an audio CD while the song plays and stops in place on pause.
+    val cdAngle = com.demonlab.lune.ui.components.rememberCdRotation(coverShape == 2 && coverSpin && isPlaying)
 
     Box(
         modifier = modifier,
@@ -2670,25 +2702,28 @@ fun MiniPlayerMinimized(
                 if (isVinylActive) {
                     VinylRecordAsyncCover(
                         model = targetSong.coverUrl ?: targetSong.uri,
-                        rotation = if (isSpinActive) spinRotation else 0f,
+                        rotation = if (coverShape == 2) cdAngle.value else 0f,
                         modifier = Modifier.fillMaxSize()
                     )
                 } else {
                     val activeShape = CircleShape
-                    Surface(
-                        shape = activeShape,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .rotate(if (isSpinActive) spinRotation else 0f),
-                        color = MaterialTheme.colorScheme.secondaryContainer
-                    ) {
-                        SongCoverImage(
-                            coverUrl = targetSong.coverUrl ?: targetSong.uri,
-                            contentDescription = null,
-                            modifier = Modifier.fillMaxSize(),
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        Surface(
                             shape = activeShape,
-                            iconScale = 0.68f
-                        )
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .graphicsLayer { rotationZ = if (coverShape == 2) cdAngle.value else 0f },
+                            color = MaterialTheme.colorScheme.secondaryContainer
+                        ) {
+                            SongCoverImage(
+                                coverUrl = targetSong.coverUrl ?: targetSong.uri,
+                                contentDescription = null,
+                                modifier = Modifier.fillMaxSize(),
+                                shape = activeShape,
+                                iconScale = 0.68f
+                            )
+                        }
+                        if (coverShape == 2) com.demonlab.lune.ui.components.CdCenterHole()
                     }
                 }
             }
