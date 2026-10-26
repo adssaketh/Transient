@@ -1605,6 +1605,19 @@ fun FullPlayer(
                 }
             }
 
+            // Aurora Glass layout: the visualizer sits above the wavy progress bar with clear breathing room.
+            if (showWaveform) {
+                WaveformVisualizer(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 4.dp)
+                        .height(40.dp),
+                    magnitudes = effectiveVisualizerData,
+                    color = if (useBlurControls) Color.White else MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.height(20.dp))
+            }
+
             Column {
                 Box(
                     modifier = Modifier.fillMaxWidth(),
@@ -2030,18 +2043,6 @@ fun FullPlayer(
                     )
                 }
         ) {
-            if (showWaveform) {
-                WaveformVisualizer(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .height(80.dp)
-                        .fillMaxWidth()
-                        .alpha(0.6f),
-                    magnitudes = effectiveVisualizerData,
-                    color = if (useBlurControls) Color.White else MaterialTheme.colorScheme.primary
-                )
-            }
-
             if (isLandscape) {
                 Row(
                     modifier = Modifier

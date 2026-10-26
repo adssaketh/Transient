@@ -440,7 +440,8 @@ fun CustomizationScreen(
                                     2 to Color(0xFF386B52),
                                     3 to Color(0xFF2E6580),
                                     4 to Color(0xFF6E568F),
-                                    5 to Color(0xFF7F5700)
+                                    5 to Color(0xFF7F5700),
+                                    6 to Color(0xFF8B7BFF)
                                 )
                                 palettes.forEach { (index, color) ->
                                     val isSelected = customColorPalette == index
