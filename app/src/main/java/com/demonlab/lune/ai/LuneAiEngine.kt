@@ -379,25 +379,6 @@ class LuneAiEngine private constructor(private val context: Context) {
     // 5. SMART NEXT PREDICTION (FOR AUTO-PLAY & INFINITE RADIO)
     // ─────────────────────────────────────────────────────────────
 
-    fun predictNextSong(currentSong: Song, history: List<Song>, pool: List<Song>): Song? {
-        val eligible = pool.filter { candidate ->
-            candidate.id != currentSong.id && history.none { it.id == candidate.id }
-        }
-        if (eligible.isEmpty()) return pool.filter { it.id != currentSong.id }.randomOrNull()
-
-        val recentArtists = history.takeLast(3).map { it.artist.lowercase(Locale.getDefault()) }
-
-        return eligible.maxByOrNull { candidate ->
-            val similarity = computeSongSimilarity(currentSong, candidate)
-            val affinity = getSongAffinity(candidate.id)
-            val isRecentArtist = candidate.artist.lowercase(Locale.getDefault()) in recentArtists
-            val artistPenalty = if (isRecentArtist) -0.45f else 0f
-            val markovBonus = storage.getInteraction(currentSong.id).getTransitionProbabilityTo(candidate.id) * 0.30f
-
-            (similarity * 0.45f) + ((affinity / 40f).coerceIn(0f, 0.40f)) + artistPenalty + markovBonus
-        }
-    }
-
     // ─────────────────────────────────────────────────────────────
     // 6. DEEP AI MIX GENERATION (EXPANDED DIVERSITY)
     // ─────────────────────────────────────────────────────────────

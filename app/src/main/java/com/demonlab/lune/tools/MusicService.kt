@@ -1007,21 +1007,6 @@ class MusicService : MediaLibraryService() {
         }
     }
 
-    fun crossfadeToSong(song: Song) {
-        if (usbEngine != null) {
-            // Crossfade needs two software-mixed streams; bit-perfect output has exactly one.
-            playSong(song)
-            return
-        }
-        if (!isCrossfading) {
-            val mp = mediaPlayer
-            val fadeMs = if (settingsManager.isCrossfadeCustomDuration)
-                settingsManager.crossfadeDurationSeconds * 1000L else 12000L
-            val remaining = if (mp != null) (mp.duration - mp.currentPosition).toLong() else fadeMs
-            performCrossfade(song, if (remaining in 1..fadeMs) remaining else fadeMs)
-        }
-    }
-
     private var monitorJob: Job? = null
     private fun startCrossfadeMonitor() {
         monitorJob?.cancel()

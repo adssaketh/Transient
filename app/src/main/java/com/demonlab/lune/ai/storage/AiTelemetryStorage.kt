@@ -61,10 +61,6 @@ class AiTelemetryStorage(context: Context) {
         }
     }
 
-    fun getAllInteractions(): Map<Long, SongInteraction> {
-        return memoryCache
-    }
-
     fun recordInteraction(songId: Long, block: (SongInteraction) -> Unit) {
         val interaction = getInteraction(songId)
         synchronized(interaction) {
@@ -93,8 +89,4 @@ class AiTelemetryStorage(context: Context) {
         }
     }
 
-    fun clearAll() {
-        memoryCache.clear()
-        prefs.edit().clear().apply()
-    }
 }

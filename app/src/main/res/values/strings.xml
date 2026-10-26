@@ -5,9 +5,6 @@
     <string name="version">Version</string>
     <string name="license">License</string>
     <string name="author">Author</string>
-    <string name="website">Website</string>
-    <string name="hifi_audio">Hi-Fi Audio</string>
-    <string name="hifi_desc">Enable Hi-Fi detection and badges</string>
     <string name="keep_screen_on">Keep Screen On</string>
     <string name="keep_screen_on_desc">Prevent screen from turning off while in the app</string>
 
@@ -145,26 +142,12 @@
     <string name="filter_folders">Filter Folders</string>
     <string name="option_favorite">Favorite</string>
 
-    <string name="language">Language</string>
-    <string name="select_language">Select Language</string>
-    <string name="lang_system">System Default</string>
-    <string name="lang_english">English</string>
-    <string name="lang_spanish">Spanish</string>
-    <string name="lang_portuguese">Portuguese</string>
-    <string name="lang_french">French</string>
-    <string name="lang_chinese">Chinese</string>
-    <string name="lang_german">German</string>
-    <string name="lang_russian">Russian</string>
-    <string name="lang_persian">Persian</string>
-    <string name="lang_arabic">Arabic</string>
-    <string name="lang_polish">Polish</string>
 
     <string name="ok">OK</string>
     <string name="cd_activate_eq">Activate EQ</string>
     <string name="cd_play_pause">Play/Pause</string>
     <string name="play_state_play">Play</string>
     <string name="play_state_pause">Pause</string>
-    <string name="audio_quality_details">Audio Quality Details</string>
     <string name="audio_lossless">Lossless</string>
     <string name="audio_compressed">Compressed</string>
     <string name="audio_bitrate">Bitrate</string>
@@ -212,7 +195,6 @@
     <string name="section_customization">Customize sections</string>
     <string name="sections_title">Sections</string>
     <string name="section_customization_desc">Choose which section tabs to show</string>
-    <string name="section_customization_albums">Artists / Albums</string>
     <string name="customization">Customization</string>
     <string name="customization_desc">Personalize the app style, title, and colors</string>
     <string name="use_custom_colors">Use custom colors</string>
@@ -233,8 +215,6 @@
     <string name="song_info_desc">Show audio format and bitrate in the player and song list</string>
     <string name="show_in_song_list">Show in song list</string>
     <string name="show_in_full_player">Show in full player</string>
-    <string name="show_options">Show options</string>
-    <string name="hide_options">Hide options</string>
     <string name="cover_player">Cover player</string>
     <string name="cover_player_desc">Customize cover shape, size, and rotation</string>
     <string name="shape_default">Default</string>
@@ -357,27 +337,12 @@
     <string name="import_success">Playlists imported successfully</string>
     <string name="import_error">Error importing playlists</string>
     <string name="song_singular">song</string>
-    <string name="song_plural">songs</string>
     <string name="no_music_available">No music available</string>
     <string name="permission_required">Permission required</string>
 
     <!-- Welcome Card -->
-    <string name="welcome_morning">Good Morning</string>
-    <string name="welcome_noon">Good Day</string>
-    <string name="welcome_afternoon">Good Afternoon</string>
-    <string name="welcome_evening">Good Evening</string>
-    <string name="welcome_night">Good Night</string>
-    <string name="welcome_early_morning">Good Early Morning</string>
-    <string name="stats_hours_unit">%dh</string>
-    <string name="stats_minutes_unit">%dm</string>
-    <string name="stats_seconds_unit">%ds</string>
-    <string name="stats_music_unit">of music</string>
 
     <!-- Info Cards -->
-    <string name="info_card_time">Congratulations! Today you\'ve listened to %s of music</string>
-    <string name="info_card_songs">We see you love music! You have %d songs total, keep it up!</string>
-    <string name="info_card_favorites_has">You have %d favorite songs, keep enjoying!</string>
-    <string name="info_card_favorites_none">You don\'t have favorite songs yet, add some!</string>
 
     <!-- Onboarding -->
     <string name="onboarding_description">The most advanced music player for your device.</string>
@@ -415,10 +380,8 @@
     <string name="onboarding_support_desc">If you enjoy Transient, consider supporting us through the Donate section in Settings > About. Every contribution helps keep the app growing!</string>
     <string name="search_play_all">Play</string>
     <string name="search_shuffle">Shuffle</string>
-    <string name="playing_from">Playing from: %s</string>
     <string name="playing_from_header">Playing from</string>
     <string name="playing_from_search">Search result</string>
-    <string name="option_speed">Speed</string>
     <string name="preset_name">Preset Name</string>
     <string name="cd_save_preset">Save preset</string>
     <string name="cd_delete_preset">Delete preset</string>
@@ -439,8 +402,6 @@
     <string name="seamless_looping_desc">Replay looped tracks instantly without gaps or silence</string>
     <string name="sort_custom">Custom Order</string>
     <string name="recently_played">Recently Played</string>
-    <string name="header_wave_effect">Header Wave Effect</string>
-    <string name="header_wave_effect_desc">Display animated liquid waves in section headers</string>
     <string name="scroll_to_top_button">Quick scroll to top</string>
     <string name="scroll_to_top_button_desc">Show a floating button when scrolling up to return to the top quickly</string>
     <string name="widget_customization">Widget</string>
@@ -448,8 +409,6 @@
     <string name="widget_background_section">Widget Background</string>
     <string name="widget_solid_bg">Solid Background Color</string>
     <string name="widget_solid_bg_desc">Replace background cover with a solid color</string>
-    <string name="widget_dark_bg_color">Dark Mode Color</string>
-    <string name="widget_light_bg_color">Light Mode Color</string>
     <string name="widget_darkness">Cover Darkness</string>
     <string name="widget_darkness_desc">Increase background cover darkness</string>
     <string name="widget_blur">Cover Blur</string>
@@ -464,7 +423,6 @@
     <string name="quick_player">Quick Play</string>
     <string name="open_in_lune">Open in Transient</string>
     <string name="close">Close</string>
-    <string name="cd_open_in_lune">Open in Transient</string>
 
     <!-- Lyrics Editor & Backup Auto-Sync -->
     <string name="edit_lyrics">Edit Lyrics</string>
@@ -507,7 +465,6 @@
     <string name="usb_bit_perfect_desc">Send audio straight to a USB Audio Class 2.0 DAC, bypassing Android\'s mixer. Equalizer, effects, crossfade, speed and pitch are off while it is active. Applies from the next track.</string>
     <string name="usb_bit_perfect_unsupported">Needs Android 10 or newer and a device with USB host support.</string>
     <string name="usb_signal_path">DAC signal path</string>
-    <string name="usb_signal_path_desc">See exactly what reaches your DAC</string>
     <string name="usb_status_active">Active · %1$s</string>
     <string name="usb_status_ready">Ready · %1$s</string>
     <string name="usb_status_no_dac">No USB DAC connected</string>

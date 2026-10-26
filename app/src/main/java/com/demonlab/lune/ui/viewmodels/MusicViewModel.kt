@@ -253,26 +253,6 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun reorderPlaylist(playlistId: Long, fromIndex: Int, toIndex: Int) {
-        viewModelScope.launch {
-            withContext(Dispatchers.IO) {
-                val db = MusicDatabase.getDatabase(getApplication())
-                val dao = db.playlistDao()
-                val mappings = dao.getPlaylistSongs(playlistId).toMutableList()
-                if (fromIndex in mappings.indices && toIndex in mappings.indices) {
-                    val moved = mappings.removeAt(fromIndex)
-                    mappings.add(toIndex, moved)
-                    val updatedMappings = mappings.mapIndexed { index, mapping ->
-                        mapping.copy(position = index)
-                    }
-                    dao.updatePlaylistSongs(updatedMappings)
-                }
-            }
-            awaitLoadPlaylists()
-            notifyPlaylistsChanged()
-        }
-    }
-
     fun savePlaylistOrder(playlistId: Long, orderedSongIds: List<Long>) {
         viewModelScope.launch {
             withContext(Dispatchers.IO) {
@@ -384,18 +364,6 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             }
             val covers = allSongs.filter { it.id in ids.take(4) }.map { it.coverUrl ?: it.albumArtUri?.toString() }
             callback(covers)
-        }
-    }
-
-    fun getPlaylistInfo(playlistId: Long, callback: (Int, Long) -> Unit) {
-        viewModelScope.launch {
-            val ids = withContext(Dispatchers.IO) {
-                com.demonlab.lune.data.MusicDatabase.getDatabase(getApplication()).playlistDao().getSongIdsForPlaylist(playlistId)
-            }
-            val playlistSongs = allSongs.filter { it.id in ids }
-            val count = playlistSongs.size
-            val totalDuration = playlistSongs.sumOf { it.duration }
-            callback(count, totalDuration)
         }
     }
 

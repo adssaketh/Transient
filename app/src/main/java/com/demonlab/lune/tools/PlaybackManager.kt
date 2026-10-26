@@ -1098,7 +1098,6 @@ class PlaybackManager private constructor(private val context: Context) {
     }
 
     fun getEqNumberOfBands(): Short = musicService?.equalizer?.numberOfBands ?: 0
-    fun getEqBandLevelRange(): ShortArray? = musicService?.equalizer?.bandLevelRange
     fun getEqCenterFreq(band: Short): Int = musicService?.equalizer?.getCenterFreq(band) ?: 0
     fun getEqBandLevel(band: Short): Short = musicService?.equalizer?.getBandLevel(band) ?: 0
 

@@ -487,33 +487,6 @@ class LuneWidgetProvider : AppWidgetProvider() {
             return scaledBitmap
         }
 
-        fun getRoundedCornerBitmap(bitmap: Bitmap, pixels: Int): Bitmap {
-            val maxDim = 320
-            val scaledBitmap = if (bitmap.width > maxDim || bitmap.height > maxDim) {
-                val aspect = bitmap.width.toFloat() / bitmap.height.toFloat()
-                val targetW = if (aspect >= 1f) maxDim else (maxDim * aspect).toInt()
-                val targetH = if (aspect <= 1f) maxDim else (maxDim / aspect).toInt()
-                Bitmap.createScaledBitmap(bitmap, Math.max(1, targetW), Math.max(1, targetH), true)
-            } else bitmap
-
-            val output = Bitmap.createBitmap(scaledBitmap.width, scaledBitmap.height, Bitmap.Config.ARGB_8888)
-            val canvas = Canvas(output)
-            val paint = Paint().apply { isAntiAlias = true }
-            val rect = Rect(0, 0, scaledBitmap.width, scaledBitmap.height)
-            val rectF = RectF(rect)
-            val roundPx = pixels.toFloat()
-            canvas.drawARGB(0, 0, 0, 0)
-            paint.color = -0xbdbdbe
-            canvas.drawRoundRect(rectF, roundPx, roundPx, paint)
-            paint.xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_IN)
-            canvas.drawBitmap(scaledBitmap, rect, rect, paint)
-
-            if (scaledBitmap != bitmap) {
-                scaledBitmap.recycle()
-            }
-            return output
-        }
-
         fun fastBlur(sentBitmap: Bitmap, scale: Float, radius: Int): Bitmap? {
             var width = Math.round(sentBitmap.width * scale)
             var height = Math.round(sentBitmap.height * scale)

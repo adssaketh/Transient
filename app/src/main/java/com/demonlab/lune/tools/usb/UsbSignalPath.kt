@@ -69,8 +69,6 @@ object UsbSignalPathStore {
     fun setOutput(status: UsbOutputStatus?) { _output.value = status }
     fun setSource(format: SourceFormat?) { _source.value = format }
     fun postNotice(notice: Notice) { _notice.value = notice }
-    fun clearNotice() { _notice.value = null }
-
     // ── Interpretation ────────────────────────────────────────────────────────
 
     private val LOSSLESS_MIME = setOf(
