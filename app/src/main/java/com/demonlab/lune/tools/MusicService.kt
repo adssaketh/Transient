@@ -85,6 +85,8 @@ class MusicService : MediaLibraryService() {
     private var aiff16SongId = -1L
     // AIFF song the ExoPlayer path could not play; it falls back to MediaPlayer.
     private var aiffPlainFailedId = -1L
+    // Non-AIFF song MediaPlayer rejected; retried once through ExoPlayer (+FFmpeg) before being skipped.
+    private var exoFallbackSongId = -1L
     /** After repeated failures USB stays off for the session (until the DAC is re-plugged). */
     private var usbSuppressed = false
     private var mediaSession: MediaLibrarySession? = null
@@ -945,6 +947,7 @@ class MusicService : MediaLibraryService() {
                         isDucked = false
                         applyBalance(PlaybackManager.getInstance(applicationContext).balance)
                         start()
+                        PlaybackManager.getInstance(applicationContext).refreshVisualizerSession()
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                             try {
                                 val speed = pm.playbackSpeed
@@ -984,6 +987,17 @@ class MusicService : MediaLibraryService() {
                             serviceScope.launch {
                                 delay(300)
                                 playSong(current)
+                            }
+                        }
+                        true
+                    } else if (!AiffSupport.isAiff(song) && exoFallbackSongId != song.id && aiffPlainFailedId != song.id) {
+                        // MediaPlayer cannot decode this file: try ExoPlayer with the FFmpeg decoder before giving up.
+                        Log.w("MusicService", "MediaPlayer failed (what=$what, extra=$extra), trying ExoPlayer: ${song.title}")
+                        exoFallbackSongId = song.id
+                        serviceScope.launch {
+                            delay(100)
+                            if (PlaybackManager.getInstance(applicationContext).currentSong?.id == song.id) {
+                                playSong(song)
                             }
                         }
                         true
@@ -1196,6 +1210,7 @@ class MusicService : MediaLibraryService() {
 
                 mediaPlayer?.setVolume(1f, 1f)
                 applyBalance(PlaybackManager.getInstance(applicationContext).balance)
+                playbackManager.refreshVisualizerSession()
                 
                 // Reconfigure the listener for the promoted player
                 mediaPlayer?.isLooping = PlaybackManager.getInstance(applicationContext).shouldLoopCurrentSong()
@@ -1426,7 +1441,8 @@ class MusicService : MediaLibraryService() {
         usbEngine?.isPlaying == true || mediaPlayer?.isPlaying == true || secondaryPlayer?.isPlaying == true
     fun currentPosition(): Int = usbEngine?.positionMs ?: (mediaPlayer?.currentPosition ?: 0)
     fun duration(): Int = usbEngine?.durationMs ?: (mediaPlayer?.duration ?: 0)
-    fun getAudioSessionId(): Int = mediaPlayer?.audioSessionId ?: 0
+    fun getAudioSessionId(): Int =
+        usbEngine?.takeIf { it.plainOutput }?.audioSessionId ?: (mediaPlayer?.audioSessionId ?: 0)
 
     fun setLooping(looping: Boolean) {
         try {
@@ -1574,6 +1590,7 @@ class MusicService : MediaLibraryService() {
                             acquireWakeLock()
                             start()
                         }
+                        pm.refreshVisualizerSession()
                         pm.updatePlayingState(andPlay)
                         if (andPlay) {
                             startWidgetUpdateTimer()
@@ -2090,7 +2107,7 @@ class MusicService : MediaLibraryService() {
 
     /** AIFF on the normal output plays through ExoPlayer, which handles 24/32-bit PCM that MediaPlayer may reject. */
     private fun shouldUsePlainAiffEngine(song: Song): Boolean =
-        AiffSupport.isAiff(song) && song.id != aiffPlainFailedId
+        (AiffSupport.isAiff(song) || song.id == exoFallbackSongId) && song.id != aiffPlainFailedId
 
     private fun startPlainAiffPlayback(song: Song, positionMs: Long, andPlay: Boolean) {
         if (android.os.Looper.myLooper() != android.os.Looper.getMainLooper()) {
@@ -2183,6 +2200,7 @@ class MusicService : MediaLibraryService() {
             pm.updatePlayingState(playing)
             if (playing) startWidgetUpdateTimer() else stopWidgetUpdateTimer()
             updatePlaybackState()
+            pm.refreshVisualizerSession()
             serviceScope.launch {
                 val art = fetchAlbumArt(song)
                 updateMetadata(song, art)

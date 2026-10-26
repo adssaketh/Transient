@@ -67,6 +67,7 @@ class UsbPlaybackEngine(
     // are not guaranteed to be on main, so reads from other threads get a snapshot refreshed on main.
     @Volatile private var snapPositionMs = 0
     @Volatile private var snapDurationMs = 0
+    @Volatile private var snapAudioSessionId = 0
     @Volatile private var snapPlaying = false
 
     // Each load() gets a token so ready/ended/failure fire at most once per track.
@@ -172,7 +173,10 @@ class UsbPlaybackEngine(
         if (plainOutput) {
             // Float output keeps 24/32-bit PCM intact (float32 holds 24 bits exactly); no resampling or
             // bit-depth reduction is done by the app. The system mixer still applies for speaker/Bluetooth.
-            val plainRenderers = DefaultRenderersFactory(appContext).setEnableAudioFloatOutput(true)
+            // Extension mode ON: FFmpeg picks up formats Android's MediaCodec cannot decode (WMA, APE, ...).
+            val plainRenderers = DefaultRenderersFactory(appContext)
+                .setEnableAudioFloatOutput(true)
+                .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
             val plain = ExoPlayer.Builder(appContext, plainRenderers)
                 .setAudioAttributes(
                     AudioAttributes.Builder()
@@ -266,7 +270,12 @@ class UsbPlaybackEngine(
         }
     }
 
+    /** ExoPlayer's audio session (0 when unknown); lets the visualizer / effects attach to the plain engine. */
+    val audioSessionId: Int
+        get() = if (onMain()) player.audioSessionId.also { snapAudioSessionId = it } else snapAudioSessionId
+
     private fun refreshSnapshot() {
+        snapAudioSessionId = player.audioSessionId
         snapPlaying = readPlaying()
         snapPositionMs = readPosition()
         snapDurationMs = readDuration()

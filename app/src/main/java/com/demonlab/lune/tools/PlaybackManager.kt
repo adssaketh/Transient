@@ -259,6 +259,7 @@ class PlaybackManager private constructor(private val context: Context) {
     private val _visualizerData = MutableStateFlow(FloatArray(48) { 0.1f })
     val visualizerData = _visualizerData.asStateFlow()
     private var visualizer: Visualizer? = null
+    private var visualizerSessionId = 0
     private var lastMagnitudes = FloatArray(48) { 0.1f }
     private val smoothingFactor = 1f // 0.7f for very fast and reactive movement
 
@@ -533,6 +534,7 @@ class PlaybackManager private constructor(private val context: Context) {
 
         try {
             visualizer?.release()
+            visualizerSessionId = sessionId
             visualizer = Visualizer(sessionId).apply {
                 captureSize = Visualizer.getCaptureSizeRange()[1]
                 setDataCaptureListener(object : Visualizer.OnDataCaptureListener {
@@ -541,23 +543,32 @@ class PlaybackManager private constructor(private val context: Context) {
                         if (data == null) return
                         val barCount = 48
                         val newMagnitudes = FloatArray(barCount)
-                        
-                        // Spreading frequency capture across a wider range
+
+                        // getFft layout: [DC, Nyquist, re1, im1, re2, im2, ...]. Bars are spaced logarithmically in
+                        // frequency (like hearing), otherwise only the first few bars ever move because music energy
+                        // is concentrated in the low bins. Higher bands get a boost to offset the natural spectral tilt.
+                        val bins = data.size / 2
+                        val minBin = 2f
+                        val maxBin = (bins * 0.55f).coerceAtLeast(minBin + 8f)
+                        val ratio = maxBin / minBin
                         for (i in 0 until barCount) {
-                            val index = 2 + (i * 4) // Skip DC/Nyquist and sample every 2nd frequency
-                            if (index + 1 >= data.size) break
-                            
-                            val real = data[index].toInt()
-                            val imag = data[index + 1].toInt()
-                            val magnitude = Math.sqrt((real * real + imag * imag).toDouble()).toFloat()
-                            
-                            // Normalize with a much lower divisor (32f) for maximum "growth"
-                            val normalized = (magnitude / 32f).coerceIn(0.1f, 1.2f)
-                            
-                            // Exponential Moving Average (EMA) smoothing
-                            newMagnitudes[i] = lastMagnitudes[i] + smoothingFactor * (normalized - lastMagnitudes[i])
+                            val lo = (minBin * Math.pow(ratio.toDouble(), i.toDouble() / barCount)).toInt()
+                            val hi = (minBin * Math.pow(ratio.toDouble(), (i + 1).toDouble() / barCount)).toInt()
+                                .coerceAtLeast(lo + 1)
+                            var peak = 0f
+                            for (k in lo until minOf(hi, bins)) {
+                                val real = data[2 * k].toInt()
+                                val imag = data[2 * k + 1].toInt()
+                                val m = Math.sqrt((real * real + imag * imag).toDouble()).toFloat()
+                                if (m > peak) peak = m
+                            }
+                            val tilt = 1f + 3f * i / (barCount - 1)
+                            val target = (kotlin.math.ln(1f + peak * tilt) / kotlin.math.ln(61f)).coerceIn(0.1f, 1f)
+                            // Fast attack, slower release: lively but not flickery.
+                            val prev = lastMagnitudes[i]
+                            newMagnitudes[i] = if (target > prev) target else prev + 0.35f * (target - prev)
                         }
-                        
+
                         lastMagnitudes = newMagnitudes
                         _visualizerData.value = newMagnitudes
                     }
@@ -569,10 +580,21 @@ class PlaybackManager private constructor(private val context: Context) {
         }
     }
 
+    /**
+     * Every new MediaPlayer (next song, crossfade, ExoPlayer engine) has its own audio session, so a Visualizer
+     * attached to the previous one goes silent. The service calls this whenever the session may have changed.
+     */
+    fun refreshVisualizerSession() {
+        if (visualizer == null) return
+        val newId = musicService?.getAudioSessionId() ?: 0
+        if (newId != 0 && newId != visualizerSessionId) startVisualizer()
+    }
+
     fun stopVisualizer() {
         visualizer?.enabled = false
         visualizer?.release()
         visualizer = null
+        visualizerSessionId = 0
         val resetData = FloatArray(48) { 0.1f }
         lastMagnitudes = resetData
         _visualizerData.value = resetData
