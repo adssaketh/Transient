@@ -1027,11 +1027,13 @@ fun MainScreen(
 
     var showSearchScreen by remember { mutableStateOf(false) }
 
+    val auroraBackdrop = rememberAuroraBackdrop()
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.surface)
     ) {
+        if (auroraBackdrop) AuroraBackdrop()
         val scrollToCurrentTrigger = remember { mutableStateOf(0) }
 
         if (hasBlurBackgroundMini && currentSong != null && !isPlayerExpanded) {
@@ -1076,6 +1078,7 @@ fun MainScreen(
         }
 
         Scaffold(
+            containerColor = if (auroraBackdrop) Color.Transparent else MaterialTheme.colorScheme.background,
             snackbarHost = { 
                 SnackbarHost(
                     hostState = snackbarHostState,
@@ -1253,6 +1256,7 @@ fun MainScreen(
                             Surface(
                                 shape = CircleShape,
                                 color = actionBtnBg,
+                                border = if (!hasBlurBackgroundMini && rememberGlassUi()) glassBorder() else null,
                                 modifier = Modifier
                                     .size(40.dp)
                                     .bounceClick()
@@ -1275,6 +1279,7 @@ fun MainScreen(
                             Surface(
                                 shape = CircleShape,
                                 color = actionBtnBg,
+                                border = if (!hasBlurBackgroundMini && rememberGlassUi()) glassBorder() else null,
                                 modifier = Modifier
                                     .size(40.dp)
                                     .bounceClick()
@@ -1305,6 +1310,7 @@ fun MainScreen(
                             Surface(
                                 shape = CircleShape,
                                 color = actionBtnBg,
+                                border = if (!hasBlurBackgroundMini && rememberGlassUi()) glassBorder() else null,
                                 modifier = Modifier
                                     .size(40.dp)
                                     .bounceClick()
@@ -1329,6 +1335,29 @@ fun MainScreen(
             }
         ) { innerPadding ->
             Column(modifier = Modifier.padding(top = innerPadding.calculateTopPadding())) {
+
+                if (auroraBackdrop) {
+                    SectionChips(
+                        folders = folders,
+                        selected = currentActiveFolder,
+                        labelFor = { f ->
+                            when (f) {
+                                "RESUME" -> sTabResume
+                                "MIXES" -> sTabMixes
+                                "ALL" -> sTabAll
+                                "FAVORITES" -> sTabFavorites
+                                "ALBUMS" -> sTabAlbums
+                                "ARTISTS" -> sTabArtists
+                                "GENRES" -> sTabGenres
+                                "PLAYLISTS" -> sTabPlaylists
+                                "FOLDERS" -> sTabFolders
+                                else -> f
+                            }
+                        },
+                        onSelect = onSelectedFolderChange,
+                        modifier = Modifier.padding(bottom = 10.dp)
+                    )
+                }
 
                 HorizontalPager(
                     state = pagerState,

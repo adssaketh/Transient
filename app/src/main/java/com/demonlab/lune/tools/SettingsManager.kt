@@ -10,6 +10,18 @@ import kotlinx.coroutines.flow.asStateFlow
 class SettingsManager(context: Context) {
     private val prefs: SharedPreferences = context.getSharedPreferences("lune_settings", Context.MODE_PRIVATE)
 
+    init {
+        // Aurora redesign: one-time switch to the Aurora Glass palette and glass look (both can still be changed in settings).
+        if (prefs.getInt("design_version", 0) < 2) {
+            prefs.edit()
+                .putBoolean("use_custom_colors", true)
+                .putInt("custom_color_palette", 6)
+                .putBoolean("glass_ui_enabled", true)
+                .putInt("design_version", 2)
+                .apply()
+        }
+    }
+
     private val _customTitleFlow = MutableStateFlow(prefs.getString("custom_title", "") ?: "")
     val customTitleFlow: StateFlow<String> = _customTitleFlow.asStateFlow()
 

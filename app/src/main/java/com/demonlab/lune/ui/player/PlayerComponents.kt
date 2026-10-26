@@ -1,5 +1,7 @@
 package com.demonlab.lune.ui.player
 
+import com.demonlab.lune.ui.components.AuroraBackdrop
+import com.demonlab.lune.ui.components.rememberAuroraBackdrop
 import com.demonlab.lune.ui.components.glassSheen
 import com.demonlab.lune.ui.components.glassBorder
 import com.demonlab.lune.ui.components.rememberGlassUi
@@ -1016,11 +1018,13 @@ fun FullPlayer(
         }
     }
 
+    val auroraBackdrop = rememberAuroraBackdrop()
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.surface)
     ) {
+        if (auroraBackdrop && !hasBlurBackground) AuroraBackdrop()
         if (!isCinematic && hasBlurBackground) {
             Crossfade(
                 targetState = song.toArtwork(),
@@ -1543,7 +1547,7 @@ fun FullPlayer(
                     )
                 }
 
-                val pillBg = if (useBlurControls) blurContainerColor else if (isAmoled) Color(0xFF222222) else if (isDarkTheme) Color.Black.copy(alpha = 0.40f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.85f)
+                val pillBg = if (useBlurControls) blurContainerColor else if (isAmoled) Color(0xFF222222) else if (isDarkTheme) (if (rememberGlassUi()) Color.White.copy(alpha = 0.10f) else Color.Black.copy(alpha = 0.40f)) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.85f)
                 val hasLyrics = playbackManager.currentLyrics != null
                 val lyricsIconColor = if (hasLyrics) {
                     if (useBlurControls) Color.White else MaterialTheme.colorScheme.primary
@@ -1720,7 +1724,7 @@ fun FullPlayer(
             } else if (isAmoled) {
                 Color(0xFF222222)
             } else {
-                if (isDarkTheme) Color.Black.copy(alpha = 0.40f) else MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
+                if (isDarkTheme) (if (rememberGlassUi()) Color.White.copy(alpha = 0.10f) else Color.Black.copy(alpha = 0.40f)) else MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
             }
             val activeIconTint = if (useBlurControls) {
                 Color.White
@@ -1769,8 +1773,9 @@ fun FullPlayer(
                 label = "PlayWidthAnim"
             )
 
-            val playShape = RoundedCornerShape(30.dp)
-            val skipShape = RoundedCornerShape(26.dp)
+            val glassControls = rememberGlassUi()
+            val playShape = if (glassControls) RoundedCornerShape(34.dp) else RoundedCornerShape(30.dp)
+            val skipShape = if (glassControls) CircleShape else RoundedCornerShape(26.dp)
 
             Box(
                 modifier = Modifier

@@ -98,7 +98,12 @@ private val AuroraGlassLight = lightColorScheme(
     tertiary = Color(0xFFB0407A),
     background = Color(0xFFF7F4FF),
     surface = Color(0xFFF7F4FF),
-    surfaceVariant = Color(0xFFE6E0FA)
+    surfaceVariant = Color(0xFFE6E0FA),
+    surfaceContainerLowest = Color(0xFFFFFFFF),
+    surfaceContainerLow = Color(0xFFF1ECFF),
+    surfaceContainer = Color(0xFFEBE5FB),
+    surfaceContainerHigh = Color(0xFFE4DDF8),
+    surfaceContainerHighest = Color(0xFFDDD5F4)
 )
 private val AuroraGlassDark = darkColorScheme(
     primary = Color(0xFF8B7BFF),
@@ -111,7 +116,14 @@ private val AuroraGlassDark = darkColorScheme(
     surface = Color(0xFF110C33),
     surfaceVariant = Color(0xFF241B55),
     onSurface = Color(0xFFF4F2FF),
-    onSurfaceVariant = Color(0xFFC2BCF0)
+    onSurfaceVariant = Color(0xFFC2BCF0),
+    surfaceContainerLowest = Color(0xFF0A0720),
+    surfaceContainerLow = Color(0xFF0F0B2C),
+    surfaceContainer = Color(0xFF15103C),
+    surfaceContainerHigh = Color(0xFF1C174A),
+    surfaceContainerHighest = Color(0xFF261F5C),
+    outline = Color(0xFF7A73BC),
+    outlineVariant = Color(0xFF3A3470)
 )
 
 @Composable
