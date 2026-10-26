@@ -81,6 +81,10 @@ class MusicService : MediaLibraryService() {
     private var usbConsecutiveFailures = 0
     /** Tracks in a row that failed to play; stops an unplayable queue from skipping forever. */
     private var consecutivePlaybackErrors = 0
+    // AIFF song that failed at its native bit depth and is being retried as 16-bit PCM.
+    private var aiff16SongId = -1L
+    // AIFF song the ExoPlayer path could not play; it falls back to MediaPlayer.
+    private var aiffPlainFailedId = -1L
     /** After repeated failures USB stays off for the session (until the DAC is re-plugged). */
     private var usbSuppressed = false
     private var mediaSession: MediaLibrarySession? = null
@@ -827,7 +831,7 @@ class MusicService : MediaLibraryService() {
     private fun setPlayerDataSource(player: MediaPlayer, song: Song): Boolean {
         // Android's MediaPlayer cannot decode AIFF; serve it as an on-the-fly WAV view instead.
         if (AiffSupport.isAiff(song)) {
-            val reader = AiffWavReader.open(applicationContext, song.uri)
+            val reader = AiffWavReader.open(applicationContext, song.uri, convertTo16Bit = aiff16SongId == song.id)
             if (reader != null) {
                 try {
                     player.setDataSource(AiffMediaDataSource(reader))
@@ -898,6 +902,10 @@ class MusicService : MediaLibraryService() {
 
         if (shouldUseUsbEngine(song)) {
             startUsbPlayback(song, 0L, andPlay = true)
+            return
+        }
+        if (shouldUsePlainAiffEngine(song)) {
+            startPlainAiffPlayback(song, 0L, andPlay = true)
             return
         }
         releaseUsbEngine()
@@ -976,6 +984,17 @@ class MusicService : MediaLibraryService() {
                             serviceScope.launch {
                                 delay(300)
                                 playSong(current)
+                            }
+                        }
+                        true
+                    } else if (AiffSupport.isAiff(song) && aiff16SongId != song.id) {
+                        // MediaPlayer rejected the AIFF at its native bit depth: retry once as 16-bit PCM.
+                        Log.w("MusicService", "AIFF failed at native depth (what=$what, extra=$extra), retrying as 16-bit: ${song.title}")
+                        aiff16SongId = song.id
+                        serviceScope.launch {
+                            delay(100)
+                            if (PlaybackManager.getInstance(applicationContext).currentSong?.id == song.id) {
+                                playSong(song)
                             }
                         }
                         true
@@ -1508,6 +1527,10 @@ class MusicService : MediaLibraryService() {
 
         if (shouldUseUsbEngine(song)) {
             startUsbPlayback(song, positionMs, andPlay)
+            return
+        }
+        if (shouldUsePlainAiffEngine(song)) {
+            startPlainAiffPlayback(song, positionMs, andPlay)
             return
         }
         releaseUsbEngine()
@@ -2050,6 +2073,7 @@ class MusicService : MediaLibraryService() {
         PlaybackManager.getInstance(applicationContext).isTransitioning = false
         releaseStandardPlayers()
 
+        if (usbEngine?.plainOutput == true) releaseUsbEngine()
         val engine = usbEngine ?: try {
             UsbPlaybackEngine(applicationContext, usbCallbacks).also { usbEngine = it }
         } catch (t: Throwable) {
@@ -2060,6 +2084,51 @@ class MusicService : MediaLibraryService() {
         }
         usbSkipSongId = null
         engine.load(song, positionMs, andPlay)
+    }
+
+    // ───────────────────────────── AIFF through ExoPlayer (native bit depth) ─────────────────────────────
+
+    /** AIFF on the normal output plays through ExoPlayer, which handles 24/32-bit PCM that MediaPlayer may reject. */
+    private fun shouldUsePlainAiffEngine(song: Song): Boolean =
+        AiffSupport.isAiff(song) && song.id != aiffPlainFailedId
+
+    private fun startPlainAiffPlayback(song: Song, positionMs: Long, andPlay: Boolean) {
+        if (android.os.Looper.myLooper() != android.os.Looper.getMainLooper()) {
+            serviceScope.launch { startPlainAiffPlayback(song, positionMs, andPlay) }
+            return
+        }
+        monitorJob?.cancel()
+        isCrossfading = false
+        PlaybackManager.getInstance(applicationContext).isTransitioning = false
+        releaseStandardPlayers()
+
+        if (usbEngine?.plainOutput == false) releaseUsbEngine()
+        val engine = usbEngine ?: try {
+            UsbPlaybackEngine(applicationContext, aiffCallbacks, plainOutput = true).also { usbEngine = it }
+        } catch (t: Throwable) {
+            Log.e("MusicService", "Could not start the ExoPlayer AIFF engine", t)
+            usbEngine = null
+            aiffPlainFailedId = song.id
+            if (andPlay) playSong(song) else restorePlayback(song, positionMs, andPlay = false)
+            return
+        }
+        engine.load(song, positionMs, andPlay)
+    }
+
+    private val aiffCallbacks = object : UsbPlaybackEngine.Callbacks {
+        override fun onReady(song: Song, playing: Boolean) = usbCallbacks.onReady(song, playing)
+
+        override fun onEnded(song: Song) = usbCallbacks.onEnded(song)
+
+        override fun onFailure(song: Song, reason: String) {
+            // ExoPlayer could not play this AIFF: fall back to MediaPlayer (which retries as 16-bit if needed).
+            Log.w("MusicService", "ExoPlayer AIFF playback failed for '${song.title}' ($reason), falling back to MediaPlayer")
+            aiffPlainFailedId = song.id
+            val pm = PlaybackManager.getInstance(applicationContext)
+            val wantsToPlay = pm.isPlaying
+            releaseUsbEngine()
+            if (wantsToPlay) playSong(song) else restorePlayback(song, 0L, andPlay = false)
+        }
     }
 
     /** Release MediaPlayer + AudioFX so nothing stale is left bound to a dead audio session. */
@@ -2161,7 +2230,7 @@ class MusicService : MediaLibraryService() {
         usbSuppressed = false
         usbConsecutiveFailures = 0
         usbSkipSongId = null
-        if (usbEngine != null) {
+        if (usbEngine != null && usbEngine?.plainOutput != true) {
             UsbSignalPathStore.postNotice(UsbSignalPathStore.Notice.DAC_UNPLUGGED)
             pause()             // saves the position while the engine can still report it
             releaseUsbEngine()
@@ -2549,7 +2618,7 @@ class MusicService : MediaLibraryService() {
     }
 
     private fun getOutputIconRes(): Int {
-        if (usbEngine != null) return R.drawable.ic_headphones
+        if (usbEngine != null && usbEngine?.plainOutput != true) return R.drawable.ic_headphones
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             val devices = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
             for (device in devices) {
@@ -2563,7 +2632,7 @@ class MusicService : MediaLibraryService() {
     }
 
     private fun getOutputName(): String {
-        if (usbEngine != null) return getString(R.string.output_usb_dac)
+        if (usbEngine != null && usbEngine?.plainOutput != true) return getString(R.string.output_usb_dac)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             val devices = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
             for (device in devices) {

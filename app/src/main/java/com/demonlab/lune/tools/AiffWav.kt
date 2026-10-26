@@ -15,6 +15,12 @@ import java.nio.channels.FileChannel
 object AiffSupport {
     private val EXTENSIONS = setOf("aif", "aiff", "aifc")
 
+    /** Duration of an AIFF file read from its own header (MediaStore often reports 0 for AIFF), or 0 if unreadable. */
+    fun probeDurationMs(context: Context, uri: Uri): Long {
+        val r = AiffWavReader.open(context, uri) ?: return 0L
+        return try { r.durationMs } finally { r.close() }
+    }
+
     fun isAiff(song: Song): Boolean {
         val ext = song.path.substringAfterLast('.', "").lowercase()
         return ext in EXTENSIONS || song.format.lowercase() in EXTENSIONS
@@ -37,11 +43,19 @@ class AiffWavReader private constructor(
     private val bytesPerSample: Int,
     private val swapBytes: Boolean,
     private val flipSignBit: Boolean,
-    private val header: ByteArray
+    private val header: ByteArray,
+    /** When true the virtual WAV is 16-bit (top 16 bits of each source sample), for players that reject 24/32-bit WAV. */
+    private val convert16: Boolean,
+    /** Duration of the audio in milliseconds, computed from the AIFF header. */
+    val durationMs: Long
 ) : Closeable {
 
+    /** Length of the audio data as exposed in the virtual WAV. */
+    private val outDataLength: Long =
+        if (convert16) (dataLength / bytesPerSample) * 2 else dataLength
+
     /** Length of the virtual WAV file. */
-    val size: Long = header.size + dataLength
+    val size: Long = header.size + outDataLength
 
     /** Random-access read of the virtual WAV file. Returns -1 at/after the end. */
     fun readAt(position: Long, buffer: ByteArray, offset: Int, length: Int): Int {
@@ -57,7 +71,7 @@ class AiffWavReader private constructor(
         }
         if (written < length && pos < size) {
             val dataPos = pos - header.size
-            val want = minOf((length - written).toLong(), dataLength - dataPos).toInt()
+            val want = minOf((length - written).toLong(), outDataLength - dataPos).toInt()
             val read = readSamples(dataPos, buffer, offset + written, want)
             if (read <= 0) return if (written > 0) written else -1
             written += read
@@ -65,7 +79,40 @@ class AiffWavReader private constructor(
         return written
     }
 
+    private fun readSamples16(dataPos: Long, out: ByteArray, outOffset: Int, want: Int): Int {
+        val bps = bytesPerSample
+        val firstSample = dataPos / 2
+        val lead = (dataPos % 2).toInt()
+        val sampleCount = (lead + want + 1) / 2
+        val tmp = ByteArray(sampleCount * bps)
+        val buf = ByteBuffer.wrap(tmp)
+        var total = 0
+        while (buf.hasRemaining()) {
+            val n = channel.read(buf, dataStart + firstSample * bps + total)
+            if (n <= 0) break
+            total += n
+        }
+        val whole = total / bps
+        val conv = ByteArray(whole * 2)
+        for (k in 0 until whole) {
+            val b = k * bps
+            val hi: Int
+            val lo: Int
+            when {
+                bps == 1 -> { hi = tmp[b].toInt(); lo = 0 }           // 8-bit AIFF is signed
+                swapBytes -> { hi = tmp[b].toInt(); lo = tmp[b + 1].toInt() and 0xFF }   // big-endian source
+                else -> { hi = tmp[b + bps - 1].toInt(); lo = tmp[b + bps - 2].toInt() and 0xFF } // little-endian source
+            }
+            conv[k * 2] = lo.toByte()
+            conv[k * 2 + 1] = hi.toByte()
+        }
+        val n = minOf(want, (conv.size - lead).coerceAtLeast(0))
+        System.arraycopy(conv, lead, out, outOffset, n)
+        return n
+    }
+
     private fun readSamples(dataPos: Long, out: ByteArray, outOffset: Int, want: Int): Int {
+        if (convert16) return readSamples16(dataPos, out, outOffset, want)
         val bps = bytesPerSample
         if (!swapBytes && !flipSignBit) {
             val n = channel.read(ByteBuffer.wrap(out, outOffset, want), dataStart + dataPos)
@@ -111,7 +158,7 @@ class AiffWavReader private constructor(
     companion object {
         private const val TAG = "AiffWavReader"
 
-        fun open(context: Context, uri: Uri): AiffWavReader? {
+        fun open(context: Context, uri: Uri, convertTo16Bit: Boolean = false): AiffWavReader? {
             val pfd = try {
                 context.contentResolver.openFileDescriptor(uri, "r")
             } catch (e: Exception) {
@@ -119,7 +166,7 @@ class AiffWavReader private constructor(
                 null
             } ?: return null
             return try {
-                parse(pfd) ?: run { pfd.close(); null }
+                parse(pfd, convertTo16Bit) ?: run { pfd.close(); null }
             } catch (e: Exception) {
                 Log.w(TAG, "Not a usable AIFF ($uri): ${e.message}")
                 try { pfd.close() } catch (_: Exception) {}
@@ -127,7 +174,7 @@ class AiffWavReader private constructor(
             }
         }
 
-        private fun parse(pfd: ParcelFileDescriptor): AiffWavReader? {
+        private fun parse(pfd: ParcelFileDescriptor, convertTo16Bit: Boolean): AiffWavReader? {
             val channel = FileInputStream(pfd.fileDescriptor).channel
             val fileSize = channel.size()
             val head = readFully(channel, 0, 12) ?: return null
@@ -190,15 +237,20 @@ class AiffWavReader private constructor(
             dataLen -= dataLen % frameBytes
             if (dataLen <= 0) return null
 
+            val convert16 = convertTo16Bit && bps != 2
+            val outBps = if (convert16) 2 else bps
+            val outLen = if (convert16) (dataLen / bps) * 2 else dataLen
+            val durationMs = dataLen * 1000L / (rate.toLong() * frameBytes)
+
             val h = ByteBuffer.allocate(44).order(ByteOrder.LITTLE_ENDIAN)
-            h.put("RIFF".toByteArray(Charsets.US_ASCII)); h.putInt((36 + dataLen).toInt())
+            h.put("RIFF".toByteArray(Charsets.US_ASCII)); h.putInt((36 + outLen).toInt())
             h.put("WAVE".toByteArray(Charsets.US_ASCII))
             h.put("fmt ".toByteArray(Charsets.US_ASCII)); h.putInt(16)
             h.putShort(1)                                          // PCM
             h.putShort(channels.toShort()); h.putInt(rate)
-            h.putInt(rate * channels * bps)
-            h.putShort((channels * bps).toShort()); h.putShort((bps * 8).toShort())
-            h.put("data".toByteArray(Charsets.US_ASCII)); h.putInt(dataLen.toInt())
+            h.putInt(rate * channels * outBps)
+            h.putShort((channels * outBps).toShort()); h.putShort((outBps * 8).toShort())
+            h.put("data".toByteArray(Charsets.US_ASCII)); h.putInt(outLen.toInt())
 
             return AiffWavReader(
                 owner = pfd,
@@ -208,7 +260,9 @@ class AiffWavReader private constructor(
                 bytesPerSample = bps,
                 swapBytes = !littleEndian && bps > 1,
                 flipSignBit = bps == 1,
-                header = h.array()
+                header = h.array(),
+                convert16 = convert16,
+                durationMs = durationMs
             )
         }
 

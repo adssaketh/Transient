@@ -161,7 +161,7 @@ class MusicProvider(private val context: Context) {
                 var title = cursor.getString(titleColumn)
                 var artist = cursor.getString(artistColumn)
                 var album = cursor.getString(albumColumn)
-                val duration = cursor.getLong(durationColumn)
+                var duration = cursor.getLong(durationColumn)
                 val albumId = cursor.getLong(albumIdColumn)
                 val data = cursor.getString(dataColumn)
                 val dateAdded = cursor.getLong(dateAddedColumn)
@@ -188,6 +188,10 @@ class MusicProvider(private val context: Context) {
 
                 val folderName = data.substringBeforeLast("/").substringAfterLast("/")
                 val extension = data.substringAfterLast(".").lowercase()
+                if (duration <= 0L && (extension == "aif" || extension == "aiff" || extension == "aifc")) {
+                    // MediaStore cannot read AIFF durations (shows 0:00): take it from the file's own header.
+                    duration = AiffSupport.probeDurationMs(context, ContentUris.withAppendedId(collection, id))
+                }
                 val isHiFiFile = extension == "flac" || extension == "wav" || extension == "alac" || extension == "aiff" || extension == "aif" || extension == "aifc" || extension == "dsf" || extension == "dff"
                 val isHiFi = settingsManager.enableHiFi && isHiFiFile
                 val format = when (extension) {

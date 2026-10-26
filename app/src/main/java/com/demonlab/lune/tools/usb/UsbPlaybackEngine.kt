@@ -38,7 +38,12 @@ import com.demonlab.lune.tools.Song
 @OptIn(UnstableApi::class)
 class UsbPlaybackEngine(
     context: Context,
-    private val callbacks: Callbacks
+    private val callbacks: Callbacks,
+    /**
+     * true = play through the phone's normal output (speaker / Bluetooth / wired) with ExoPlayer and no
+     * USB DAC involved. Used for AIFF, which Android's MediaPlayer cannot reliably decode at native depth.
+     */
+    val plainOutput: Boolean = false
 ) {
 
     interface Callbacks {
@@ -109,6 +114,7 @@ class UsbPlaybackEngine(
         }
 
         override fun onTracksChanged(tracks: Tracks) {
+            if (plainOutput) return
             for (group in tracks.groups) {
                 if (group.type == C.TRACK_TYPE_AUDIO && group.isSelected && group.length > 0) {
                     val format = group.getTrackFormat(0)
@@ -144,9 +150,9 @@ class UsbPlaybackEngine(
     }
 
     init {
-        UsbSignalPathStore.setActive(true)
+        if (!plainOutput) UsbSignalPathStore.setActive(true)
         mainHandler.post(snapshotTicker)
-        volumeController.start()
+        if (!plainOutput) volumeController.start()
     }
 
     private fun applyGain(gain: Float) {
@@ -163,6 +169,23 @@ class UsbPlaybackEngine(
     }
 
     private fun buildPlayer(): ExoPlayer {
+        if (plainOutput) {
+            // Float output keeps 24/32-bit PCM intact (float32 holds 24 bits exactly); no resampling or
+            // bit-depth reduction is done by the app. The system mixer still applies for speaker/Bluetooth.
+            val plainRenderers = DefaultRenderersFactory(appContext).setEnableAudioFloatOutput(true)
+            val plain = ExoPlayer.Builder(appContext, plainRenderers)
+                .setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+                        .setUsage(C.USAGE_MEDIA)
+                        .build(),
+                    /* handleAudioFocus = */ false
+                )
+                .setHandleAudioBecomingNoisy(false)
+                .build()
+            plain.addListener(listener)
+            return plain
+        }
         val renderers = object : DefaultRenderersFactory(appContext) {
             override fun buildAudioSink(
                 context: Context,
@@ -304,7 +327,7 @@ class UsbPlaybackEngine(
     }
 
     fun release() = runOnMain {
-        volumeController.stop()
+        if (!plainOutput) volumeController.stop()
         mainHandler.removeCallbacks(snapshotTicker)
         mainHandler.removeCallbacks(outputWatchdog)
         usbSink?.onOutputStatusChanged = null
@@ -316,7 +339,7 @@ class UsbPlaybackEngine(
             Log.w(TAG, "Error releasing USB engine: ${t.message}")
         }
         song = null
-        UsbSignalPathStore.setActive(false)
+        if (!plainOutput) UsbSignalPathStore.setActive(false)
     }
 
     // ── Internals ─────────────────────────────────────────────────────────────
@@ -326,7 +349,7 @@ class UsbPlaybackEngine(
         readyToken = loadToken
         val current = song ?: return
         mainHandler.removeCallbacks(outputWatchdog)
-        mainHandler.postDelayed(outputWatchdog, WATCHDOG_DELAY_MS)
+        if (!plainOutput) mainHandler.postDelayed(outputWatchdog, WATCHDOG_DELAY_MS)
         callbacks.onReady(current, player.playWhenReady)
     }
 
