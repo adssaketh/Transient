@@ -430,55 +430,20 @@ fun CustomizationScreen(
                             )
                             Spacer(modifier = Modifier.height(12.dp))
 
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceEvenly
-                            ) {
-                                val palettes = listOf(
-                                    0 to Color(0xFF6650a4),
-                                    1 to Color(0xFFB04B38),
-                                    2 to Color(0xFF386B52),
-                                    3 to Color(0xFF2E6580),
-                                    4 to Color(0xFF6E568F),
-                                    5 to Color(0xFF7F5700),
-                                    6 to Color(0xFF8B7BFF)
-                                )
-                                palettes.forEach { (index, color) ->
-                                    val isSelected = customColorPalette == index
-                                    Box(
-                                        modifier = Modifier
-                                            .size(48.dp)
-                                            .clip(CircleShape)
-                                            .bounceClick()
-                                            .clickable { onPaletteChanged(index) },
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Surface(
-                                            shape = CircleShape,
-                                            color = color,
-                                            modifier = Modifier.fillMaxSize(),
-                                            border = if (isSelected) androidx.compose.foundation.BorderStroke(
-                                                3.dp,
-                                                if (hasBlurBackground) Color.White else MaterialTheme.colorScheme.onSurface
-                                            ) else null
-                                        ) {
-                                            if (isSelected) {
-                                                Box(
-                                                    contentAlignment = Alignment.Center,
-                                                    modifier = Modifier.fillMaxSize()
-                                                ) {
-                                                    Icon(
-                                                        Icons.Default.Brush,
-                                                        contentDescription = null,
-                                                        tint = Color.White,
-                                                        modifier = Modifier.size(24.dp)
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
+                            com.demonlab.lune.ui.components.PaletteSwatchRow(
+                                options = listOf(
+                                    com.demonlab.lune.ui.components.PaletteOption(0, "Violet", Color(0xFF6650a4)),
+                                    com.demonlab.lune.ui.components.PaletteOption(1, "Coral", Color(0xFFB04B38)),
+                                    com.demonlab.lune.ui.components.PaletteOption(2, "Sage", Color(0xFF386B52)),
+                                    com.demonlab.lune.ui.components.PaletteOption(3, "Ocean", Color(0xFF2E6580)),
+                                    com.demonlab.lune.ui.components.PaletteOption(4, "Lavender", Color(0xFF6E568F)),
+                                    com.demonlab.lune.ui.components.PaletteOption(5, "Amber", Color(0xFF7F5700)),
+                                    com.demonlab.lune.ui.components.PaletteOption(6, "Aurora", Color(0xFF8B7BFF))
+                                ),
+                                selectedIndex = customColorPalette,
+                                onSelect = onPaletteChanged,
+                                hasBlurBackground = hasBlurBackground
+                            )
                         }
                     }
                 }

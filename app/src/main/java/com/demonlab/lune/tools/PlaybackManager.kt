@@ -260,6 +260,32 @@ class PlaybackManager private constructor(private val context: Context) {
     val visualizerData = _visualizerData.asStateFlow()
     private var visualizer: Visualizer? = null
     private var visualizerSessionId = 0
+
+    /** True while an ExoPlayer engine computes the spectrum itself (see PcmSpectrum); the Android Visualizer stays off. */
+    @Volatile
+    var externalSpectrum = false
+        set(value) {
+            if (value && !field) {
+                // Hand over from the Android Visualizer: release it so it cannot overwrite the data with silence.
+                visualizer?.enabled = false
+                visualizer?.release()
+                visualizer = null
+                visualizerSessionId = 0
+            }
+            field = value
+        }
+
+    /** Bars from the ExoPlayer engine: fast attack, slower release, then published like Visualizer data. */
+    fun publishSpectrum(values: FloatArray) {
+        val previous = lastMagnitudes
+        val out = FloatArray(values.size) { i ->
+            val prev = if (i < previous.size) previous[i] else 0.1f
+            val target = values[i]
+            if (target > prev) target else prev + 0.35f * (target - prev)
+        }
+        lastMagnitudes = out
+        _visualizerData.value = out
+    }
     private var lastMagnitudes = FloatArray(48) { 0.1f }
     private val smoothingFactor = 1f // 0.7f for very fast and reactive movement
 
@@ -519,6 +545,7 @@ class PlaybackManager private constructor(private val context: Context) {
     }
 
     fun startVisualizer() {
+        if (externalSpectrum) return
         if (!isFullPlayerVisualizerEnabled && !isMiniPlayerVisualizerEnabled && !settings.headerVisualizerEnabled) {
             stopVisualizer()
             return
@@ -585,9 +612,13 @@ class PlaybackManager private constructor(private val context: Context) {
      * attached to the previous one goes silent. The service calls this whenever the session may have changed.
      */
     fun refreshVisualizerSession() {
-        if (visualizer == null) return
+        if (externalSpectrum) return
+        // Header / mini-player visualizers are always on screen; the full-player one is started by the UI itself.
+        val alwaysVisible = settings.headerVisualizerEnabled || isMiniPlayerVisualizerEnabled
+        if (visualizer == null && !alwaysVisible) return
         val newId = musicService?.getAudioSessionId() ?: 0
-        if (newId != 0 && newId != visualizerSessionId) startVisualizer()
+        if (newId == 0) return
+        if (visualizer == null || newId != visualizerSessionId) startVisualizer()
     }
 
     fun stopVisualizer() {

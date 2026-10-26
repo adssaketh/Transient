@@ -2121,7 +2121,12 @@ class MusicService : MediaLibraryService() {
 
         if (usbEngine?.plainOutput == false) releaseUsbEngine()
         val engine = usbEngine ?: try {
-            UsbPlaybackEngine(applicationContext, aiffCallbacks, plainOutput = true).also { usbEngine = it }
+            UsbPlaybackEngine(
+                applicationContext,
+                aiffCallbacks,
+                plainOutput = true,
+                onSpectrum = { PlaybackManager.getInstance(applicationContext).publishSpectrum(it) }
+            ).also { usbEngine = it }
         } catch (t: Throwable) {
             Log.e("MusicService", "Could not start the ExoPlayer AIFF engine", t)
             usbEngine = null
@@ -2129,6 +2134,7 @@ class MusicService : MediaLibraryService() {
             if (andPlay) playSong(song) else restorePlayback(song, positionMs, andPlay = false)
             return
         }
+        PlaybackManager.getInstance(applicationContext).externalSpectrum = true
         engine.load(song, positionMs, andPlay)
     }
 
@@ -2173,6 +2179,7 @@ class MusicService : MediaLibraryService() {
     private fun releaseUsbEngine() {
         val engine = usbEngine ?: return
         usbEngine = null
+        if (engine.plainOutput) PlaybackManager.getInstance(applicationContext).externalSpectrum = false
         engine.release()
     }
 

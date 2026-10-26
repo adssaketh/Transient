@@ -43,7 +43,9 @@ class UsbPlaybackEngine(
      * true = play through the phone's normal output (speaker / Bluetooth / wired) with ExoPlayer and no
      * USB DAC involved. Used for AIFF, which Android's MediaPlayer cannot reliably decode at native depth.
      */
-    val plainOutput: Boolean = false
+    val plainOutput: Boolean = false,
+    /** Plain mode only: receives 48 spectrum bars computed from the audio being played (drives the visualizer). */
+    private val onSpectrum: ((FloatArray) -> Unit)? = null
 ) {
 
     interface Callbacks {
@@ -174,9 +176,18 @@ class UsbPlaybackEngine(
             // Float output keeps 24/32-bit PCM intact (float32 holds 24 bits exactly); no resampling or
             // bit-depth reduction is done by the app. The system mixer still applies for speaker/Bluetooth.
             // Extension mode ON: FFmpeg picks up formats Android's MediaCodec cannot decode (WMA, APE, ...).
-            val plainRenderers = DefaultRenderersFactory(appContext)
-                .setEnableAudioFloatOutput(true)
-                .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
+            val plainRenderers = object : DefaultRenderersFactory(appContext) {
+                override fun buildAudioSink(
+                    context: Context,
+                    enableFloatOutput: Boolean,
+                    enableOffload: Boolean
+                ): AudioSink {
+                    val base = DefaultAudioSink.Builder(context).setEnableFloatOutput(true).build()
+                    val callback = onSpectrum
+                    return if (callback != null) SpectrumAudioSink(base, PcmSpectrum(callback), true) else base
+                }
+            }
+            plainRenderers.setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
             val plain = ExoPlayer.Builder(appContext, plainRenderers)
                 .setAudioAttributes(
                     AudioAttributes.Builder()

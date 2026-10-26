@@ -11,13 +11,19 @@ class SettingsManager(context: Context) {
     private val prefs: SharedPreferences = context.getSharedPreferences("lune_settings", Context.MODE_PRIVATE)
 
     init {
-        // Aurora redesign: one-time switch to the Aurora Glass palette and glass look (both can still be changed in settings).
-        if (prefs.getInt("design_version", 0) < 2) {
-            prefs.edit()
-                .putBoolean("use_custom_colors", true)
-                .putInt("custom_color_palette", 6)
-                .putBoolean("glass_ui_enabled", true)
-                .putInt("design_version", 2)
+        // Design migrations run once per version (all of it can still be changed in settings).
+        val designVersion = prefs.getInt("design_version", 0)
+        if (designVersion < 3) {
+            val editor = prefs.edit()
+            if (designVersion < 2) {
+                // Aurora redesign: Aurora Glass palette and glass look.
+                editor.putBoolean("use_custom_colors", true)
+                    .putInt("custom_color_palette", 6)
+                    .putBoolean("glass_ui_enabled", true)
+            }
+            // The animated visualizer next to the app name is on from now on.
+            editor.putBoolean("header_visualizer_enabled", true)
+                .putInt("design_version", 3)
                 .apply()
         }
     }
@@ -486,7 +492,7 @@ class SettingsManager(context: Context) {
         }
 
     // Header visualizer (default OFF): the "Transient" wordmark morphs into a small visualizer while music plays.
-    private val _headerVisualizerEnabled = mutableStateOf(prefs.getBoolean("header_visualizer_enabled", false))
+    private val _headerVisualizerEnabled = mutableStateOf(prefs.getBoolean("header_visualizer_enabled", true))
     var headerVisualizerEnabled: Boolean
         get() = _headerVisualizerEnabled.value
         set(value) {

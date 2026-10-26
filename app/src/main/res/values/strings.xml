@@ -376,8 +376,6 @@
     <string name="onboarding_folder_visibility_title">Folder Visibility</string>
     <string name="onboarding_folder_visibility_desc">By default, Transient will only show songs from your selected music folder. Enable this option to show all music folders on your device from the start.</string>
     <string name="onboarding_folder_visibility_label">Show all folders</string>
-    <string name="onboarding_support_title">Support the Project</string>
-    <string name="onboarding_support_desc">If you enjoy Transient, consider supporting us through the Donate section in Settings > About. Every contribution helps keep the app growing!</string>
     <string name="search_play_all">Play</string>
     <string name="search_shuffle">Shuffle</string>
     <string name="playing_from_header">Playing from</string>
@@ -386,11 +384,6 @@
     <string name="cd_save_preset">Save preset</string>
     <string name="cd_delete_preset">Delete preset</string>
 
-    <!-- Donate -->
-    <string name="donate_title">Support the Project</string>
-    <string name="paypal">PayPal</string>
-    <string name="monero">Monero</string>
-    <string name="monero_address">88s5Re4p6a3P9TtqaG1G2Yeq5Ppp1w1npXebyLjktuxYgurFAGn4GRbKuPKGbx1pD1bBwohtAriL7JqB12ECp4SnMN1T3q9</string>
     <string name="copied">Copied to clipboard</string>
     <string name="internal_storage">Internal Storage</string>
     <string name="sd_card">SD Card</string>

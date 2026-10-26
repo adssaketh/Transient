@@ -510,43 +510,22 @@ fun ControlsCustomizationScreen(
                             )
                             Spacer(modifier = Modifier.height(16.dp))
 
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceEvenly
-                            ) {
-                                val palettes = listOf(
-                                    0 to MaterialTheme.colorScheme.primary, // App default / Material You
-                                    1 to Color(0xFFB04B38), // Sunset Peach
-                                    2 to Color(0xFF386B52), // Sage Green
-                                    3 to Color(0xFF2E6580), // Ocean Breeze
-                                    4 to Color(0xFF6E568F), // Lavender Mist
-                                    5 to Color(0xFF7F5700)  // Warm Amber
-                                )
-                                palettes.forEach { (index, color) ->
-                                    val isSelected = controlsColorPalette == index
-                                    Box(
-                                        modifier = Modifier
-                                            .size(40.dp)
-                                            .clip(CircleShape)
-                                            .background(color)
-                                            .bounceClick()
-                                            .clickable {
-                                                controlsColorPalette = index
-                                                settingsManager.controlsColorPalette = index
-                                            },
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        if (isSelected) {
-                                            Icon(
-                                                Icons.Default.Check,
-                                                contentDescription = null,
-                                                tint = Color.White,
-                                                modifier = Modifier.size(20.dp)
-                                            )
-                                        }
-                                    }
-                                }
-                            }
+                            com.demonlab.lune.ui.components.PaletteSwatchRow(
+                                options = listOf(
+                                    com.demonlab.lune.ui.components.PaletteOption(0, "Default", MaterialTheme.colorScheme.primary),
+                                    com.demonlab.lune.ui.components.PaletteOption(1, "Coral", Color(0xFFB04B38)),
+                                    com.demonlab.lune.ui.components.PaletteOption(2, "Sage", Color(0xFF386B52)),
+                                    com.demonlab.lune.ui.components.PaletteOption(3, "Ocean", Color(0xFF2E6580)),
+                                    com.demonlab.lune.ui.components.PaletteOption(4, "Lavender", Color(0xFF6E568F)),
+                                    com.demonlab.lune.ui.components.PaletteOption(5, "Amber", Color(0xFF7F5700))
+                                ),
+                                selectedIndex = controlsColorPalette,
+                                onSelect = { index ->
+                                    controlsColorPalette = index
+                                    settingsManager.controlsColorPalette = index
+                                },
+                                hasBlurBackground = hasBlurBackground
+                            )
                         }
                     }
                 }

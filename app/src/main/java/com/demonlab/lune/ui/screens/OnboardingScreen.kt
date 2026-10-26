@@ -1,1371 +1,505 @@
 package com.demonlab.lune.ui.screens
 
-import com.demonlab.lune.ui.components.BrandWordmark
-import com.demonlab.lune.ui.components.BrandLogo
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Environment
 import android.provider.DocumentsContract
-import android.provider.Settings
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.*
-import androidx.compose.animation.core.*
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
-import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Bluetooth
-import androidx.compose.material.icons.filled.CompareArrows
-import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.GraphicEq
-import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Lyrics
-import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Title
+import androidx.compose.material.icons.filled.Usb
 import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material3.*
-import com.demonlab.lune.ui.components.BouncySwitch
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.demonlab.lune.R
 import com.demonlab.lune.tools.SettingsManager
-import kotlinx.coroutines.delay
+import com.demonlab.lune.ui.components.AuroraBackdrop
+import com.demonlab.lune.ui.components.BrandLogo
+import com.demonlab.lune.ui.components.BrandWordmark
+import com.demonlab.lune.ui.components.glassBorder
 
+private enum class SetupStep { WELCOME, MUSIC, FOLDER, NOTIFICATIONS, BLUETOOTH, VISUALIZER, VISIBILITY, DONE }
+
+/**
+ * First-run setup: a short sequence of full-screen cards (one decision per screen) on the Aurora gradient.
+ * Every permission is optional here except that the app asks again later if music access was skipped.
+ */
 @Composable
 fun OnboardingScreen(
     onStartClick: () -> Unit
 ) {
-    var currentStep by remember { mutableIntStateOf(0) }
-    
-    Crossfade(targetState = currentStep, label = "OnboardingCrossfade") { step ->
-        when (step) {
-            0 -> WelcomeStep(onStartClick = { currentStep = 1 })
-            1 -> PermissionStep(onNext = { currentStep = 2 })
-            2 -> BluetoothPermissionStep(onNext = { currentStep = 3 })
-            3 -> NotificationPermissionStep(onNext = { currentStep = 4 })
-            4 -> MusicPermissionStep(onNext = { currentStep = 5 })
-            5 -> ManageFilesPermissionStep(onNext = { currentStep = 6 })
-            6 -> FolderVisibilityStep(onNext = { currentStep = 7 })
-            7 -> PermissionsReminderStep(onNext = { currentStep = 8 })
-            8 -> SupportStep(onNext = { currentStep = 9 })
-            9 -> FeaturesStep(onFinish = onStartClick)
-        }
-    }
-}
-
-@Composable
-fun WelcomeStep(onStartClick: () -> Unit) {
-    val isDark = isSystemInDarkTheme()
-    val diamondsColor = if (isDark) Color.White else Color.Black
-    val noteColor = if (isDark) Color.Black else Color.White
-
-    val infiniteTransition = rememberInfiniteTransition(label = "InfiniteLogoRotation")
-    val rotation by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 3000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "LogoRotation"
-    )
-
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.background
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            BrandLogo(size = 140.dp, pulsing = true)
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            BrandWordmark(height = 44.dp, color = MaterialTheme.colorScheme.primary)
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Text(
-                text = stringResource(id = R.string.onboarding_description),
-                style = MaterialTheme.typography.bodyLarge,
-                textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            Spacer(modifier = Modifier.height(48.dp))
-
-            Button(
-                onClick = onStartClick,
-                modifier = Modifier.height(56.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
-                ),
-                shape = MaterialTheme.shapes.extraLarge
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    Text(
-                        text = stringResource(id = R.string.onboarding_start_button),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun PermissionStep(onNext: () -> Unit) {
     val context = LocalContext.current
-    val isDark = isSystemInDarkTheme()
-    val diamondsColor = if (isDark) Color.White else Color.Black
-    val iconColor = if (isDark) Color.Black else Color.White
+    val settings = remember { SettingsManager.getInstance(context) }
 
-    var isPermissionGranted by remember {
-        mutableStateOf(
-            ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
-        )
-    }
-
-    val launcher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        isPermissionGranted = granted
-    }
-
-    val infiniteTransition = rememberInfiniteTransition(label = "InfiniteLogoRotation")
-    val rotation by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 3000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "LogoRotation"
-    )
-
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.background
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier.size(200.dp)
-            ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_logo_diamonds),
-                    contentDescription = null,
-                    tint = diamondsColor,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .graphicsLayer(rotationZ = rotation)
-                )
-                Icon(
-                    imageVector = Icons.Default.Mic,
-                    contentDescription = null,
-                    tint = iconColor,
-                    modifier = Modifier.size(50.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Text(
-                text = "${stringResource(R.string.onboarding_perm_audio_title)} - ${stringResource(R.string.onboarding_perm_required)}",
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Text(
-                text = stringResource(id = R.string.onboarding_perm_audio_desc),
-                style = MaterialTheme.typography.bodyLarge,
-                textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            Spacer(modifier = Modifier.height(48.dp))
-
-            Button(
-                onClick = {
-                    if (isPermissionGranted) {
-                        onNext()
-                    } else {
-                        launcher.launch(Manifest.permission.RECORD_AUDIO)
-                    }
-                },
-                modifier = Modifier.height(56.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
-                ),
-                shape = MaterialTheme.shapes.extraLarge
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    Text(
-                        text = if (isPermissionGranted) stringResource(R.string.onboarding_next_button) else stringResource(R.string.onboarding_grant_button),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    if (isPermissionGranted) {
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
-            }
-
-            if (!isPermissionGranted) {
-                Spacer(modifier = Modifier.height(8.dp))
-                TextButton(onClick = onNext) {
-                    Text(
-                        text = stringResource(R.string.onboarding_skip_button),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun BluetoothPermissionStep(onNext: () -> Unit) {
-    val context = LocalContext.current
-    val isDark = isSystemInDarkTheme()
-    val diamondsColor = if (isDark) Color.White else Color.Black
-    val iconColor = if (isDark) Color.Black else Color.White
-
-    val bluetoothPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-        Manifest.permission.BLUETOOTH_CONNECT
-    } else {
-        null
-    }
-
-    var isPermissionGranted by remember {
-        mutableStateOf(
-            bluetoothPermission == null || ContextCompat.checkSelfPermission(context, bluetoothPermission) == PackageManager.PERMISSION_GRANTED
-        )
-    }
-
-    val launcher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        isPermissionGranted = granted
-    }
-
-    val infiniteTransition = rememberInfiniteTransition(label = "InfiniteLogoRotation")
-    val rotation by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 3000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "LogoRotation"
-    )
-
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.background
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier.size(200.dp)
-            ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_logo_diamonds),
-                    contentDescription = null,
-                    tint = diamondsColor,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .graphicsLayer(rotationZ = rotation)
-                )
-                Icon(
-                    imageVector = Icons.Default.Bluetooth,
-                    contentDescription = null,
-                    tint = iconColor,
-                    modifier = Modifier.size(50.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Text(
-                text = "${stringResource(R.string.onboarding_perm_bluetooth_title)} - ${stringResource(R.string.onboarding_perm_required)}",
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Text(
-                text = stringResource(id = R.string.onboarding_perm_bluetooth_desc),
-                style = MaterialTheme.typography.bodyLarge,
-                textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            Spacer(modifier = Modifier.height(48.dp))
-
-            Button(
-                onClick = {
-                    if (isPermissionGranted) {
-                        onNext()
-                    } else {
-                        bluetoothPermission?.let { launcher.launch(it) }
-                    }
-                },
-                modifier = Modifier.height(56.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
-                ),
-                shape = MaterialTheme.shapes.extraLarge
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    Text(
-                        text = if (isPermissionGranted) stringResource(R.string.onboarding_next_button) else stringResource(R.string.onboarding_grant_button),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    if (isPermissionGranted) {
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
-            }
-
-            if (!isPermissionGranted) {
-                Spacer(modifier = Modifier.height(8.dp))
-                TextButton(onClick = onNext) {
-                    Text(
-                        text = stringResource(R.string.onboarding_skip_button),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun NotificationPermissionStep(onNext: () -> Unit) {
-    val context = LocalContext.current
-    val isDark = isSystemInDarkTheme()
-    val diamondsColor = if (isDark) Color.White else Color.Black
-    val iconColor = if (isDark) Color.Black else Color.White
-
-    val notificationPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        Manifest.permission.POST_NOTIFICATIONS
-    } else {
-        null
-    }
-
-    var isPermissionGranted by remember {
-        mutableStateOf(
-            notificationPermission == null || ContextCompat.checkSelfPermission(context, notificationPermission) == PackageManager.PERMISSION_GRANTED
-        )
-    }
-
-    val launcher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        isPermissionGranted = granted
-    }
-
-    val infiniteTransition = rememberInfiniteTransition(label = "InfiniteLogoRotation")
-    val rotation by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 3000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "LogoRotation"
-    )
-
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.background
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier.size(200.dp)
-            ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_logo_diamonds),
-                    contentDescription = null,
-                    tint = diamondsColor,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .graphicsLayer(rotationZ = rotation)
-                )
-                Icon(
-                    imageVector = Icons.Default.Notifications,
-                    contentDescription = null,
-                    tint = iconColor,
-                    modifier = Modifier.size(50.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Text(
-                text = "${stringResource(R.string.onboarding_perm_notifications_title)} - ${stringResource(R.string.onboarding_perm_required)}",
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Text(
-                text = stringResource(id = R.string.onboarding_perm_notifications_desc),
-                style = MaterialTheme.typography.bodyLarge,
-                textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            Spacer(modifier = Modifier.height(48.dp))
-
-            Button(
-                onClick = {
-                    if (isPermissionGranted) {
-                        onNext()
-                    } else {
-                        notificationPermission?.let { launcher.launch(it) }
-                    }
-                },
-                modifier = Modifier.height(56.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
-                ),
-                shape = MaterialTheme.shapes.extraLarge
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    Text(
-                        text = if (isPermissionGranted) stringResource(R.string.onboarding_next_button) else stringResource(R.string.onboarding_grant_button),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    if (isPermissionGranted) {
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun MusicPermissionStep(onNext: () -> Unit) {
-    val context = LocalContext.current
-    val isDark = isSystemInDarkTheme()
-    val diamondsColor = if (isDark) Color.White else Color.Black
-    val iconColor = if (isDark) Color.Black else Color.White
+    fun has(permission: String) =
+        ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
 
     val musicPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         Manifest.permission.READ_MEDIA_AUDIO
     } else {
         Manifest.permission.READ_EXTERNAL_STORAGE
     }
+    val needsNotifications = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+    val needsBluetooth = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
 
-    var isPermissionGranted by remember {
-        mutableStateOf(
-            ContextCompat.checkSelfPermission(context, musicPermission) == PackageManager.PERMISSION_GRANTED
-        )
-    }
+    var musicGranted by remember { mutableStateOf(has(musicPermission)) }
+    var folderGranted by remember { mutableStateOf(settings.musicFolderUri != null) }
+    var notificationsGranted by remember { mutableStateOf(!needsNotifications || has(Manifest.permission.POST_NOTIFICATIONS)) }
+    var bluetoothGranted by remember { mutableStateOf(!needsBluetooth || has(Manifest.permission.BLUETOOTH_CONNECT)) }
+    var microphoneGranted by remember { mutableStateOf(has(Manifest.permission.RECORD_AUDIO)) }
+    var showAllFolders by remember { mutableStateOf(settings.showAllFoldersOnStart) }
 
-    val launcher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        isPermissionGranted = granted
-    }
-
-    val infiniteTransition = rememberInfiniteTransition(label = "InfiniteLogoRotation")
-    val rotation by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 3000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "LogoRotation"
-    )
-
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.background
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier.size(200.dp)
-            ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_logo_diamonds),
-                    contentDescription = null,
-                    tint = diamondsColor,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .graphicsLayer(rotationZ = rotation)
-                )
-                Icon(
-                    imageVector = Icons.Default.MusicNote,
-                    contentDescription = null,
-                    tint = iconColor,
-                    modifier = Modifier.size(50.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Text(
-                text = "${stringResource(R.string.onboarding_perm_music_title)} - ${stringResource(R.string.onboarding_perm_required)}",
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Text(
-                text = stringResource(id = R.string.onboarding_perm_music_desc),
-                style = MaterialTheme.typography.bodyLarge,
-                textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            Spacer(modifier = Modifier.height(48.dp))
-
-            Button(
-                onClick = {
-                    if (isPermissionGranted) {
-                        onNext()
-                    } else {
-                        launcher.launch(musicPermission)
-                    }
-                },
-                modifier = Modifier.height(56.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
-                ),
-                shape = MaterialTheme.shapes.extraLarge
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    Text(
-                        text = if (isPermissionGranted) stringResource(R.string.onboarding_next_button) else stringResource(R.string.onboarding_grant_button),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    if (isPermissionGranted) {
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
+    // Steps that do not exist on this Android version are left out.
+    val steps = remember {
+        SetupStep.values().filter {
+            when (it) {
+                SetupStep.NOTIFICATIONS -> needsNotifications
+                SetupStep.BLUETOOTH -> needsBluetooth
+                else -> true
             }
         }
     }
-}
+    var index by remember { mutableIntStateOf(0) }
+    val goNext: () -> Unit = { if (index < steps.lastIndex) index++ }
 
-@Composable
-fun ManageFilesPermissionStep(onNext: () -> Unit) {
-    val context = LocalContext.current
-    val settingsManager = SettingsManager.getInstance(context)
-    val isDark = isSystemInDarkTheme()
-    val diamondsColor = if (isDark) Color.White else Color.Black
-    val iconColor = if (isDark) Color.Black else Color.White
+    val musicLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { musicGranted = it }
+    val notificationLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { notificationsGranted = it }
+    val bluetoothLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { bluetoothGranted = it }
+    val microphoneLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { microphoneGranted = it }
 
-    var isPermissionGranted by remember {
-        mutableStateOf(settingsManager.musicFolderUri != null)
-    }
-
-    val initialSafUri = remember {
+    val initialFolderUri = remember {
         try {
             val musicDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC)
             if (musicDir.exists()) {
-                DocumentsContract.buildTreeDocumentUri(
-                    "com.android.externalstorage.documents",
-                    "primary:${musicDir.name}"
-                )
+                DocumentsContract.buildTreeDocumentUri("com.android.externalstorage.documents", "primary:${musicDir.name}")
             } else null
         } catch (_: Exception) { null }
     }
-
-    val launcher = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenDocumentTree()
-    ) { uri ->
+    val folderLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri != null) {
             try {
                 context.contentResolver.takePersistableUriPermission(
                     uri,
                     Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
                 )
-                settingsManager.musicFolderUri = uri.toString()
-                settingsManager.isInitialFolderScanPending = true
-                isPermissionGranted = true
+                settings.musicFolderUri = uri.toString()
+                settings.isInitialFolderScanPending = true
+                folderGranted = true
             } catch (e: Exception) {
                 e.printStackTrace()
             }
         }
     }
 
-    val infiniteTransition = rememberInfiniteTransition(label = "InfiniteLogoRotation")
-    val rotation by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 3000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "LogoRotation"
-    )
-
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.background
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier.size(200.dp)
-            ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_logo_diamonds),
-                    contentDescription = null,
-                    tint = diamondsColor,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .graphicsLayer(rotationZ = rotation)
-                )
-                Icon(
-                    imageVector = Icons.Default.Folder,
-                    contentDescription = null,
-                    tint = iconColor,
-                    modifier = Modifier.size(50.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Text(
-                text = "${stringResource(R.string.onboarding_perm_manage_files_title)}${if (isPermissionGranted) "" else " - " + stringResource(R.string.onboarding_perm_required)}",
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Text(
-                text = stringResource(id = R.string.onboarding_perm_manage_files_desc),
-                style = MaterialTheme.typography.bodyLarge,
-                textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            Spacer(modifier = Modifier.height(48.dp))
-
-            Button(
-                onClick = {
-                    if (isPermissionGranted) {
-                        onNext()
-                    } else {
-                        launcher.launch(initialSafUri)
-                    }
-                },
-                modifier = Modifier.height(56.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
-                ),
-                shape = MaterialTheme.shapes.extraLarge
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    Text(
-                        text = if (isPermissionGranted) stringResource(R.string.onboarding_next_button) else stringResource(R.string.onboarding_grant_button),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    if (isPermissionGranted) {
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun FolderVisibilityStep(onNext: () -> Unit) {
-    val context = LocalContext.current
-    val settingsManager = SettingsManager.getInstance(context)
-    val isDark = isSystemInDarkTheme()
-    val diamondsColor = if (isDark) Color.White else Color.Black
-    val iconColor = if (isDark) Color.Black else Color.White
-
-    var showAll by remember {
-        mutableStateOf(settingsManager.showAllFoldersOnStart)
-    }
-
-    val infiniteTransition = rememberInfiniteTransition(label = "InfiniteLogoRotationVisibility")
-    val rotation by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 3000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "LogoRotation"
-    )
-
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.background
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier.size(200.dp)
-            ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_logo_diamonds),
-                    contentDescription = null,
-                    tint = diamondsColor,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .graphicsLayer(rotationZ = rotation)
-                )
-                Icon(
-                    imageVector = Icons.Default.Visibility,
-                    contentDescription = null,
-                    tint = iconColor,
-                    modifier = Modifier.size(50.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Text(
-                text = stringResource(R.string.onboarding_folder_visibility_title),
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Text(
-                text = stringResource(R.string.onboarding_folder_visibility_desc),
-                style = MaterialTheme.typography.bodyLarge,
-                textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            Surface(
-                onClick = { showAll = !showAll },
-                shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = stringResource(R.string.onboarding_folder_visibility_label),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.weight(1f)
-                    )
-                    BouncySwitch(
-                        checked = showAll,
-                        onCheckedChange = { showAll = it }
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(48.dp))
-
-            Button(
-                onClick = {
-                    settingsManager.showAllFoldersOnStart = showAll
-                    onNext()
-                },
-                modifier = Modifier.fillMaxWidth().height(56.dp),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Text(
-                    stringResource(R.string.onboarding_next_button),
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun FeaturesStep(onFinish: () -> Unit) {
-    val isDark = isSystemInDarkTheme()
-    val diamondsColor = if (isDark) Color.White else Color.Black
-    val noteColor = if (isDark) Color.Black else Color.White
-    val colorPrimary = MaterialTheme.colorScheme.primary
-
-    var isExploding by remember { mutableStateOf(false) }
-    
-    val explosionProgress = remember { androidx.compose.animation.core.Animatable(0f) }
-    val fadeProgress = remember { androidx.compose.animation.core.Animatable(0f) }
-
-    val features = listOf(
-        FeatureItem(stringResource(R.string.onboarding_feature_hifi), Icons.Default.GraphicEq),
-
-        FeatureItem(stringResource(R.string.onboarding_feature_title), Icons.Default.Title),
-        FeatureItem(stringResource(R.string.onboarding_feature_lyrics), Icons.Default.Lyrics),
-        FeatureItem(stringResource(R.string.onboarding_feature_mix), Icons.Default.AutoAwesome),
-        FeatureItem(stringResource(R.string.onboarding_feature_more), Icons.Default.Add)
-    )
-
-    val pagerState = rememberPagerState(pageCount = { features.size })
-
-    // Particle state
-    val particles = remember {
-        List(40) {
-            val angle = Math.random() * 2 * Math.PI
-            val speed = 120f + (Math.random() * 480f).toFloat()
-            val vx = (Math.cos(angle) * speed).toFloat()
-            val vy = (Math.sin(angle) * speed).toFloat()
-            Particle(vx, vy)
-        }
-    }
-
-    LaunchedEffect(isExploding) {
-        if (isExploding) {
-            explosionProgress.animateTo(
-                1f,
-                animationSpec = tween(durationMillis = 850, easing = LinearOutSlowInEasing)
-            )
-            delay(100)
-            fadeProgress.animateTo(
-                1f,
-                animationSpec = tween(durationMillis = 650, easing = LinearEasing)
-            )
-            onFinish()
-        }
-    }
-
-    val infiniteTransition = rememberInfiniteTransition(label = "InfiniteLogoRotation")
-    val rotation by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 3000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "LogoRotation"
-    )
+    BackHandler(enabled = index > 0) { index-- }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .graphicsLayer {
-                alpha = 1f - fadeProgress.value
-            }
+            .background(MaterialTheme.colorScheme.surface)
     ) {
-        Surface(
-            modifier = Modifier.fillMaxSize(),
-            color = MaterialTheme.colorScheme.background
+        AuroraBackdrop()
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .padding(horizontal = 24.dp, vertical = 16.dp)
         ) {
-            Column(
+            StepDots(count = steps.size, current = index)
+
+            AnimatedContent(
+                targetState = index,
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(vertical = 32.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                // Header
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier.size(150.dp)
-                    ) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.ic_logo_diamonds),
-                            contentDescription = null,
-                            tint = diamondsColor,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .graphicsLayer(rotationZ = rotation)
-                        )
-                        Icon(
-                            painter = painterResource(id = R.drawable.ic_logo_note),
-                            contentDescription = null,
-                            tint = noteColor,
-                            modifier = Modifier.fillMaxSize(0.9f)
-                        )
+                    .weight(1f)
+                    .fillMaxWidth(),
+                transitionSpec = {
+                    if (targetState > initialState) {
+                        (slideInHorizontally { it / 4 } + fadeIn(tween(250)))
+                            .togetherWith(slideOutHorizontally { -it / 4 } + fadeOut(tween(200)))
+                    } else {
+                        (slideInHorizontally { -it / 4 } + fadeIn(tween(250)))
+                            .togetherWith(slideOutHorizontally { it / 4 } + fadeOut(tween(200)))
                     }
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = stringResource(R.string.onboarding_welcome_back),
-                        style = MaterialTheme.typography.headlineMedium,
-                        color = colorPrimary,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = stringResource(R.string.onboarding_listen_style),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(32.dp))
-
-                // Carousel Section
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.padding(vertical = 16.dp)
-                ) {
-                    HorizontalPager(
-                        state = pagerState,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(180.dp),
-                        contentPadding = PaddingValues(horizontal = 64.dp),
-                        pageSpacing = 16.dp
-                    ) { page ->
-                        val item = features[page]
-                        val pageOffset = (
-                                (pagerState.currentPage - page) + pagerState.currentPageOffsetFraction
-                                ).coerceIn(-1f, 1f)
-                        
-                        val scale = 1f - (Math.abs(pageOffset) * 0.15f)
-                        val alpha = 1f - (Math.abs(pageOffset) * 0.7f)
-
-                        Card(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .graphicsLayer {
-                                    scaleX = scale
-                                    scaleY = scale
-                                    this.alpha = alpha
-                                },
-                            shape = RoundedCornerShape(28.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
-                            ),
-                            border = BorderStroke(1.dp, colorPrimary.copy(alpha = 0.1f))
-                        ) {
+                },
+                label = "setupStep"
+            ) { i ->
+                when (steps[i]) {
+                    SetupStep.WELCOME -> SetupPage(
+                        hero = { BrandLogo(size = 96.dp, pulsing = true) },
+                        title = stringResource(R.string.onboarding_welcome_back),
+                        description = stringResource(R.string.onboarding_description),
+                        extra = {
                             Column(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(16.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center
+                                verticalArrangement = Arrangement.spacedBy(10.dp),
+                                modifier = Modifier.padding(top = 20.dp)
                             ) {
-                                Surface(
-                                    shape = CircleShape,
-                                    color = colorPrimary.copy(alpha = 0.1f),
-                                    modifier = Modifier.size(64.dp)
-                                ) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        Icon(
-                                            imageVector = item.icon,
-                                            contentDescription = null,
-                                            tint = colorPrimary,
-                                            modifier = Modifier.size(32.dp)
-                                        )
-                                    }
-                                }
-                                Spacer(modifier = Modifier.height(16.dp))
-                                Text(
-                                    text = item.title,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    textAlign = TextAlign.Center,
-                                    fontWeight = FontWeight.SemiBold
-                                )
+                                FeatureRow(Icons.Default.GraphicEq, stringResource(R.string.onboarding_feature_hifi))
+                                FeatureRow(Icons.Default.Usb, "Bit-perfect USB DAC output")
+                                FeatureRow(Icons.Default.Lyrics, stringResource(R.string.onboarding_feature_lyrics))
                             }
-                        }
-                    }
+                        },
+                        primaryLabel = stringResource(R.string.onboarding_start_button),
+                        onPrimary = { goNext() }
+                    )
 
-                    Spacer(modifier = Modifier.height(24.dp))
+                    SetupStep.MUSIC -> SetupPage(
+                        icon = Icons.Default.MusicNote,
+                        title = stringResource(R.string.onboarding_perm_music_title),
+                        description = stringResource(R.string.onboarding_perm_music_desc),
+                        granted = musicGranted,
+                        primaryLabel = stringResource(R.string.onboarding_grant_button),
+                        onPrimary = { musicLauncher.launch(musicPermission) },
+                        onNext = { goNext() }
+                    )
 
-                    // Pager Indicators
-                    Row(
-                        modifier = Modifier.height(8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        repeat(features.size) { iteration ->
-                            val color = if (pagerState.currentPage == iteration) colorPrimary else MaterialTheme.colorScheme.outlineVariant
-                            val width by animateDpAsState(
-                                targetValue = if (pagerState.currentPage == iteration) 24.dp else 8.dp,
-                                label = "IndicatorWidth"
-                            )
-                            Box(
+                    SetupStep.FOLDER -> SetupPage(
+                        icon = Icons.Default.Folder,
+                        title = stringResource(R.string.onboarding_perm_manage_files_title),
+                        description = stringResource(R.string.onboarding_perm_manage_files_desc),
+                        granted = folderGranted,
+                        primaryLabel = "Choose folder",
+                        onPrimary = { folderLauncher.launch(initialFolderUri) },
+                        onNext = { goNext() }
+                    )
+
+                    SetupStep.NOTIFICATIONS -> SetupPage(
+                        icon = Icons.Default.Notifications,
+                        title = stringResource(R.string.onboarding_perm_notifications_title),
+                        description = stringResource(R.string.onboarding_perm_notifications_desc),
+                        granted = notificationsGranted,
+                        primaryLabel = stringResource(R.string.onboarding_grant_button),
+                        onPrimary = { notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS) },
+                        onNext = { goNext() }
+                    )
+
+                    SetupStep.BLUETOOTH -> SetupPage(
+                        icon = Icons.Default.Bluetooth,
+                        title = stringResource(R.string.onboarding_perm_bluetooth_title),
+                        description = stringResource(R.string.onboarding_perm_bluetooth_desc),
+                        granted = bluetoothGranted,
+                        primaryLabel = stringResource(R.string.onboarding_grant_button),
+                        onPrimary = { bluetoothLauncher.launch(Manifest.permission.BLUETOOTH_CONNECT) },
+                        onNext = { goNext() }
+                    )
+
+                    SetupStep.VISUALIZER -> SetupPage(
+                        icon = Icons.Default.GraphicEq,
+                        title = stringResource(R.string.onboarding_perm_audio_title),
+                        description = stringResource(R.string.onboarding_perm_audio_desc),
+                        granted = microphoneGranted,
+                        primaryLabel = stringResource(R.string.onboarding_grant_button),
+                        onPrimary = { microphoneLauncher.launch(Manifest.permission.RECORD_AUDIO) },
+                        onNext = { goNext() }
+                    )
+
+                    SetupStep.VISIBILITY -> SetupPage(
+                        icon = Icons.Default.Visibility,
+                        title = stringResource(R.string.onboarding_folder_visibility_title),
+                        description = stringResource(R.string.onboarding_folder_visibility_desc),
+                        extra = {
+                            Surface(
+                                shape = RoundedCornerShape(20.dp),
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+                                border = glassBorder(),
                                 modifier = Modifier
-                                    .size(width = width, height = 8.dp)
-                                    .clip(CircleShape)
-                                    .background(color)
-                            )
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(48.dp))
-
-                // Footer
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                ) {
-                    Button(
-                        onClick = { isExploding = true },
-                        modifier = Modifier
-                            .height(56.dp)
-                            .width(220.dp)
-                            .alpha(if (isExploding) 0f else 1f),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = colorPrimary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary
-                        ),
-                        shape = MaterialTheme.shapes.extraLarge
-                    ) {
-                        Text(
-                            text = stringResource(R.string.onboarding_finish_button),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-
-                    if (isExploding) {
-                        androidx.compose.foundation.Canvas(modifier = Modifier.size(220.dp, 56.dp)) {
-                            particles.forEach { particle ->
-                                val progress = explosionProgress.value
-                                val x = center.x + (particle.vx * progress)
-                                val y = center.y + (particle.vy * progress)
-                                val size = 18f * (1f - progress)
-                                
-                                drawCircle(
-                                    color = colorPrimary,
-                                    radius = size,
-                                    center = androidx.compose.ui.geometry.Offset(x, y),
-                                    alpha = 1f - progress
-                                )
+                                    .padding(top = 20.dp)
+                                    .fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = stringResource(R.string.onboarding_folder_visibility_label),
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    Switch(
+                                        checked = showAllFolders,
+                                        onCheckedChange = {
+                                            showAllFolders = it
+                                            settings.showAllFoldersOnStart = it
+                                        }
+                                    )
+                                }
                             }
-                        }
-                    }
+                        },
+                        primaryLabel = stringResource(R.string.onboarding_next_button),
+                        onPrimary = { goNext() }
+                    )
+
+                    SetupStep.DONE -> SetupPage(
+                        icon = Icons.Default.AutoAwesome,
+                        title = stringResource(R.string.onboarding_reminder_title),
+                        description = stringResource(R.string.onboarding_reminder_desc),
+                        extra = {
+                            Column(
+                                verticalArrangement = Arrangement.spacedBy(10.dp),
+                                modifier = Modifier.padding(top = 20.dp)
+                            ) {
+                                FeatureRow(Icons.Default.Title, stringResource(R.string.onboarding_feature_title))
+                                FeatureRow(Icons.Default.Lyrics, stringResource(R.string.onboarding_feature_lyrics))
+                                FeatureRow(Icons.Default.GraphicEq, stringResource(R.string.onboarding_feature_mix))
+                            }
+                        },
+                        primaryLabel = stringResource(R.string.onboarding_finish_button),
+                        onPrimary = onStartClick
+                    )
                 }
             }
         }
     }
 }
 
-data class Particle(val vx: Float, val vy: Float)
-data class FeatureItem(val title: String, val icon: ImageVector)
-
+/** Progress dots: the current step is a longer pill. */
 @Composable
-fun PermissionsReminderStep(onNext: () -> Unit) {
-    val isDark = isSystemInDarkTheme()
-    val diamondsColor = MaterialTheme.colorScheme.primary
-    val iconColor = MaterialTheme.colorScheme.onSurface
+private fun StepDots(count: Int, current: Int) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        for (i in 0 until count) {
+            val width by animateDpAsState(if (i == current) 26.dp else 8.dp, label = "dotWidth")
+            Box(
+                modifier = Modifier
+                    .padding(horizontal = 3.dp)
+                    .height(8.dp)
+                    .width(width)
+                    .clip(CircleShape)
+                    .background(
+                        if (i <= current) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.18f)
+                    )
+            )
+        }
+    }
+}
 
-    val infiniteTransition = rememberInfiniteTransition(label = "InfiniteLogoRotationReminder")
-    val rotation by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 3000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "LogoRotation"
-    )
-
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.background
+/**
+ * One setup screen. Pass [icon] for the gradient badge or a custom [hero]. With [onNext] set the page is a
+ * permission page: the primary button asks for it, a granted state turns it into "Continue", and "Skip" moves on.
+ */
+@Composable
+private fun SetupPage(
+    title: String,
+    description: String,
+    primaryLabel: String,
+    onPrimary: () -> Unit,
+    modifier: Modifier = Modifier,
+    icon: ImageVector? = null,
+    hero: (@Composable () -> Unit)? = null,
+    granted: Boolean = false,
+    onNext: (() -> Unit)? = null,
+    extra: (@Composable () -> Unit)? = null
+) {
+    val isPermissionPage = onNext != null
+    Column(
+        modifier = modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Column(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(32.dp),
+                .weight(1f)
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier.size(200.dp)
-            ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_logo_diamonds),
-                    contentDescription = null,
-                    tint = diamondsColor,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .graphicsLayer(rotationZ = rotation)
-                )
-                Icon(
-                    imageVector = androidx.compose.material.icons.Icons.Default.Security,
-                    contentDescription = null,
-                    tint = iconColor,
-                    modifier = Modifier.size(50.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
+            if (hero != null) hero() else if (icon != null) HeroBadge(icon)
+            Spacer(modifier = Modifier.height(28.dp))
             Text(
-                text = stringResource(R.string.onboarding_reminder_title),
+                text = title,
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.primary
+                color = MaterialTheme.colorScheme.onSurface,
+                textAlign = TextAlign.Center
             )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
+            Spacer(modifier = Modifier.height(12.dp))
             Text(
-                text = stringResource(R.string.onboarding_reminder_desc),
+                text = description,
                 style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.padding(horizontal = 16.dp),
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                modifier = Modifier.padding(horizontal = 8.dp)
             )
+            if (isPermissionPage && granted) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Check,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Allowed",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+            if (extra != null) extra()
+        }
 
-            Spacer(modifier = Modifier.height(48.dp))
-
-            Button(
-                onClick = onNext,
-                modifier = Modifier.fillMaxWidth().height(56.dp),
-                shape = RoundedCornerShape(16.dp)
-            ) {
+        Button(
+            onClick = { if (isPermissionPage && granted) onNext?.invoke() else onPrimary() },
+            shape = CircleShape,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            ),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp)
+        ) {
+            Text(
+                text = if (isPermissionPage && granted) stringResource(R.string.onboarding_next_button) else primaryLabel,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+        }
+        if (isPermissionPage && !granted) {
+            TextButton(onClick = { onNext?.invoke() }, modifier = Modifier.padding(top = 4.dp)) {
                 Text(
-                    stringResource(R.string.onboarding_reminder_button),
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold
+                    text = stringResource(R.string.onboarding_skip_button),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+        } else {
+            Spacer(modifier = Modifier.height(48.dp))
         }
     }
 }
 
 @Composable
-fun SupportStep(onNext: () -> Unit) {
-    val isDark = isSystemInDarkTheme()
-    val diamondsColor = if (isDark) Color.White else Color.Black
-    val iconColor = if (isDark) Color.Black else Color.White
-
-    val infiniteTransition = rememberInfiniteTransition(label = "InfiniteLogoRotationSupport")
-    val rotation by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 3000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "LogoRotation"
+private fun HeroBadge(icon: ImageVector) {
+    val pulse by rememberInfiniteTransition(label = "heroPulse").animateFloat(
+        initialValue = 1f,
+        targetValue = 1.06f,
+        animationSpec = infiniteRepeatable(tween(1400), RepeatMode.Reverse),
+        label = "heroScale"
     )
-
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.background
+    Box(
+        modifier = Modifier
+            .size(132.dp)
+            .scale(pulse)
+            .clip(CircleShape)
+            .background(
+                Brush.linearGradient(
+                    listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.tertiary)
+                )
+            ),
+        contentAlignment = Alignment.Center
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier.size(200.dp)
-            ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_logo_diamonds),
-                    contentDescription = null,
-                    tint = diamondsColor,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .graphicsLayer(rotationZ = rotation)
-                )
-                Icon(
-                    imageVector = Icons.Default.Favorite,
-                    contentDescription = null,
-                    tint = iconColor,
-                    modifier = Modifier.size(50.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Text(
-                text = stringResource(R.string.onboarding_support_title),
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Text(
-                text = stringResource(R.string.onboarding_support_desc),
-                style = MaterialTheme.typography.bodyLarge,
-                textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            Spacer(modifier = Modifier.height(48.dp))
-
-            Button(
-                onClick = onNext,
-                modifier = Modifier.fillMaxWidth().height(56.dp),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Text(
-                    stringResource(R.string.onboarding_next_button),
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        }
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = Color.White,
+            modifier = Modifier.size(60.dp)
+        )
     }
 }
 
+@Composable
+private fun FeatureRow(icon: ImageVector, text: String) {
+    Surface(
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+        border = glassBorder(),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(22.dp)
+            )
+            Spacer(modifier = Modifier.width(14.dp))
+            Text(
+                text = text,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
+    }
+}

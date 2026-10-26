@@ -107,7 +107,6 @@ fun AboutScreen() {
     val hasBlurBackground = settingsManager.isBlurEnabled && ((isDarkTheme && settingsManager.isBlurDarkMode) || (!isDarkTheme && settingsManager.isBlurLightMode))
 
     val scrollState = rememberScrollState()
-    var showDonateDialog by remember { mutableStateOf(false) }
 
     AppBlurBackdrop(
         hasBlurBackground = hasBlurBackground,
@@ -266,14 +265,6 @@ fun AboutScreen() {
                     }
                 }
 
-                if (showDonateDialog) {
-                    DonateDialog(
-                        onDismiss = { showDonateDialog = false },
-                        hasBlurBackground = hasBlurBackground,
-                        isDarkTheme = isDarkTheme
-                    )
-                }
-
                 Spacer(modifier = Modifier.height(32.dp))
 
                 // Developer Info
@@ -421,128 +412,6 @@ fun MaterialTheme.secondary濃(alpha: Float): Color {
     return colorScheme.secondary.copy(alpha = alpha)
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun DonateDialog(
-    onDismiss: () -> Unit,
-    hasBlurBackground: Boolean = false,
-    isDarkTheme: Boolean = false
-) {
-    val context = LocalContext.current
-    val uriHandler = LocalUriHandler.current
-    var showMonero by remember { mutableStateOf(false) }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        shape = RoundedCornerShape(28.dp),
-        containerColor = if (hasBlurBackground) (if (isDarkTheme) Color(0xFF1E1E1E).copy(alpha = 0.95f) else Color(0xFFF5F5F5).copy(alpha = 0.95f)) else MaterialTheme.colorScheme.surfaceContainerHigh,
-        title = {
-            Text(
-                text = stringResource(R.string.donate_title),
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = if (hasBlurBackground) Color.White else MaterialTheme.colorScheme.onSurface
-            )
-        },
-        text = {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Button(
-                    onClick = { uriHandler.openUri("https://paypal.me/TommyZambrano") },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .bounceClick(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (hasBlurBackground) Color.White else MaterialTheme.colorScheme.primary,
-                        contentColor = if (hasBlurBackground) Color.Black else MaterialTheme.colorScheme.onPrimary
-                    )
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.LocalCafe,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(stringResource(R.string.paypal), fontWeight = FontWeight.Bold)
-                }
-
-                Button(
-                    onClick = { showMonero = !showMonero },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .bounceClick(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (hasBlurBackground) Color.White.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant,
-                        contentColor = if (hasBlurBackground) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.MonetizationOn,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(stringResource(R.string.monero), fontWeight = FontWeight.SemiBold)
-                }
-
-                if (showMonero) {
-                    Surface(
-                        shape = RoundedCornerShape(16.dp),
-                        color = if (hasBlurBackground) (if (isDarkTheme) Color.White.copy(alpha = 0.09f) else Color.Black.copy(alpha = 0.22f)) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = stringResource(R.string.monero_address),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = if (hasBlurBackground) Color.White.copy(alpha = 0.85f) else MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.weight(1f)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            IconButton(
-                                onClick = {
-                                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                    val clip = ClipData.newPlainText("Monero Address", context.getString(R.string.monero_address))
-                                    clipboard.setPrimaryClip(clip)
-                                    Toast.makeText(context, R.string.copied, Toast.LENGTH_SHORT).show()
-                                },
-                                modifier = Modifier.bounceClick()
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Filled.ContentCopy,
-                                    contentDescription = stringResource(R.string.copied),
-                                    tint = if (hasBlurBackground) Color.White else MaterialTheme.colorScheme.primary
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            FilledTonalButton(
-                onClick = onDismiss,
-                shape = CircleShape,
-                modifier = Modifier.bounceClick(),
-                colors = ButtonDefaults.filledTonalButtonColors(
-                    containerColor = if (hasBlurBackground) Color.White.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant,
-                    contentColor = if (hasBlurBackground) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            ) {
-                Text(stringResource(R.string.cancel), fontWeight = FontWeight.Bold)
-            }
-        }
-    )
-}
 
 @Composable
 private fun CreditEntry(name: String, description: String, hasBlurBackground: Boolean) {

@@ -397,55 +397,122 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         visuallyDeletedIds.remove(song.id)
     }
 
-    fun deleteSongPermanently(songId: Long, songData: String, songUri: android.net.Uri) {
+    private data class PendingDelete(val songId: Long)
+    private var pendingDelete: PendingDelete? = null
+
+    private fun removeOverrideFor(songId: Long) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val db = com.demonlab.lune.data.MusicDatabase.getDatabase(getApplication())
+                val override = db.songOverrideDao().getOverrideForSong(songId)
+                if (override != null) db.songOverrideDao().deleteOverride(override)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    /**
+     * Deletes the audio file. Android only lets an app delete media it does not own after the user approves it, so when
+     * the direct attempts fail [requestApproval] receives the system confirmation to show (Android 10+); the result
+     * comes back through [onDeleteApprovalResult]. Until a delete really happens the song is restored to the list.
+     */
+    fun deleteSongPermanently(
+        songId: Long,
+        songData: String,
+        songUri: android.net.Uri,
+        requestApproval: (android.content.IntentSender) -> Unit
+    ) {
         val context = getApplication<Application>()
         val settingsManager = SettingsManager.getInstance(context)
         viewModelScope.launch {
+            var approval: android.content.IntentSender? = null
             val deleted = withContext(Dispatchers.IO) {
-                try {
-                    var success = false
+                var success = false
+                // A delete only counts when the file is really gone: some devices remove just the MediaStore row
+                // and leave the file, and the next scan then brings the song straight back.
+                fun fileGone() = songData.isBlank() || !java.io.File(songData).exists()
 
-                    // 1. Try to delete via SAF if we have a folder URI
+                // 1. SAF, when the user picked a music folder with write access
+                try {
                     val folderUriString = settingsManager.musicFolderUri
                     if (folderUriString != null) {
-                        val folderUri = android.net.Uri.parse(folderUriString)
-                        val tree = androidx.documentfile.provider.DocumentFile.fromTreeUri(context, folderUri)
+                        val tree = androidx.documentfile.provider.DocumentFile.fromTreeUri(context, android.net.Uri.parse(folderUriString))
                         if (tree != null && tree.canWrite()) {
                             val fileName = java.io.File(songData).name
-                            val fileInSaf = tree.findFile(fileName)
-                            if (fileInSaf?.delete() == true) success = true
+                            if (tree.findFile(fileName)?.delete() == true) success = true
                         }
                     }
-
-                    // 2. Delete from MediaStore
-                    val rows = context.contentResolver.delete(songUri, null, null)
-                    if (rows > 0) success = true
-                    
-                    // 3. Fallback: direct file delete
-                    val file = java.io.File(songData)
-                    if (file.exists() && file.delete()) success = true
-                    
-                    // 4. Delete metadata overrides (only if deletion succeeded)
-                    if (success) {
-                        val db = com.demonlab.lune.data.MusicDatabase.getDatabase(context)
-                        val override = db.songOverrideDao().getOverrideForSong(songId)
-                        if (override != null) {
-                            db.songOverrideDao().deleteOverride(override)
-                        }
-                    }
-                    
-                    success
                 } catch (e: Exception) {
                     e.printStackTrace()
-                    false
                 }
+
+                if (success && !fileGone()) success = false
+
+                // 2. MediaStore, Android 10 and older. On Android 11+ this can drop the database row without removing the
+                // file, so there the system delete request below is used instead.
+                if (!success && android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.R) {
+                    try {
+                        if (context.contentResolver.delete(songUri, null, null) > 0) success = true
+                    } catch (e: SecurityException) {
+                        if (android.os.Build.VERSION.SDK_INT == android.os.Build.VERSION_CODES.Q &&
+                            e is android.app.RecoverableSecurityException
+                        ) {
+                            approval = e.userAction.actionIntent.intentSender
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+
+                if (success && !fileGone()) success = false
+
+                // 3. Plain file delete
+                if (!success && approval == null) {
+                    try {
+                        val file = java.io.File(songData)
+                        if (!file.exists() || file.delete()) success = !file.exists()
+                        if (success) android.media.MediaScannerConnection.scanFile(context, arrayOf(songData), null, null)
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+
+                // 4. Android 11+: ask the user to approve the deletion through the system dialog
+                if (!success && approval == null && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                    try {
+                        approval = MediaStore.createDeleteRequest(context.contentResolver, listOf(songUri)).intentSender
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+                success
             }
-            
+
+            val sender = approval
             if (deleted) {
+                removeOverrideFor(songId)
                 loadSongs()
+                visuallyDeletedIds.remove(songId)
+            } else if (sender != null) {
+                // Keep the song hidden until the user answers the system dialog.
+                pendingDelete = PendingDelete(songId)
+                requestApproval(sender)
+            } else {
+                visuallyDeletedIds.remove(songId)
             }
-            visuallyDeletedIds.remove(songId)
         }
+    }
+
+    /** Called with the outcome of the system delete confirmation. */
+    fun onDeleteApprovalResult(approved: Boolean) {
+        val pending = pendingDelete ?: return
+        pendingDelete = null
+        if (approved) {
+            removeOverrideFor(pending.songId)
+            loadSongs()
+        }
+        visuallyDeletedIds.remove(pending.songId)
     }
 
     private var mediaStoreObserver: ContentObserver? = null

@@ -96,6 +96,12 @@ fun <T> FastScrollbarGrid(
     val currentItems by rememberUpdatedState(items)
     val currentLetterOf by rememberUpdatedState(itemKeyOrLetter)
 
+    // A-Z rail: letters the grid really contains, so dragging to "M" lands on the first M.
+    val density = LocalDensity.current
+    val letterIndex = remember(items) { buildLetterIndex(items) { currentLetterOf(it) } }
+    val currentLetterIndex by rememberUpdatedState(letterIndex)
+    val railPadPx = with(density) { 6.dp.toPx() }
+
     val thumbWidth by animateDpAsState(
         targetValue = if (isDragging) 10.dp else 4.dp,
         animationSpec = tween(durationMillis = 150),
@@ -124,6 +130,27 @@ fun <T> FastScrollbarGrid(
                     fun updatePosition(y: Float) {
                         val total = currentItems.size
                         if (total <= 1) return
+
+                        val li = currentLetterIndex
+                        if (li != null) {
+                            val railHeight = (containerHeight - 2f * railPadPx).coerceAtLeast(1f)
+                            val letterPos = (((y - railPadPx) / railHeight) * li.letters.size).toInt()
+                                .coerceIn(0, li.letters.size - 1)
+                            val railLetter = li.letters[letterPos]
+                            dragThumbY = (railPadPx + (letterPos + 0.5f) / li.letters.size * railHeight - thumbHeightPx / 2f)
+                                .coerceIn(0f, (containerHeight - thumbHeightPx).coerceAtLeast(0f))
+                            if (railLetter != currentLetter) {
+                                currentLetter = railLetter
+                                hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            }
+                            val railTarget = li.firstIndex[letterPos]
+                            if (railTarget != lastTargetIndex) {
+                                lastTargetIndex = railTarget
+                                scrollJob?.cancel()
+                                scrollJob = coroutineScope.launch { gridState.scrollToItem(railTarget) }
+                            }
+                            return
+                        }
                         val availableHeight = (containerHeight - thumbHeightPx).coerceAtLeast(0f)
                         val targetThumbY = (y - thumbHeightPx / 2f).coerceIn(0f, availableHeight)
                         dragThumbY = targetThumbY
@@ -211,6 +238,27 @@ fun <T> FastScrollbarGrid(
                 )
         )
 
+        // Alphabet rail (A-Z) while dragging
+        val rail = letterIndex
+        if (rail != null) {
+            AnimatedVisibility(
+                visible = isDragging,
+                enter = fadeIn(),
+                exit = fadeOut(),
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .offset { IntOffset(-30.dp.roundToPx(), railPadPx.roundToInt()) }
+            ) {
+                AlphabetRail(
+                    letters = rail.letters,
+                    current = currentLetter,
+                    height = with(density) { (containerHeight - 2f * railPadPx).coerceAtLeast(0f).toDp() },
+                    backgroundColor = bubbleColor,
+                    textColor = bubbleTextColor
+                )
+            }
+        }
+
         // Letter bubble
         AnimatedVisibility(
             visible = isDragging && currentLetter.isNotEmpty(),
@@ -219,7 +267,7 @@ fun <T> FastScrollbarGrid(
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .offset {
-                    IntOffset(-56.dp.roundToPx(), (dragThumbY - 12.dp.toPx()).roundToInt())
+                    IntOffset((if (letterIndex != null) -88 else -56).dp.roundToPx(), (dragThumbY - 12.dp.toPx()).roundToInt())
                 }
         ) {
             Surface(

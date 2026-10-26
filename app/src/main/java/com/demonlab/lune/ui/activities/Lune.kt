@@ -495,8 +495,14 @@ class Lune : AppCompatActivity() {
                 }
             }
             // Sync Visualizer when permission or playback state changes
+            var audioPermissionAsked by remember { mutableStateOf(false) }
             LaunchedEffect(isPlaying, isPlayerExpanded, settingsManager.headerVisualizerEnabled) {
                 val hasAudioPermission = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+                if (!hasAudioPermission && isPlaying && settingsManager.headerVisualizerEnabled && !audioPermissionAsked) {
+                    // The visualizer next to the app name needs this permission; ask once per launch.
+                    audioPermissionAsked = true
+                    recordAudioLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                }
                 val visualizerNeeded = settingsManager.headerVisualizerEnabled || playbackManager.isMiniPlayerVisualizerEnabled || (isPlayerExpanded && playbackManager.isFullPlayerVisualizerEnabled)
                 if (hasAudioPermission && isPlaying && visualizerNeeded) {
                     playbackManager.startVisualizer()
@@ -708,6 +714,11 @@ fun MainScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
     var showDeleteDialog by remember { mutableStateOf(false) }
+    val deleteApprovalLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartIntentSenderForResult()
+    ) { result ->
+        musicViewModel.onDeleteApprovalResult(result.resultCode == android.app.Activity.RESULT_OK)
+    }
     var songToDelete by remember { mutableStateOf<Song?>(null) }
     var undoSecondsRemaining by remember { mutableIntStateOf(0) }
     var undoProgress by remember { mutableFloatStateOf(1f) }
@@ -3054,7 +3065,9 @@ fun MainScreen(
                             if (result == SnackbarResult.ActionPerformed) {
                                 musicViewModel.undoDeleteSong(song)
                             } else {
-                                musicViewModel.deleteSongPermanently(song.id, song.path, song.uri)
+                                musicViewModel.deleteSongPermanently(song.id, song.path, song.uri) { sender ->
+                                    deleteApprovalLauncher.launch(androidx.activity.result.IntentSenderRequest.Builder(sender).build())
+                                }
                             }
                         }
                         
