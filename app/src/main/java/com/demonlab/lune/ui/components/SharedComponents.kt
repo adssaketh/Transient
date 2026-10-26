@@ -1301,16 +1301,18 @@ fun FolderFilterContent(
     }
 }
 
-/** "Title · Artist" scrolling line shown in the home header in place of the app name while music plays. */
+/** "Title · Artist · Album" scrolling line shown in the home header in place of the app name while music plays. */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun NowPlayingTicker(
     title: String,
     artist: String,
     modifier: Modifier = Modifier,
-    color: Color = MaterialTheme.colorScheme.primary
+    color: Color = MaterialTheme.colorScheme.primary,
+    album: String = ""
 ) {
-    val line = if (artist.isBlank() || artist.equals("<unknown>", ignoreCase = true)) title else "$title  \u00B7  $artist"
+    fun usable(text: String) = text.isNotBlank() && !text.equals("<unknown>", ignoreCase = true) && !text.equals("unknown", ignoreCase = true)
+    val line = listOf(title, artist, album).filter { usable(it) }.joinToString("  \u00B7  ")
     Text(
         text = line,
         style = MaterialTheme.typography.titleMedium,

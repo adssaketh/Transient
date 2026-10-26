@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.abs
 import kotlin.math.sqrt
 import kotlin.random.Random
@@ -232,42 +233,199 @@ class LuneAiEngine private constructor(private val context: Context) {
         )
     }
 
-    private fun computeSongSimilarity(a: Song, b: Song): Float {
-        if (a.id == b.id) return 1.0f
+    // ─────────────────────────────────────────────────────────────
+    // 2b. SONG FEATURES, TASTE MODEL AND SIMILARITY
+    // ─────────────────────────────────────────────────────────────
 
-        var similarity = 0.0f
+    /** Everything the engine compares between two songs, worked out once per song and cached. */
+    private class SongFeat(
+        val sig: Int,
+        val artistKey: String,        // the whole artist field, lower-case
+        val artists: Set<String>,     // individual singers: "Karthik, Shreya Ghoshal" -> {karthik, shreya ghoshal}
+        val album: String,            // album / movie name without a trailing "(2009)"
+        val genre: String,
+        val year: Int,
+        val script: Int,              // 0 latin, 1 telugu, 2 tamil, 3 devanagari, 4 kannada, 5 malayalam, 6 other
+        val energy: Float,
+        val acoustic: Float
+    )
 
-        // Same artist bonus
-        if (a.artist.equals(b.artist, ignoreCase = true)) {
-            similarity += 0.42f
+    private val featCache = ConcurrentHashMap<Long, SongFeat>()
+    private val artistSplit = Regex(
+        "\\s*(?:,|&|;|/|\\+|\\bfeat\\.?\\b|\\bft\\.?\\b|\\bfeaturing\\b|\\band\\b|\\bwith\\b)\\s*",
+        RegexOption.IGNORE_CASE
+    )
+    private val albumYearSuffix = Regex("\\s*[\\(\\[]\\d{4}[\\)\\]]\\s*$")
+    private val unknownNames = setOf("<unknown>", "unknown", "unknown artist", "unknown album", "various artists", "various")
+
+    private fun splitArtists(raw: String): Set<String> =
+        raw.split(artistSplit)
+            .map { it.trim().lowercase(Locale.getDefault()) }
+            .filter { it.length >= 2 && it !in unknownNames }
+            .toSet()
+
+    private fun albumKey(raw: String): String {
+        val cleaned = raw.trim().replace(albumYearSuffix, "").trim().lowercase(Locale.getDefault())
+        return if (cleaned.isEmpty() || cleaned in unknownNames) "" else cleaned
+    }
+
+    private fun scriptOf(text: String): Int {
+        for (ch in text) {
+            if (!ch.isLetter()) continue
+            return when (Character.UnicodeBlock.of(ch)) {
+                Character.UnicodeBlock.TELUGU -> 1
+                Character.UnicodeBlock.TAMIL -> 2
+                Character.UnicodeBlock.DEVANAGARI -> 3
+                Character.UnicodeBlock.KANNADA -> 4
+                Character.UnicodeBlock.MALAYALAM -> 5
+                else -> if (ch.code < 0x250) 0 else 6
+            }
+        }
+        return 0
+    }
+
+    private fun featOf(song: Song): SongFeat {
+        val sig = java.util.Objects.hash(song.artist, song.album, song.genre, song.title, song.year, song.duration)
+        val cached = featCache[song.id]
+        if (cached != null && cached.sig == sig) return cached
+        val profile = profileSong(song)
+        val feat = SongFeat(
+            sig = sig,
+            artistKey = song.artist.trim().lowercase(Locale.getDefault()),
+            artists = splitArtists(song.artist),
+            album = albumKey(song.album),
+            genre = song.genre?.trim()?.lowercase(Locale.getDefault()).orEmpty(),
+            year = song.year,
+            script = scriptOf(song.title),
+            energy = profile.energyScore,
+            acoustic = profile.acousticScore
+        )
+        featCache[song.id] = feat
+        return feat
+    }
+
+    /** What the user likes, learned per singer, album, genre and decade from how they really listen. */
+    private class TasteProfile(
+        val artist: Map<String, Float>,
+        val album: Map<String, Float>,
+        val genre: Map<String, Float>,
+        val decade: Map<Int, Float>
+    )
+
+    @Volatile private var taste: TasteProfile? = null
+    @Volatile private var tasteBuiltAt = 0L
+    @Volatile private var tasteSize = 0
+
+    private fun buildTaste(songs: List<Song>): TasteProfile {
+        val artist = HashMap<String, Float>()
+        val album = HashMap<String, Float>()
+        val genre = HashMap<String, Float>()
+        val decade = HashMap<Int, Float>()
+        for (song in songs) {
+            val interaction = storage.getInteraction(song.id)
+            // 0 for never-played songs, positive for loved ones (plays, completions, repeats, favourites, playlists),
+            // negative for songs that keep getting skipped.
+            var signal = interaction.calculateAffinityScore() - 10f
+            if (song.isFavorite && !interaction.isFavorite) signal += 9f
+            if (signal == 0f) continue
+            val f = featOf(song)
+            if (f.artists.isNotEmpty()) {
+                val share = signal / f.artists.size
+                for (a in f.artists) artist[a] = (artist[a] ?: 0f) + share
+            }
+            if (f.album.isNotEmpty()) album[f.album] = (album[f.album] ?: 0f) + signal
+            if (f.genre.isNotEmpty()) genre[f.genre] = (genre[f.genre] ?: 0f) + signal
+            if (f.year > 0) decade[f.year / 10 * 10] = (decade[f.year / 10 * 10] ?: 0f) + signal
+        }
+        // Squash every total into -1..1 so one obsession cannot drown everything else.
+        return TasteProfile(
+            artist = artist.mapValues { (_, v) -> v / (abs(v) + 25f) },
+            album = album.mapValues { (_, v) -> v / (abs(v) + 25f) },
+            genre = genre.mapValues { (_, v) -> v / (abs(v) + 25f) },
+            decade = decade.mapValues { (_, v) -> v / (abs(v) + 60f) }
+        )
+    }
+
+    /** Fresh taste from the whole library (called whenever the mixes are rebuilt). */
+    private fun refreshTaste(allSongs: List<Song>): TasteProfile {
+        val built = buildTaste(allSongs)
+        taste = built
+        tasteBuiltAt = System.currentTimeMillis()
+        tasteSize = allSongs.size
+        return built
+    }
+
+    /** The cached taste while it is recent; a list that is only a slice of the library never replaces it. */
+    private fun tasteFor(songs: List<Song>): TasteProfile {
+        val cached = taste
+        val now = System.currentTimeMillis()
+        val looksLikeLibrary = songs.size >= tasteSize * 0.8
+        if (cached != null && (now - tasteBuiltAt < 60_000L || !looksLikeLibrary)) return cached
+        return refreshTaste(songs)
+    }
+
+    /** -1 (avoid) .. +1 (loved): how well a song fits the learned taste, even if it has never been played. */
+    private fun tasteScore(f: SongFeat, t: TasteProfile): Float {
+        var artistTaste = 0f
+        if (f.artists.isNotEmpty()) {
+            val values = f.artists.map { t.artist[it] ?: 0f }.sortedDescending()
+            artistTaste = if (values.size == 1) values[0] else (values[0] + values[1]) / 2f
+        }
+        val albumTaste = if (f.album.isNotEmpty()) t.album[f.album] ?: 0f else 0f
+        val genreTaste = if (f.genre.isNotEmpty()) t.genre[f.genre] ?: 0f else 0f
+        val decadeTaste = if (f.year > 0) t.decade[f.year / 10 * 10] ?: 0f else 0f
+        return 0.50f * artistTaste + 0.30f * albumTaste + 0.12f * genreTaste + 0.08f * decadeTaste
+    }
+
+    /** Ranking score for choosing songs: play history and time of day, plus how well the song fits the taste profile. */
+    private fun rank(song: Song): Float {
+        val base = getSongAffinity(song.id)
+        val t = taste ?: return base
+        return (base + 8f * tasteScore(featOf(song), t)).coerceAtLeast(0.1f)
+    }
+
+    /** 0..1 how alike two songs are: shared singers, album, genre, era, language and learned "this follows that". */
+    private fun similarity(a: SongFeat, b: SongFeat, learned: SongInteraction?, bId: Long): Float {
+        var s = 0f
+
+        if (a.artists.isNotEmpty() && b.artists.isNotEmpty()) {
+            val shared = a.artists.count { it in b.artists }
+            if (shared > 0) s += 0.38f * shared / (a.artists.size + b.artists.size - shared).toFloat()
+        } else if (a.artistKey.isNotEmpty() && a.artistKey == b.artistKey) {
+            s += 0.38f
         }
 
-        // Same or compatible genre bonus
-        val genreA = a.genre?.trim()?.lowercase(Locale.getDefault())
-        val genreB = b.genre?.trim()?.lowercase(Locale.getDefault())
-        if (!genreA.isNullOrEmpty() && !genreB.isNullOrEmpty()) {
-            if (genreA == genreB) {
-                similarity += 0.35f
-            } else if (isCompatibleGenre(genreA, genreB)) {
-                similarity += 0.22f
+        if (a.album.isNotEmpty() && a.album == b.album) s += 0.16f
+
+        if (a.genre.isNotEmpty() && b.genre.isNotEmpty()) {
+            if (a.genre == b.genre) s += 0.22f else if (isCompatibleGenre(a.genre, b.genre)) s += 0.14f
+        }
+
+        if (a.year > 0 && b.year > 0) {
+            val gap = abs(a.year - b.year)
+            s += when {
+                gap <= 1 -> 0.12f
+                gap <= 4 -> 0.08f
+                gap <= 9 -> 0.03f
+                else -> 0f
             }
         }
 
-        // Audio profile harmonic distance
-        val profileA = profileSong(a)
-        val profileB = profileSong(b)
-        val energyDelta = abs(profileA.energyScore - profileB.energyScore)
-        val acousticDelta = abs(profileA.acousticScore - profileB.acousticScore)
-        val profileHarmony = 1.0f - ((energyDelta * 0.6f) + (acousticDelta * 0.4f))
-        similarity += (profileHarmony * 0.23f).coerceIn(0f, 0.23f)
+        // Same language / script keeps a session coherent; mixing them is a jarring jump.
+        s += if (a.script == b.script) 0.08f else -0.08f
 
-        // Markov transition learned bonus
-        val transitionWeight = storage.getInteraction(a.id).getTransitionProbabilityTo(b.id)
-        if (transitionWeight > 0f) {
-            similarity += (transitionWeight * 0.20f).coerceIn(0f, 0.20f)
-        }
+        val harmony = 1f - (abs(a.energy - b.energy) * 0.6f + abs(a.acoustic - b.acoustic) * 0.4f)
+        s += (harmony * 0.20f).coerceIn(0f, 0.20f)
 
-        return similarity.coerceIn(0f, 1f)
+        val transition = learned?.getTransitionProbabilityTo(bId) ?: 0f
+        if (transition > 0f) s += (transition * 0.20f).coerceIn(0f, 0.20f)
+
+        return s.coerceIn(0f, 1f)
+    }
+
+    private fun computeSongSimilarity(a: Song, b: Song): Float {
+        if (a.id == b.id) return 1.0f
+        return similarity(featOf(a), featOf(b), storage.getInteraction(a.id), b.id)
     }
 
     private val rockFamily = setOf("rock", "alternative", "indie", "metal", "punk", "grunge", "hard rock")
@@ -290,42 +448,32 @@ class LuneAiEngine private constructor(private val context: Context) {
 
     private class ShuffleEntry(
         val song: Song,
-        val artist: String,
-        val genre: String,
-        val energy: Float,
-        val acoustic: Float,
-        val affinity: Float
+        val feat: SongFeat,
+        val rank: Float
     )
 
     /**
-     * Orders [songs] so neighbouring tracks flow into each other (same mood / genre, different artist, favourites first).
+     * Orders [songs] so neighbouring tracks flow into each other: shared singers / album / era / language, a similar
+     * mood, songs the user loves (or whose singer / album they love) first, and no long runs of one artist or album.
      *
-     * Everything per-song is worked out once, and each pick only scores a random sample of the remaining songs. The
-     * earlier version profiled both songs of every pair and compared every pick against the whole library: on a
-     * ~1000 song library that is hundreds of thousands of comparisons on the UI thread, which froze the app and got it
-     * killed when "Start Smart Shuffle" was tapped.
+     * Everything per-song is worked out once, and each pick only scores a random sample of the remaining songs, so a
+     * ~1000 song library takes a fraction of a second (the first version compared every pair on the UI thread, which
+     * froze the app when "Start Smart Shuffle" was tapped).
      */
     fun generateSmartShuffle(songs: List<Song>, startingSong: Song? = null): List<Song> {
         if (songs.size <= 2) return songs
 
+        val tasteProfile = tasteFor(songs)
         val entries = ArrayList<ShuffleEntry>(songs.size)
         for (song in songs) {
-            val profile = profileSong(song)
-            entries.add(
-                ShuffleEntry(
-                    song = song,
-                    artist = song.artist.trim().lowercase(Locale.getDefault()),
-                    genre = song.genre?.trim()?.lowercase(Locale.getDefault()).orEmpty(),
-                    energy = profile.energyScore,
-                    acoustic = profile.acousticScore,
-                    affinity = getSongAffinity(song.id)
-                )
-            )
+            val feat = featOf(song)
+            val rank = (getSongAffinity(song.id) + 8f * tasteScore(feat, tasteProfile)).coerceAtLeast(0.1f)
+            entries.add(ShuffleEntry(song, feat, rank))
         }
 
         val random = Random.Default
         val seedAt = startingSong?.let { start -> entries.indexOfFirst { it.song.id == start.id }.takeIf { it >= 0 } }
-            ?: entries.indices.maxByOrNull { entries[it].affinity }
+            ?: entries.indices.maxByOrNull { entries[it].rank }
             ?: 0
 
         // Order of the pool does not matter, so removing swaps with the last element (O(1)).
@@ -336,27 +484,20 @@ class LuneAiEngine private constructor(private val context: Context) {
 
         val result = ArrayList<Song>(songs.size)
         result.add(current.song)
+        var albumRun = 1
+        var artistRun = 1
 
         fun score(from: ShuffleEntry, learned: SongInteraction, candidate: ShuffleEntry): Float {
-            var similarity = 0f
-            val sameArtist = candidate.artist == from.artist
-            if (sameArtist) similarity += 0.42f
-            if (from.genre.isNotEmpty() && candidate.genre.isNotEmpty()) {
-                if (from.genre == candidate.genre) {
-                    similarity += 0.35f
-                } else if (isCompatibleGenre(from.genre, candidate.genre)) {
-                    similarity += 0.22f
-                }
+            val sim = similarity(from.feat, candidate.feat, learned, candidate.song.id)
+            var penalty = 0f
+            if (candidate.feat.artistKey.isNotEmpty() && candidate.feat.artistKey == from.feat.artistKey) {
+                penalty -= if (artistRun >= 2) 0.55f else 0.30f
             }
-            val harmony = 1f - (abs(from.energy - candidate.energy) * 0.6f + abs(from.acoustic - candidate.acoustic) * 0.4f)
-            similarity += (harmony * 0.23f).coerceIn(0f, 0.23f)
-            val transition = learned.getTransitionProbabilityTo(candidate.song.id)
-            if (transition > 0f) similarity += (transition * 0.20f).coerceIn(0f, 0.20f)
-            similarity = similarity.coerceIn(0f, 1f)
-
-            val sameArtistPenalty = if (sameArtist) -0.35f else 0f
+            if (candidate.feat.album.isNotEmpty() && candidate.feat.album == from.feat.album && albumRun >= 3) {
+                penalty -= 0.30f
+            }
             val noise = random.nextFloat() * 0.08f
-            return (similarity * 0.48f) + (candidate.affinity / 45f).coerceIn(0f, 0.44f) + sameArtistPenalty + noise
+            return (sim * 0.48f) + (candidate.rank / 45f).coerceIn(0f, 0.44f) + penalty + noise
         }
 
         val sampleSize = 150
@@ -378,6 +519,8 @@ class LuneAiEngine private constructor(private val context: Context) {
             pool[pick] = pool[pool.size - 1]
             pool.removeAt(pool.size - 1)
 
+            albumRun = if (chosen.feat.album.isNotEmpty() && chosen.feat.album == current.feat.album) albumRun + 1 else 1
+            artistRun = if (chosen.feat.artistKey.isNotEmpty() && chosen.feat.artistKey == current.feat.artistKey) artistRun + 1 else 1
             result.add(chosen.song)
             current = chosen
         }
@@ -392,6 +535,8 @@ class LuneAiEngine private constructor(private val context: Context) {
     fun generateDiscoveryQueue(allSongs: List<Song>, seedSong: Song? = null): List<Song> {
         if (allSongs.isEmpty()) return emptyList()
 
+        val tasteProfile = tasteFor(allSongs)
+
         // Partition songs into favorites/familiar vs unexplored
         val familiar = allSongs.filter { getSongAffinity(it.id) >= 12f }
         val unexplored = allSongs.filter { 
@@ -403,15 +548,17 @@ class LuneAiEngine private constructor(private val context: Context) {
             return generateSmartShuffle(allSongs, seedSong)
         }
 
-        val seed = seedSong ?: familiar.maxByOrNull { getSongAffinity(it.id) } ?: allSongs.first()
+        val seed = seedSong ?: familiar.maxByOrNull { rank(it) } ?: allSongs.first()
         val result = mutableListOf<Song>(seed)
 
         // Find unexplored tracks that have high similarity to user's favorite tracks
         // Comparing against the 40 strongest favourites is plenty and keeps this fast on big libraries.
-        val reference = familiar.sortedByDescending { getSongAffinity(it.id) }.take(40)
+        val reference = familiar.sortedByDescending { rank(it) }.take(40)
         val rankedUnexplored = unexplored.map { candidate ->
             val maxSimToFavorites = reference.maxOfOrNull { computeSongSimilarity(it, candidate) } ?: 0.3f
-            candidate to maxSimToFavorites
+            // Unheard songs by singers / from albums the user already loves rise to the top.
+            val fit = tasteScore(featOf(candidate), tasteProfile)
+            candidate to (maxSimToFavorites * 0.65f + fit * 0.35f)
         }.sortedByDescending { it.second }
 
         val familiarPool = (familiar - seed).toMutableList()
@@ -451,13 +598,15 @@ class LuneAiEngine private constructor(private val context: Context) {
         engineScope.launch {
             try {
                 val generated = mutableListOf<AiMix>()
+                // Learn what the user likes (singers, albums, genres, eras) from their real listening before building mixes.
+                refreshTaste(allSongs)
                 val currentTime = TimeOfDay.current()
                 val dayType = DayType.current()
                 val isWeekend = dayType == DayType.WEEKEND
 
                 // 1. Daily AI Flow (Mix del Día)
                 val dailySongs = allSongs
-                .sortedByDescending { getSongAffinity(it.id) }
+                .sortedByDescending { rank(it) }
                 .take(32)
             if (dailySongs.size >= 4) {
                 generated.add(
@@ -495,7 +644,7 @@ class LuneAiEngine private constructor(private val context: Context) {
             val filteredEnergy = allSongs.filter { song ->
                 val profile = profileSong(song)
                 profile.energyScore > 0.62f || (song.duration < 230_000L && getSongAffinity(song.id) > 8f)
-            }.sortedByDescending { getSongAffinity(it.id) }.take(25)
+            }.sortedByDescending { rank(it) }.take(25)
 
             val energySongs = if (filteredEnergy.size < 15 && allSongs.size >= 4) {
                 val existingIds = filteredEnergy.map { it.id }.toSet()
@@ -526,7 +675,7 @@ class LuneAiEngine private constructor(private val context: Context) {
             val filteredChill = allSongs.filter { song ->
                 val profile = profileSong(song)
                 profile.energyScore < 0.45f || profile.isFocusFriendly
-            }.sortedByDescending { getSongAffinity(it.id) }.take(25)
+            }.sortedByDescending { rank(it) }.take(25)
 
             val chillSongs = if (filteredChill.size < 15 && allSongs.size >= 4) {
                 val existingIds = filteredChill.map { it.id }.toSet()
@@ -577,7 +726,8 @@ class LuneAiEngine private constructor(private val context: Context) {
 
             val timeSongs = allSongs.sortedByDescending { song ->
                 val interaction = storage.getInteraction(song.id)
-                interaction.calculateDynamicScore(System.currentTimeMillis(), currentTime, isWeekend)
+                interaction.calculateDynamicScore(System.currentTimeMillis(), currentTime, isWeekend) +
+                    (taste?.let { 8f * tasteScore(featOf(song), it) } ?: 0f)
             }.take(25)
 
             if (timeSongs.size >= 4) {
@@ -636,33 +786,103 @@ class LuneAiEngine private constructor(private val context: Context) {
                 )
             }
 
-            // 8. Radio de Artista Destacado (Top Artist Spotlight)
-            val topArtist = allSongs
-                .groupBy { it.artist }
-                .filter { it.key.isNotBlank() && it.value.size >= 2 }
+            // 8. Artist radio: the singer the user loves most (collaborations included), plus songs that sound alike
+            val tasteNow = taste
+            val bySinger = HashMap<String, MutableList<Song>>()
+            for (song in allSongs) {
+                for (singer in featOf(song).artists) bySinger.getOrPut(singer) { mutableListOf() }.add(song)
+            }
+            val topSinger = bySinger.entries
+                .filter { it.value.size >= 3 }
                 .maxByOrNull { entry ->
-                    entry.value.sumOf { getSongAffinity(it.id).toDouble() }
+                    val liked = tasteNow?.artist?.get(entry.key) ?: 0f
+                    liked * 100f + entry.value.sumOf { getSongAffinity(it.id).toDouble() }.toFloat() / entry.value.size
                 }
 
-            if (topArtist != null) {
-                val artistSongs = topArtist.value
-                val kindredSongs = allSongs.filter { it.artist != topArtist.key && computeSongSimilarity(artistSongs.first(), it) > 0.40f }
-                val spotlightPool = (artistSongs + kindredSongs.take(15)).distinctBy { it.id }
+            if (topSinger != null) {
+                val singerSongs = topSinger.value.sortedByDescending { rank(it) }
+                val singerIds = singerSongs.map { it.id }.toSet()
+                val reference = singerSongs.take(5)
+                val kindred = allSongs
+                    .filter { it.id !in singerIds }
+                    .map { candidate -> candidate to (reference.maxOfOrNull { computeSongSimilarity(it, candidate) } ?: 0f) }
+                    .filter { it.second > 0.30f }
+                    .sortedByDescending { it.second }
+                    .take(15)
+                    .map { it.first }
+                val spotlightPool = (singerSongs.take(30) + kindred).distinctBy { it.id }
+                val singerName = topSinger.key.split(' ').joinToString(" ") { word ->
+                    word.replaceFirstChar { it.uppercase() }
+                }
 
                 if (spotlightPool.size >= 4) {
                     generated.add(
                         AiMix(
-                            id = "ai_artist_${topArtist.key.hashCode()}",
-                            title = context.getString(R.string.ai_mix_artist_radio_title, topArtist.key),
-                            subtitle = context.getString(R.string.ai_mix_artist_radio_sub, topArtist.key),
+                            id = "ai_artist_${topSinger.key.hashCode()}",
+                            title = context.getString(R.string.ai_mix_artist_radio_title, singerName),
+                            subtitle = context.getString(R.string.ai_mix_artist_radio_sub, singerName),
                             category = MixCategory.ARTIST_SPOTLIGHT,
-                            songs = generateSmartShuffle(spotlightPool),
+                            songs = generateSmartShuffle(spotlightPool, reference.first()),
                             gradientColors = listOf(Color(0xFFE11D48), Color(0xFFBE123C), Color(0xFF881337)),
                             iconName = "person",
-                            description = "A continuous session built around one of your most-played artists."
+                            description = "A continuous session built around one of your most-loved artists."
                         )
                     )
                 }
+            }
+
+            // 9. More like the album (movie soundtrack) the user loves most
+            val byAlbum = allSongs.filter { featOf(it).album.isNotEmpty() }.groupBy { featOf(it).album }
+            val topAlbum = byAlbum.entries
+                .filter { it.value.size >= 4 && (tasteNow?.album?.get(it.key) ?: 0f) > 0.05f }
+                .maxByOrNull { tasteNow?.album?.get(it.key) ?: 0f }
+            if (topAlbum != null) {
+                val albumSongs = topAlbum.value.sortedBy { it.trackNumber }
+                val albumReference = albumSongs.take(4)
+                val similarSongs = allSongs
+                    .filter { featOf(it).album != topAlbum.key }
+                    .map { candidate -> candidate to (albumReference.maxOfOrNull { computeSongSimilarity(it, candidate) } ?: 0f) }
+                    .filter { it.second > 0.32f }
+                    .sortedByDescending { it.second }
+                    .take(14)
+                    .map { it.first }
+                val albumPool = (albumSongs + similarSongs).distinctBy { it.id }
+                if (albumPool.size >= 6) {
+                    val albumName = albumSongs.first().album.trim()
+                    generated.add(
+                        AiMix(
+                            id = "ai_album_${topAlbum.key.hashCode()}",
+                            title = "More like $albumName",
+                            subtitle = "Sounds like an album you keep coming back to",
+                            category = MixCategory.GENRE_DISCOVERY,
+                            songs = generateSmartShuffle(albumPool, albumSongs.first()),
+                            gradientColors = listOf(Color(0xFF7C3AED), Color(0xFF6D28D9), Color(0xFF4C1D95)),
+                            iconName = "album",
+                            description = "The album itself, plus songs with the same singers, era and feel."
+                        )
+                    )
+                }
+            }
+
+            // 10. Heavy rotation: what has been on repeat over the last days
+            val tenDaysAgo = System.currentTimeMillis() - (10L * 24L * 60L * 60L * 1000L)
+            val heavyRotation = allSongs.filter { song ->
+                val interaction = storage.getInteraction(song.id)
+                interaction.lastPlayedTimestamp >= tenDaysAgo && interaction.playCount >= 2 && interaction.consecutiveSkips == 0
+            }.sortedByDescending { rank(it) }.take(25)
+            if (heavyRotation.size >= 6) {
+                generated.add(
+                    AiMix(
+                        id = "ai_heavy_rotation",
+                        title = "Heavy Rotation",
+                        subtitle = "What you keep coming back to",
+                        category = MixCategory.DAILY_FLOW,
+                        songs = generateSmartShuffle(heavyRotation),
+                        gradientColors = listOf(Color(0xFF0EA5E9), Color(0xFF2563EB), Color(0xFF4F46E5)),
+                        iconName = "repeat",
+                        description = "Your most played songs of the last ten days, in a smooth order."
+                    )
+                )
             }
 
             _aiMixes.value = generated

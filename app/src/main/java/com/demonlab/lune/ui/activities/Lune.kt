@@ -1210,6 +1210,7 @@ fun MainScreen(
                                     NowPlayingTicker(
                                         title = currentSong?.title.orEmpty(),
                                         artist = currentSong?.artist.orEmpty(),
+                                        album = currentSong?.album.orEmpty(),
                                         color = titleColor,
                                         modifier = Modifier.graphicsLayer { alpha = tickerFraction }
                                     )

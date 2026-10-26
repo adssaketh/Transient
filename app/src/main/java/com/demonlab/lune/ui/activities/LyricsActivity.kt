@@ -122,7 +122,9 @@ fun LyricsScreen(onBack: () -> Unit, isDarkTheme: Boolean = false) {
     val isPlaying = playbackManager.isPlaying
     
     var currentProgress by remember { mutableStateOf(playbackManager.getProgress()) }
-    val currentPositionMs = (song.duration * currentProgress).toLong()
+    // Real player position. The old code multiplied the library duration by the progress, which is always 0 for
+    // songs whose length Android could not read (AIFF), so the lyrics never moved.
+    var currentPositionMs by remember { mutableLongStateOf(playbackManager.currentPosition().toLong()) }
     
     var userOffsetMs by remember(song.id) { mutableLongStateOf(0L) }
     var showOffsetControl by remember { mutableStateOf(false) }
@@ -157,13 +159,14 @@ fun LyricsScreen(onBack: () -> Unit, isDarkTheme: Boolean = false) {
     LaunchedEffect(Unit) {
         while (true) {
             currentProgress = playbackManager.getProgress()
+            currentPositionMs = playbackManager.currentPosition().toLong()
             delay(50)
         }
     }
     
     // Auto-scroll to current line
     val speedMultiplier = speedOptions[speedIndex].toFloat()
-    val adjustedPositionMs = (currentPositionMs * speedMultiplier).toLong().coerceAtMost(song.duration)
+    val adjustedPositionMs = (currentPositionMs * speedMultiplier).toLong()
     val activeIndex = remember(adjustedPositionMs, lyricsLines) {
         lyricsLines.indexOfLast { it.timeMs <= adjustedPositionMs }.coerceAtLeast(0)
     }
@@ -650,8 +653,10 @@ fun LyricsScreen(onBack: () -> Unit, isDarkTheme: Boolean = false) {
 
                         val onLineSeek = {
                             playbackManager.seekToTimeMs(line.timeMs)
-                            if (song.duration > 0) {
-                                currentProgress = (line.timeMs.toFloat() / song.duration.toFloat()).coerceIn(0f, 1f)
+                            currentPositionMs = line.timeMs
+                            val knownDuration = playbackManager.effectiveDurationMs(song)
+                            if (knownDuration > 0) {
+                                currentProgress = (line.timeMs.toFloat() / knownDuration.toFloat()).coerceIn(0f, 1f)
                             }
                             vibrator?.triggerLightVibration()
                         }

@@ -1722,6 +1722,16 @@ class MusicService : MediaLibraryService() {
                 }
             }
 
+            // 1b. Android 11+ hides .lrc files from plain file access; the music folder the user picked can still read them
+            val folderLrc = readLrcFromMusicFolder(song)
+            if (!folderLrc.isNullOrBlank()) {
+                Log.d("MusicService", "Found .lrc through the music folder for: ${song.title}")
+                withContext(Dispatchers.Main) {
+                    playbackManager.updateLyrics(folderLrc)
+                }
+                return@launch
+            }
+
             // 2. Try to extract embedded lyrics via Jaudiotagger (Best for FLAC/Vorbis/ID3)
             try {
                 val f = File(song.path)
@@ -1778,6 +1788,56 @@ class MusicService : MediaLibraryService() {
             } finally {
                 retriever.release()
             }
+        }
+    }
+
+    /**
+     * Reads "<song name>.lrc" (next to the song, or in a "Lyrics" folder beside it) through the music folder the user
+     * picked in setup. Plain java.io.File cannot see non-audio files on Android 11+, which made synced lyrics vanish.
+     */
+    private fun readLrcFromMusicFolder(song: Song): String? {
+        val treeString = settingsManager.musicFolderUri ?: return null
+        return try {
+            val tree = Uri.parse(treeString)
+            val treeDocId = android.provider.DocumentsContract.getTreeDocumentId(tree)
+            val path = song.path
+            val volume: String
+            val relative: String
+            if (path.startsWith("/storage/emulated/0/")) {
+                volume = "primary"
+                relative = path.removePrefix("/storage/emulated/0/")
+            } else if (path.startsWith("/storage/")) {
+                val rest = path.removePrefix("/storage/")
+                volume = rest.substringBefore('/')
+                relative = rest.substringAfter('/', "")
+            } else {
+                return null
+            }
+            val dir = relative.substringBeforeLast('/', "")
+            val base = relative.substringAfterLast('/').substringBeforeLast('.')
+            val prefix = if (dir.isEmpty()) "" else "$dir/"
+            val candidates = listOf(
+                "$prefix$base.lrc", "$prefix$base.LRC",
+                "${prefix}Lyrics/$base.lrc", "${prefix}Lyrics/$base.LRC",
+                "${prefix}lyrics/$base.lrc"
+            )
+            for (candidate in candidates) {
+                val docId = "$volume:$candidate"
+                if (!docId.startsWith(treeDocId)) continue
+                val docUri = android.provider.DocumentsContract.buildDocumentUriUsingTree(tree, docId)
+                try {
+                    contentResolver.openInputStream(docUri)?.use { input ->
+                        val text = CharsetUtils.decodeBytes(input.readBytes())
+                        if (text.isNotBlank()) return text
+                    }
+                } catch (_: Exception) {
+                    // not there: try the next name
+                }
+            }
+            null
+        } catch (e: Exception) {
+            Log.w("MusicService", "Music folder .lrc lookup failed: ${e.message}")
+            null
         }
     }
 

@@ -179,7 +179,7 @@ fun LyricsEditorSheet(
         }
     }
 
-    val currentPositionMs = (song.duration * currentProgress).toLong().coerceAtLeast(0L)
+    val currentPositionMs = (playbackManager.effectiveDurationMs(song) * currentProgress).toLong().coerceAtLeast(0L)
 
     // Import .lrc launcher
     val importLrcLauncher = rememberLauncherForActivityResult(

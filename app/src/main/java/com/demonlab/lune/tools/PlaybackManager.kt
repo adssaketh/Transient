@@ -1353,6 +1353,15 @@ class PlaybackManager private constructor(private val context: Context) {
     fun currentPosition(): Int = musicService?.currentPosition() ?: 0
     fun duration(): Int = musicService?.duration() ?: 0
 
+    /**
+     * Length of [song] in ms. The library value is 0 for files Android cannot read (e.g. AIFF), so this falls back to
+     * what the player reports for the track that is playing.
+     */
+    fun effectiveDurationMs(song: Song): Long {
+        if (song.duration > 0) return song.duration
+        return if (currentSong?.id == song.id) duration().toLong().coerceAtLeast(0L) else 0L
+    }
+
     fun getProgress(): Float {
         musicService?.let {
             val duration = it.duration()

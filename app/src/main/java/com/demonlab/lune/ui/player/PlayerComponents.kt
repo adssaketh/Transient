@@ -1659,7 +1659,7 @@ fun FullPlayer(
                         shape = RoundedCornerShape(percent = 50)
                     ) {
                         Text(
-                            text = formatDuration((song.duration * progress).toLong()),
+                            text = formatDuration((playbackManager.effectiveDurationMs(song) * progress).toLong()),
                             style = MaterialTheme.typography.labelSmall,
                             color = if (useBlurControls) Color.White else MaterialTheme.colorScheme.onSecondaryContainer,
                             fontWeight = FontWeight.Bold,
@@ -1672,7 +1672,7 @@ fun FullPlayer(
                         shape = RoundedCornerShape(percent = 50)
                     ) {
                         Text(
-                            text = formatDuration(song.duration),
+                            text = formatDuration(playbackManager.effectiveDurationMs(song)),
                             style = MaterialTheme.typography.labelSmall,
                             color = if (useBlurControls) Color.White else MaterialTheme.colorScheme.onSecondaryContainer,
                             fontWeight = FontWeight.Bold,
