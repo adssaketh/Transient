@@ -3291,15 +3291,21 @@ fun UnifiedHeaderPill(
         )
     }
 
+    val glassPill = !hasBlurBackground && rememberGlassUi()
     Surface(
         shape = RoundedCornerShape(35.dp),
-        color = outerPillColor,
-        tonalElevation = if (hasBlurBackground) 0.dp else 6.dp,
+        color = if (glassPill) outerPillColor.copy(alpha = 0.55f) else outerPillColor,
+        tonalElevation = if (hasBlurBackground || glassPill) 0.dp else 6.dp,
+        border = if (glassPill) glassBorder() else null,
         modifier = modifier
             .fillMaxWidth()
             .height(70.dp)
     ) {
-        Box(modifier = Modifier.fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .then(if (glassPill) Modifier.glassSheen(RoundedCornerShape(35.dp)) else Modifier)
+        ) {
             if (hasBlurBackground) {
                 if (song != null) {
                     Box(

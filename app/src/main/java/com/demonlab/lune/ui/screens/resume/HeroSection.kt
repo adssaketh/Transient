@@ -19,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import com.demonlab.lune.ui.components.glassSheen
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
@@ -385,9 +386,11 @@ private fun ContinueListeningCard(
     val titleColor = if (hasBlurBackground) Color.White else MaterialTheme.colorScheme.onSurface
     val artistColor = if (hasBlurBackground) Color.White.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant
 
+    val glassCard = !hasBlurBackground && com.demonlab.lune.ui.components.rememberGlassUi()
     Surface(
         shape = RoundedCornerShape(20.dp),
         color = cardBg,
+        border = if (glassCard) com.demonlab.lune.ui.components.glassBorder() else null,
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
@@ -397,7 +400,9 @@ private fun ContinueListeningCard(
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(12.dp)
+            modifier = Modifier
+                .then(if (glassCard) Modifier.glassSheen(RoundedCornerShape(20.dp)) else Modifier)
+                .padding(12.dp)
         ) {
             SongCoverImage(
                 coverUrl = song.coverUrl ?: song.uri,

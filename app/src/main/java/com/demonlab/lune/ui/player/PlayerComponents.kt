@@ -1,5 +1,8 @@
 package com.demonlab.lune.ui.player
 
+import com.demonlab.lune.ui.components.glassSheen
+import com.demonlab.lune.ui.components.glassBorder
+import com.demonlab.lune.ui.components.rememberGlassUi
 import coil.size.Precision
 import coil.imageLoader
 import android.Manifest
@@ -2357,6 +2360,7 @@ fun MiniPlayer(
     ) {
         // 1. Cápsula / Píldora principal interactiva (A la izquierda)
         val pillShape = CircleShape
+        val glassMini = !hasBlurBackground && rememberGlassUi()
         Surface(
             modifier = Modifier
                 .weight(1f)
@@ -2369,10 +2373,15 @@ fun MiniPlayer(
                 )
                 .clickable { onExpand() },
             shape = pillShape,
-            color = if (hasBlurBackground) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.primaryContainer,
-            tonalElevation = if (hasBlurBackground) 0.dp else 6.dp
+            color = if (hasBlurBackground) MaterialTheme.colorScheme.surface else if (glassMini) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f) else MaterialTheme.colorScheme.primaryContainer,
+            tonalElevation = if (hasBlurBackground || glassMini) 0.dp else 6.dp,
+            border = if (glassMini) glassBorder() else null
         ) {
-            Box(modifier = Modifier.fillMaxSize()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .then(if (glassMini) Modifier.glassSheen(pillShape) else Modifier)
+            ) {
                 if (hasBlurBackground) {
                     Crossfade(
                         targetState = song.toArtwork(),

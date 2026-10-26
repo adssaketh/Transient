@@ -503,6 +503,30 @@ fun CustomizationScreen(
                     }
                 )
 
+                var glassUi by remember { mutableStateOf(settingsManager.glassUiEnabled) }
+                SettingsPreferenceItem(
+                    headlineText = stringResource(R.string.glass_ui),
+                    supportingText = stringResource(R.string.glass_ui_desc),
+                    icon = Icons.Default.BlurOn,
+                    position = SectionPosition.MIDDLE,
+                    trailingContent = {
+                        BouncySwitch(
+                            checked = glassUi,
+                            onCheckedChange = { enabled ->
+                                glassUi = enabled
+                                settingsManager.glassUiEnabled = enabled
+                            },
+                            thumbContent = {
+                                Icon(
+                                    imageVector = if (glassUi) Icons.Default.Check else Icons.Default.Close,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(SwitchDefaults.IconSize)
+                                )
+                            }
+                        )
+                    }
+                )
+
                 var albumArtColors by remember { mutableStateOf(settingsManager.albumArtColorsEnabled) }
                 SettingsPreferenceItem(
                     headlineText = stringResource(R.string.album_art_colors),

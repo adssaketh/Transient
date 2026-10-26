@@ -217,6 +217,8 @@
     <string name="customization_desc">Personalize the app style, title, and colors</string>
     <string name="use_custom_colors">Use custom colors</string>
     <string name="use_custom_colors_desc">Override dynamic color with pre-established colors</string>
+    <string name="glass_ui">Glass look</string>
+    <string name="glass_ui_desc">Frosted-glass mini player, section pill and cards</string>
     <string name="album_art_colors">Album art colors</string>
     <string name="album_art_colors_desc">Match the app colors to the artwork of the song that is playing</string>
     <string name="header_visualizer">Header visualizer</string>

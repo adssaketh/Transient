@@ -464,6 +464,15 @@ class SettingsManager(context: Context) {
             prefs.edit().putInt("album_art_seed_color", value).apply()
         }
 
+    // Glass UI (default ON): frosted-glass look for the mini player, section pill and cards.
+    private val _glassUiEnabled = mutableStateOf(prefs.getBoolean("glass_ui_enabled", true))
+    var glassUiEnabled: Boolean
+        get() = _glassUiEnabled.value
+        set(value) {
+            _glassUiEnabled.value = value
+            prefs.edit().putBoolean("glass_ui_enabled", value).apply()
+        }
+
     // Header visualizer (default OFF): the "Transient" wordmark morphs into a small visualizer while music plays.
     private val _headerVisualizerEnabled = mutableStateOf(prefs.getBoolean("header_visualizer_enabled", false))
     var headerVisualizerEnabled: Boolean
