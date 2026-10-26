@@ -45,6 +45,7 @@ fun ResumeScreen(
     onGenreClick: (String) -> Unit,
     onExpandPlayer: () -> Unit,
     onPlayToggle: () -> Unit,
+    onSeeAll: () -> Unit = {},
 ) {
     val scrollState = rememberScrollState()
     val sUnknownArtist = stringResource(R.string.unknown_artist)
@@ -196,6 +197,20 @@ fun ResumeScreen(
     val topSongStat = viewModel.topSongStats.firstOrNull()
     val totalPlays = remember(viewModel.topSongStats) {
         viewModel.topSongStats.sumOf { it.playCount }
+    }
+
+    if (!hasBlurBackground && com.demonlab.lune.ui.components.rememberAuroraBackdrop()) {
+        com.demonlab.lune.ui.screens.resume.AuroraResumeContent(
+            recentlyAdded = recentlyAdded,
+            currentSong = currentSong,
+            isPlaying = isPlaying,
+            bottomPadding = bottomPadding,
+            onSongClick = { song -> onSongClick(song, allSongs) },
+            onExpandPlayer = onExpandPlayer,
+            onPlayToggle = onPlayToggle,
+            onSeeAll = onSeeAll
+        )
+        return
     }
 
     Column(

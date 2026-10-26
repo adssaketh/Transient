@@ -1078,7 +1078,6 @@ fun MainScreen(
         }
 
         Scaffold(
-            containerColor = if (auroraBackdrop) Color.Transparent else MaterialTheme.colorScheme.background,
             snackbarHost = { 
                 SnackbarHost(
                     hostState = snackbarHostState,
@@ -1151,7 +1150,7 @@ fun MainScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .nestedScroll(scrollBehavior.nestedScrollConnection),
-            containerColor = if (hasBlurBackgroundMini && currentSong != null) Color.Transparent else MaterialTheme.colorScheme.surface,
+            containerColor = if (auroraBackdrop || (hasBlurBackgroundMini && currentSong != null)) Color.Transparent else MaterialTheme.colorScheme.surface,
             topBar = {
                 val activePrimary = getControlsPrimaryColor(useCustomControlsColor, controlsColorPalette)
                 val titleColor = if (useCustomControlsColor) {
@@ -1337,6 +1336,17 @@ fun MainScreen(
             Column(modifier = Modifier.padding(top = innerPadding.calculateTopPadding())) {
 
                 if (auroraBackdrop) {
+                    AuroraStatsRow(
+                        songCount = visibleSongs.size,
+                        onSortClick = {
+                            val newAscending = if (activeSortOption == "ALPHABETICAL") !activeIsSortAscending else true
+                            settingsManager.setSortOption(currentSortKey, "ALPHABETICAL")
+                            settingsManager.setIsSortAscending(currentSortKey, newAscending)
+                            activeSortOption = "ALPHABETICAL"
+                            activeIsSortAscending = newAscending
+                        },
+                        modifier = Modifier.padding(bottom = 10.dp)
+                    )
                     SectionChips(
                         folders = folders,
                         selected = currentActiveFolder,
@@ -1468,7 +1478,8 @@ fun MainScreen(
                                 onPlayToggle = {
                                     if (isPlaying) playbackManager.pause() else playbackManager.resume()
                                     onIsPlayingChange(!isPlaying)
-                                }
+                                },
+                                onSeeAll = { onSelectedFolderChange("ALL") }
                             )
                         }
                         "MIXES" -> {
@@ -3244,6 +3255,17 @@ fun UnifiedHeaderPill(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    if (!hasBlurBackground && rememberAuroraBackdrop()) {
+        AuroraNavPill(
+            homeSelected = selectedFolder == "RESUME",
+            onHome = { onSelectedFolderChange(if (folders.contains("RESUME")) "RESUME" else selectedFolder) },
+            onSearch = { showSearchScreen() },
+            onLibrary = { showSectionMenuSheet() },
+            onEqualizer = { context.startActivity(Intent(context, EqualizerActivity::class.java)) },
+            modifier = modifier
+        )
+        return
+    }
     val activePrimary = getControlsPrimaryColor(useCustomControlsColor, controlsColorPalette)
     val surfaceColor = MaterialTheme.colorScheme.surface
     val luma = surfaceColor.red * 0.299f + surfaceColor.green * 0.587f + surfaceColor.blue * 0.114f

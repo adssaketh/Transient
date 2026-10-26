@@ -1,6 +1,18 @@
 package com.demonlab.lune.ui.components
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Equalizer
+import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material.icons.rounded.LibraryMusic
+import androidx.compose.material.icons.rounded.MusicNote
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material3.Icon
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -122,6 +134,119 @@ fun SectionChips(
                         maxLines = 1
                     )
                 }
+            }
+        }
+    }
+}
+
+
+/** Floating glass pill with four round icon buttons (Home, Search, Library, Equalizer), as in the Aurora mockup. */
+@Composable
+fun AuroraNavPill(
+    homeSelected: Boolean,
+    onHome: () -> Unit,
+    onSearch: () -> Unit,
+    onLibrary: () -> Unit,
+    onEqualizer: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f),
+        border = glassBorder(),
+        modifier = modifier
+            .fillMaxWidth()
+            .height(64.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 8.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            AuroraNavItem(Icons.Rounded.Home, "Home", homeSelected, onHome)
+            AuroraNavItem(Icons.Rounded.Search, "Search", false, onSearch)
+            AuroraNavItem(Icons.Rounded.LibraryMusic, "Library", !homeSelected, onLibrary)
+            AuroraNavItem(Icons.Rounded.Equalizer, "Equalizer", false, onEqualizer)
+        }
+    }
+}
+
+@Composable
+private fun AuroraNavItem(icon: ImageVector, label: String, selected: Boolean, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(50.dp)
+            .clip(CircleShape)
+            .background(if (selected) MaterialTheme.colorScheme.primary else Color.Transparent)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = label,
+            tint = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
+            modifier = Modifier.size(24.dp)
+        )
+    }
+}
+
+
+/** "676 songs" pill plus a round A-Z sort button, shown above the section chips. */
+@Composable
+fun AuroraStatsRow(
+    songCount: Int,
+    onSortClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val fill = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.09f)
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Surface(
+            shape = CircleShape,
+            color = fill,
+            border = glassBorder(),
+            modifier = Modifier.height(44.dp)
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 18.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.MusicNote,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.size(20.dp)
+                )
+                Text(
+                    text = "$songCount songs",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1
+                )
+            }
+        }
+        Surface(
+            onClick = onSortClick,
+            shape = CircleShape,
+            color = fill,
+            border = glassBorder(),
+            modifier = Modifier.size(44.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Text(
+                    text = "A\u2013Z",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1
+                )
             }
         }
     }
