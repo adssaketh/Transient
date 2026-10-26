@@ -1466,7 +1466,14 @@ fun FullPlayer(
                                 animationSpec = tween(durationMillis = 300, easing = LinearOutSlowInEasing),
                                 label = "FullPlayerCoverCrossfade"
                             ) { targetSong ->
-                                if (coverShape == 2 && coverVinylEffect) {
+                                if (settingsManager.jewelCaseCover) {
+                                    // Full player only: the art sits inside a CD jewel case (mini players are untouched).
+                                    com.demonlab.lune.ui.components.JewelCaseCover(
+                                        coverUrl = targetSong.coverUrl ?: targetSong.uri,
+                                        modifier = Modifier.fillMaxSize(),
+                                        sway = settingsManager.jewelCaseSway
+                                    )
+                                } else if (coverShape == 2 && coverVinylEffect) {
                                     VinylRecordAsyncCover(
                                         model = targetSong.coverUrl ?: targetSong.uri,
                                         rotation = if (coverShape == 2) cdAngle.value else 0f,

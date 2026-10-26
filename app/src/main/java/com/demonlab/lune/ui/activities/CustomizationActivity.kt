@@ -539,6 +539,52 @@ fun CustomizationScreen(
                         )
                     }
                 )
+                var jewelCase by remember { mutableStateOf(settingsManager.jewelCaseCover) }
+                SettingsPreferenceItem(
+                    headlineText = stringResource(R.string.jewel_case_cover),
+                    supportingText = stringResource(R.string.jewel_case_cover_desc),
+                    icon = Icons.Default.Album,
+                    position = SectionPosition.MIDDLE,
+                    trailingContent = {
+                        BouncySwitch(
+                            checked = jewelCase,
+                            onCheckedChange = { enabled ->
+                                jewelCase = enabled
+                                settingsManager.jewelCaseCover = enabled
+                            },
+                            thumbContent = {
+                                Icon(
+                                    imageVector = if (jewelCase) Icons.Default.Check else Icons.Default.Close,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(SwitchDefaults.IconSize)
+                                )
+                            }
+                        )
+                    }
+                )
+                var jewelSway by remember { mutableStateOf(settingsManager.jewelCaseSway) }
+                SettingsPreferenceItem(
+                    headlineText = stringResource(R.string.jewel_case_sway),
+                    supportingText = stringResource(R.string.jewel_case_sway_desc),
+                    icon = Icons.Default.ThreeDRotation,
+                    position = SectionPosition.MIDDLE,
+                    trailingContent = {
+                        BouncySwitch(
+                            checked = jewelSway,
+                            onCheckedChange = { enabled ->
+                                jewelSway = enabled
+                                settingsManager.jewelCaseSway = enabled
+                            },
+                            thumbContent = {
+                                Icon(
+                                    imageVector = if (jewelSway) Icons.Default.Check else Icons.Default.Close,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(SwitchDefaults.IconSize)
+                                )
+                            }
+                        )
+                    }
+                )
 
                 var showAiSection by remember { mutableStateOf(settingsManager.showAiSection) }
                 SettingsPreferenceItem(

@@ -3,6 +3,10 @@
     <string name="settings">Settings</string>
     <string name="about">About</string>
     <string name="more_options">More options</string>
+    <string name="jewel_case_cover">Jewel case cover</string>
+    <string name="jewel_case_cover_desc">Show the album art inside a CD jewel case in the full player</string>
+    <string name="jewel_case_sway">3D sway</string>
+    <string name="jewel_case_sway_desc">Gently tilts the jewel case as you move your phone</string>
     <string name="menu_meta_data">Meta data</string>
     <string name="menu_go_to_artist">Go to artist</string>
     <string name="menu_show_album">Show album</string>

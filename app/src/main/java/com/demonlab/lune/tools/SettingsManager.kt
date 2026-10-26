@@ -497,6 +497,24 @@ class SettingsManager(context: Context) {
             prefs.edit().putBoolean("header_now_playing_enabled", value).apply()
         }
 
+    // Jewel case cover (default ON): the full player shows the album art inside a CD jewel case.
+    private val _jewelCaseCover = mutableStateOf(prefs.getBoolean("jewel_case_cover", true))
+    var jewelCaseCover: Boolean
+        get() = _jewelCaseCover.value
+        set(value) {
+            _jewelCaseCover.value = value
+            prefs.edit().putBoolean("jewel_case_cover", value).apply()
+        }
+
+    // 3D sway of the jewel case with the phone's movement (default OFF).
+    private val _jewelCaseSway = mutableStateOf(prefs.getBoolean("jewel_case_sway", false))
+    var jewelCaseSway: Boolean
+        get() = _jewelCaseSway.value
+        set(value) {
+            _jewelCaseSway.value = value
+            prefs.edit().putBoolean("jewel_case_sway", value).apply()
+        }
+
     var showBackupWarning: Boolean
         get() = prefs.getBoolean("show_backup_warning", true)
         set(value) = prefs.edit().putBoolean("show_backup_warning", value).apply()

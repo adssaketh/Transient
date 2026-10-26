@@ -34,6 +34,7 @@
 - Album, playlist and folder screens with a square, rounded cover
 - Header that shows the current **title, artist and album** while music plays (can be turned off in Customization)
 - Mini player with a **spinning CD cover**; round covers in the full player also spin like a disc
+- **Jewel case cover** in the full player: the album art sits inside a CD jewel case (ribbed spine, clear plastic, soft reflection). Full player only, can be switched off in Customization; when it is on it replaces the cover shape. An optional **3D sway** (off by default) tilts the case a few degrees as you move the phone
 - Full player three-dot menu: **Lyrics, Meta data (edit song information), Go to artist, Show album, Delete**
 - Reliable song deletion through Android's system delete request (a song never comes back while its file is still on the phone)
 
