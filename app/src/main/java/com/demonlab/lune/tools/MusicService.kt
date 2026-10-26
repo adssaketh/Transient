@@ -183,6 +183,28 @@ class MusicService : MediaLibraryService() {
         return (left * duckFactor) to (right * duckFactor)
     }
 
+    /**
+     * Puts every player back at full (balance-adjusted) volume. A lowered level that is never restored is what makes a
+     * song keep "playing" with no sound after another app (voice, video, a call) has used the speaker.
+     */
+    internal fun ensureAudible() {
+        isDucked = false
+        val (left, right) = getCurrentTargetVolumes()
+        mediaPlayer?.setVolume(left, right)
+        secondaryPlayer?.setVolume(left, right)
+        usbEngine?.setOutputVolume(1f)
+    }
+
+    /**
+     * The app came back to the foreground. If a song is playing but this app no longer holds audio focus (focus can be
+     * taken away without a callback reaching us), take it back and restore the volume, so the system stops muting us.
+     */
+    fun onAppForeground() {
+        if (!isPlaying()) return
+        if (!hasAudioFocus) requestAudioFocus()
+        ensureAudible()
+    }
+
     private val audioFocusListener = AudioManager.OnAudioFocusChangeListener { focusChange ->
         when (focusChange) {
             AudioManager.AUDIOFOCUS_LOSS -> {
@@ -199,7 +221,7 @@ class MusicService : MediaLibraryService() {
                 pause()
             }
             AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
-                if (usbEngine != null) {
+                if (usbEngine != null && usbEngine?.plainOutput != true) {
                     // Bit-perfect output has no software volume to duck, so pause and resume on focus gain.
                     wasPlayingBeforeLoss = isPlaying()
                     pause()
@@ -209,15 +231,13 @@ class MusicService : MediaLibraryService() {
                     val (left, right) = getCurrentTargetVolumes()
                     mediaPlayer?.setVolume(left, right)
                     secondaryPlayer?.setVolume(left, right)
+                    usbEngine?.setOutputVolume(0.2f)
                 }
             }
             AudioManager.AUDIOFOCUS_GAIN -> {
                 // Regained focus: restore volume and resume if we were playing or waiting for delayed focus
                 hasAudioFocus = true
-                isDucked = false
-                val (left, right) = getCurrentTargetVolumes()
-                mediaPlayer?.setVolume(left, right)
-                secondaryPlayer?.setVolume(left, right)
+                ensureAudible()
                 if (resumeOnFocusGain || wasPlayingBeforeLoss) {
                     resumeOnFocusGain = false
                     wasPlayingBeforeLoss = false
@@ -1376,6 +1396,7 @@ class MusicService : MediaLibraryService() {
         if (usb != null && mediaPlayer == null) {
             try {
                 isDucked = false
+                usb.setOutputVolume(1f)
                 usb.resume()
             } catch (e: Exception) {
                 Log.e("MusicService", "Failed to resume USB engine", e)

@@ -22,10 +22,22 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.Canvas
+import androidx.compose.runtime.remember
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.ColorMatrix
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.res.imageResource
+import androidx.compose.ui.unit.IntSize
+import kotlin.math.roundToInt
 import com.demonlab.lune.R
 
 /**
- * The Transient mark (full-colour play + note symbol).
+ * The Transient mark, recoloured with the app's own palette (primary -> tertiary) instead of the fixed cyan / magenta of
+ * the artwork, so it always matches the current theme. The artwork's light and shadow are kept; only the colour changes.
  * With [pulsing] it gently "breathes", which the header uses while music is playing.
  */
 @Composable
@@ -44,17 +56,33 @@ fun BrandLogo(
         ),
         label = "BrandLogoScale"
     )
-    Image(
-        painter = painterResource(id = R.drawable.ic_brand_glyph),
-        contentDescription = stringResource(R.string.app_name),
+    val glyph = ImageBitmap.imageResource(id = R.drawable.ic_brand_glyph)
+    val primary = MaterialTheme.colorScheme.primary
+    val tertiary = MaterialTheme.colorScheme.tertiary
+    val grey = remember { ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0f) }) }
+    Canvas(
         modifier = modifier
             .size(size)
             .graphicsLayer {
                 val s = if (pulsing) pulse else 1f
                 scaleX = s
                 scaleY = s
+                compositingStrategy = CompositingStrategy.Offscreen
             }
-    )
+    ) {
+        val target = IntSize(this.size.width.roundToInt(), this.size.height.roundToInt())
+        // 1) the artwork without its colour, 2) the theme gradient blended over it, 3) cut back to the artwork's shape
+        drawImage(glyph, dstSize = target, colorFilter = grey)
+        drawRect(
+            brush = Brush.linearGradient(
+                colors = listOf(primary, tertiary),
+                start = Offset(0f, 0f),
+                end = Offset(this.size.width, this.size.height)
+            ),
+            blendMode = BlendMode.Overlay
+        )
+        drawImage(glyph, dstSize = target, blendMode = BlendMode.DstIn)
+    }
 }
 
 /**

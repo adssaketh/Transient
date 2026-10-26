@@ -305,6 +305,11 @@ class UsbPlaybackEngine(
         refreshSnapshot()
     }
 
+    /** Output level of the normal-output (ExoPlayer) engine: 1 = full, lower = ducked. No effect on the USB path. */
+    fun setOutputVolume(volume: Float) = runOnMain {
+        if (plainOutput) player.volume = volume.coerceIn(0f, 1f)
+    }
+
     fun resume() = runOnMain {
         pausedByUs = false
         when (player.playbackState) {

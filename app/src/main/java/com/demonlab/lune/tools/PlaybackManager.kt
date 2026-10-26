@@ -1351,6 +1351,15 @@ class PlaybackManager private constructor(private val context: Context) {
     }
 
     fun currentPosition(): Int = musicService?.currentPosition() ?: 0
+
+    /** Called when the main screen returns to the foreground (see MusicService.onAppForeground). */
+    fun onAppForeground() {
+        try {
+            musicService?.onAppForeground()
+        } catch (e: Exception) {
+            Log.w("PlaybackManager", "onAppForeground failed: ${e.message}")
+        }
+    }
     fun duration(): Int = musicService?.duration() ?: 0
 
     /**

@@ -110,8 +110,8 @@ fun <T> FastScrollbar(
                 activeLetter = activeLetter,
                 textColor = if (hasBlurBackground) Color.White else MaterialTheme.colorScheme.onSurface,
                 activeColor = if (hasBlurBackground) Color.White else MaterialTheme.colorScheme.primary,
-                onLetterSelected = { position ->
-                    val target = if (position == 0 && headerItemCount > 0) 0 else headerItemCount + letterIndex.firstIndex[position]
+                onJumpToItem = { itemIndex ->
+                    val target = if (itemIndex == 0 && headerItemCount > 0) 0 else headerItemCount + itemIndex
                     coroutineScope.launch { listState.scrollToItem(target) }
                 },
                 modifier = Modifier.fillMaxHeight(0.82f)

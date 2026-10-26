@@ -124,8 +124,8 @@ fun <T> FastScrollbarGrid(
                 activeLetter = activeLetter,
                 textColor = if (hasBlurBackground) Color.White else MaterialTheme.colorScheme.onSurface,
                 activeColor = accentColor ?: if (hasBlurBackground) Color.White else MaterialTheme.colorScheme.primary,
-                onLetterSelected = { position ->
-                    coroutineScope.launch { gridState.scrollToItem(letterIndex.firstIndex[position]) }
+                onJumpToItem = { itemIndex ->
+                    coroutineScope.launch { gridState.scrollToItem(itemIndex) }
                 },
                 modifier = Modifier.fillMaxHeight(0.82f)
             )

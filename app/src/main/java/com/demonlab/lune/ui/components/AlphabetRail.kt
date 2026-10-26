@@ -2,8 +2,9 @@ package com.demonlab.lune.ui.components
 
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -31,6 +32,19 @@ import java.text.Normalizer
  * The alphabet index on the right edge jumps straight to "M", "S", ... with it.
  */
 internal class LetterIndex(val letters: List<String>, val firstIndex: List<Int>) {
+    private val latin = letters.filter { it.length == 1 && it[0] in 'A'..'Z' }
+    private val ascending = latin.size < 2 || latin[0] < latin[1]
+
+    /** What the index shows: digits / "#" that exist, then the whole A-Z (missing letters are dimmed), then "…". */
+    val displayLetters: List<String> = buildList {
+        letters.filter { it.length == 1 && (it[0] in '0'..'9' || it == "#") }.forEach { add(it) }
+        val alphabet = ('A'..'Z').map { it.toString() }
+        addAll(if (ascending) alphabet else alphabet.reversed())
+        if (letters.contains(OTHER_LETTER)) add(OTHER_LETTER)
+    }
+
+    fun hasLetter(display: String): Boolean = letters.contains(display)
+
     /** The letter of the item at [itemIndex]. */
     fun letterAt(itemIndex: Int): String {
         var current = letters.first()
@@ -39,7 +53,21 @@ internal class LetterIndex(val letters: List<String>, val firstIndex: List<Int>)
         }
         return current
     }
+
+    /** Item index to scroll to for a tapped [display] letter; a letter with no items jumps to the next one that has. */
+    fun jumpIndexFor(display: String): Int {
+        val exact = letters.indexOf(display)
+        if (exact >= 0) return firstIndex[exact]
+        if (display.length == 1 && display[0] in 'A'..'Z' && latin.isNotEmpty()) {
+            val next = if (ascending) latin.firstOrNull { it > display } else latin.firstOrNull { it < display }
+            val target = next ?: latin.last()
+            return firstIndex[letters.indexOf(target)]
+        }
+        return firstIndex.first()
+    }
 }
+
+internal const val OTHER_LETTER = "\u2026"
 
 /**
  * Builds the [LetterIndex] for [items], using [key] (usually the title / name) for the first letter.
@@ -63,56 +91,59 @@ internal fun <T> buildLetterIndex(items: List<T>, key: (T) -> String): LetterInd
     return LetterIndex(letters, firsts)
 }
 
-/** First letter without accents ("É" -> "E"), digits as themselves, anything else "#". */
+/** First letter without accents ("É" -> "E"), digits as themselves, other scripts "…", symbols "#". */
 private fun letterOf(text: String): String {
     val c = text[0]
     if (c in 'A'..'Z') return c.toString()
     if (c in 'a'..'z') return c.uppercaseChar().toString()
     if (c in '0'..'9') return c.toString()
     val first = Normalizer.normalize(text.take(1), Normalizer.Form.NFD).firstOrNull() ?: return "#"
-    return if (first.isLetter()) first.uppercaseChar().toString() else "#"
+    if (!first.isLetter()) return "#"
+    val upper = first.uppercaseChar()
+    return if (upper in 'A'..'Z') upper.toString() else OTHER_LETTER
 }
 
 /**
- * Always-visible alphabet index along the right edge (1, 3, A, B, C ...). Tap a letter or slide a finger along it to
- * jump to the first item of that letter; [activeLetter] (the letter at the top of the list) is highlighted.
+ * Always-visible alphabet index along the right edge (1, 3, A, B, C ... Z). Tap a letter or slide a finger along it to
+ * jump to the first item of that letter (a letter with no items goes to the next one that has). [activeLetter] (the
+ * letter at the top of the list) is highlighted. Every letter gets an equal slice of the height, so all of them
+ * always fit on screen.
  */
 @Composable
 internal fun AlphabetIndexBar(
     letterIndex: LetterIndex,
     activeLetter: String,
-    onLetterSelected: (position: Int) -> Unit,
+    onJumpToItem: (itemIndex: Int) -> Unit,
     textColor: Color,
     activeColor: Color,
     modifier: Modifier = Modifier
 ) {
-    val letters = letterIndex.letters
+    val display = letterIndex.displayLetters
     val haptic = LocalHapticFeedback.current
     val density = LocalDensity.current
-    val currentOnSelected by rememberUpdatedState(onLetterSelected)
+    val currentOnJump by rememberUpdatedState(onJumpToItem)
     var heightPx by remember { mutableFloatStateOf(0f) }
     var pressedPosition by remember { mutableIntStateOf(-1) }
 
-    // Letter size follows the space there is, so 40 letters on a short screen still fit.
-    val perLetterDp = with(density) { (heightPx / letters.size).toDp().value }
-    val fontSize = (perLetterDp * 0.62f).coerceIn(8f, 15f)
+    val perLetterDp = with(density) { (heightPx / display.size).toDp().value }
+    val fontSize = (perLetterDp * 0.64f).coerceIn(7f, 15f)
 
     Column(
         modifier = modifier
             .width(30.dp)
             .onSizeChanged { heightPx = it.height.toFloat() }
-            .pointerInput(letters) {
+            .pointerInput(display) {
                 awaitEachGesture {
                     val down = awaitFirstDown()
                     down.consume()
 
                     fun select(y: Float) {
-                        val position = ((y / heightPx.coerceAtLeast(1f)) * letters.size).toInt()
-                            .coerceIn(0, letters.size - 1)
+                        val position = ((y / heightPx.coerceAtLeast(1f)) * display.size).toInt()
+                            .coerceIn(0, display.size - 1)
                         if (position != pressedPosition) {
                             pressedPosition = position
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            currentOnSelected(position)
+                            currentOnJump(letterIndex.jumpIndexFor(display[position]))
                         }
                     }
 
@@ -133,18 +164,30 @@ internal fun AlphabetIndexBar(
                     }
                 }
             },
-        verticalArrangement = Arrangement.SpaceEvenly,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        letters.forEachIndexed { position, letter ->
+        display.forEachIndexed { position, letter ->
             val selected = if (pressedPosition >= 0) position == pressedPosition else letter == activeLetter
-            Text(
-                text = letter,
-                fontSize = (if (selected) fontSize + 2f else fontSize).sp,
-                fontWeight = if (selected) FontWeight.ExtraBold else FontWeight.Medium,
-                color = if (selected) activeColor else textColor.copy(alpha = 0.85f),
-                maxLines = 1
-            )
+            val present = letterIndex.hasLetter(letter)
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = letter,
+                    fontSize = (if (selected) fontSize + 2f else fontSize).sp,
+                    fontWeight = if (selected) FontWeight.ExtraBold else FontWeight.Medium,
+                    color = when {
+                        selected -> activeColor
+                        present -> textColor.copy(alpha = 0.9f)
+                        else -> textColor.copy(alpha = 0.35f)
+                    },
+                    maxLines = 1,
+                    softWrap = false
+                )
+            }
         }
     }
 }

@@ -83,6 +83,7 @@ import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -752,7 +753,8 @@ fun FullPlayer(
     onShowLyrics: () -> Unit,
     onArtistClick: ((String) -> Unit)? = null,
     onAlbumClick: ((String) -> Unit)? = null,
-    onDeleteSong: ((Song) -> Unit)? = null
+    onDeleteSong: ((Song) -> Unit)? = null,
+    onEditSong: ((Song) -> Unit)? = null
 ) {
     val context = LocalContext.current
     val settingsManager = remember { SettingsManager.getInstance(context) }
@@ -1554,48 +1556,41 @@ fun FullPlayer(
                         }
                         DropdownMenu(
                             expanded = showMoreMenu,
-                            onDismissRequest = { showMoreMenu = false }
+                            onDismissRequest = { showMoreMenu = false },
+                            shape = RoundedCornerShape(28.dp),
+                            containerColor = if (useBlurControls) Color(0xFF14121F).copy(alpha = 0.94f) else MaterialTheme.colorScheme.surfaceContainerHigh,
+                            tonalElevation = 0.dp,
+                            shadowElevation = 14.dp,
+                            border = glassBorder(),
+                            offset = DpOffset(0.dp, 6.dp)
                         ) {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.option_lyrics)) },
-                                leadingIcon = { Icon(Icons.Default.Lyrics, contentDescription = null, tint = lyricsIconColor) },
-                                onClick = {
-                                    showMoreMenu = false
-                                    onShowLyrics()
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.menu_meta_data)) },
-                                leadingIcon = { Icon(Icons.Default.Info, contentDescription = null) },
-                                onClick = {
-                                    showMoreMenu = false
-                                    showAudioDetailsSheet = true
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.menu_go_to_artist)) },
-                                leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
-                                onClick = {
-                                    showMoreMenu = false
-                                    onArtistClick?.invoke(song.artist)
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.menu_show_album)) },
-                                leadingIcon = { Icon(Icons.Default.Album, contentDescription = null) },
-                                onClick = {
-                                    showMoreMenu = false
-                                    onAlbumClick?.invoke(song.album)
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.delete)) },
-                                leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null) },
-                                onClick = {
-                                    showMoreMenu = false
-                                    onDeleteSong?.invoke(song)
-                                }
-                            )
+                            val menuAccent = if (useBlurControls) Color.White else MaterialTheme.colorScheme.primary
+                            PlayerMenuItem(Icons.Default.Lyrics, stringResource(R.string.option_lyrics), menuAccent, useBlurControls) {
+                                showMoreMenu = false
+                                onShowLyrics()
+                            }
+                            PlayerMenuItem(Icons.Default.Info, stringResource(R.string.menu_meta_data), menuAccent, useBlurControls) {
+                                showMoreMenu = false
+                                if (onEditSong != null) onEditSong(song) else showAudioDetailsSheet = true
+                            }
+                            PlayerMenuItem(Icons.Default.Person, stringResource(R.string.menu_go_to_artist), menuAccent, useBlurControls) {
+                                showMoreMenu = false
+                                onArtistClick?.invoke(song.artist)
+                            }
+                            PlayerMenuItem(Icons.Default.Album, stringResource(R.string.menu_show_album), menuAccent, useBlurControls) {
+                                showMoreMenu = false
+                                onAlbumClick?.invoke(song.album)
+                            }
+                            PlayerMenuItem(
+                                Icons.Default.Delete,
+                                stringResource(R.string.delete),
+                                MaterialTheme.colorScheme.error,
+                                useBlurControls,
+                                destructive = true
+                            ) {
+                                showMoreMenu = false
+                                onDeleteSong?.invoke(song)
+                            }
                         }
                     }
                     Surface(
@@ -2296,7 +2291,7 @@ fun MiniPlayer(
     onMinimize: (() -> Unit)? = null
 ) {
     // A round cover turns like an audio CD while the song plays and stops in place on pause.
-    val cdAngle = com.demonlab.lune.ui.components.rememberCdRotation(coverShape == 2 && coverSpin && isPlaying)
+    val cdAngle = com.demonlab.lune.ui.components.rememberCdRotation(coverSpin && isPlaying)
 
     val miniContext = LocalContext.current
     val blurContainerColorMini = if (isDarkTheme) Color.Black.copy(alpha = 0.25f) else Color.White.copy(alpha = 0.4f)
@@ -2511,7 +2506,7 @@ fun MiniPlayer(
                     if (isVinylActive) {
                         VinylRecordAsyncCover(
                             model = targetSong.coverUrl ?: targetSong.uri,
-                            rotation = if (coverShape == 2) cdAngle.value else 0f,
+                            rotation = cdAngle.value,
                             modifier = Modifier.fillMaxSize()
                         )
                     } else {
@@ -2519,7 +2514,7 @@ fun MiniPlayer(
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .graphicsLayer { rotationZ = if (coverShape == 2) cdAngle.value else 0f }
+                                    .graphicsLayer { rotationZ = cdAngle.value }
                             ) {
                                 SongCoverImage(
                                     coverUrl = targetSong.coverUrl ?: targetSong.uri,
@@ -2636,7 +2631,7 @@ fun MiniPlayerMinimized(
     }
 
     // A round cover turns like an audio CD while the song plays and stops in place on pause.
-    val cdAngle = com.demonlab.lune.ui.components.rememberCdRotation(coverShape == 2 && coverSpin && isPlaying)
+    val cdAngle = com.demonlab.lune.ui.components.rememberCdRotation(coverSpin && isPlaying)
 
     Box(
         modifier = modifier,
@@ -2702,7 +2697,7 @@ fun MiniPlayerMinimized(
                 if (isVinylActive) {
                     VinylRecordAsyncCover(
                         model = targetSong.coverUrl ?: targetSong.uri,
-                        rotation = if (coverShape == 2) cdAngle.value else 0f,
+                        rotation = cdAngle.value,
                         modifier = Modifier.fillMaxSize()
                     )
                 } else {
@@ -2712,7 +2707,7 @@ fun MiniPlayerMinimized(
                             shape = activeShape,
                             modifier = Modifier
                                 .fillMaxSize()
-                                .graphicsLayer { rotationZ = if (coverShape == 2) cdAngle.value else 0f },
+                                .graphicsLayer { rotationZ = cdAngle.value },
                             color = MaterialTheme.colorScheme.secondaryContainer
                         ) {
                             SongCoverImage(
@@ -2723,7 +2718,7 @@ fun MiniPlayerMinimized(
                                 iconScale = 0.68f
                             )
                         }
-                        if (coverShape == 2) com.demonlab.lune.ui.components.CdCenterHole()
+                        com.demonlab.lune.ui.components.CdCenterHole()
                     }
                 }
             }
@@ -2925,3 +2920,43 @@ private fun PlayerOptionPill(
 }
 
 
+
+
+/** One row of the player's three-dot menu: icon in a soft round badge and a bold label, like the rest of the app. */
+@Composable
+private fun PlayerMenuItem(
+    icon: ImageVector,
+    label: String,
+    accent: Color,
+    onBlur: Boolean,
+    destructive: Boolean = false,
+    onClick: () -> Unit
+) {
+    DropdownMenuItem(
+        text = {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = when {
+                    destructive -> MaterialTheme.colorScheme.error
+                    onBlur -> Color.White
+                    else -> MaterialTheme.colorScheme.onSurface
+                }
+            )
+        },
+        leadingIcon = {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(accent.copy(alpha = 0.16f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(imageVector = icon, contentDescription = null, tint = accent, modifier = Modifier.size(20.dp))
+            }
+        },
+        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+        onClick = onClick
+    )
+}

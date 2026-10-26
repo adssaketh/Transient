@@ -231,6 +231,12 @@ class Lune : AppCompatActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        // Coming back from another app: make sure a playing song is audible again (focus / volume recovery).
+        PlaybackManager.getInstance(this).onAppForeground()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         handleIntent(intent)
@@ -2778,6 +2784,10 @@ fun MainScreen(
                     onDeleteSong = { songForDelete ->
                         songToDelete = songForDelete
                         showDeleteDialog = true
+                    },
+                    onEditSong = { songToEdit ->
+                        editingSong = songToEdit
+                        showEditSheet = true
                     }
                 )
             }
