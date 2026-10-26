@@ -161,12 +161,6 @@ fun PermissionsScreen(onBack: () -> Unit) {
         ) { innerPadding ->
         val permissions = listOf(
             PermissionItem(
-                title = stringResource(R.string.perm_record_audio_title),
-                description = stringResource(R.string.perm_record_audio_desc),
-                icon = Icons.Default.Mic,
-                permission = android.Manifest.permission.RECORD_AUDIO
-            ),
-            PermissionItem(
                 title = stringResource(R.string.perm_bluetooth_title),
                 description = stringResource(R.string.perm_bluetooth_desc),
                 icon = Icons.Default.Bluetooth,

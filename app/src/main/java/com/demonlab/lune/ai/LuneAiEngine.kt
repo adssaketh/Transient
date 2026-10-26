@@ -6,6 +6,7 @@ import com.demonlab.lune.R
 import com.demonlab.lune.ai.model.AiMix
 import com.demonlab.lune.ai.model.DayType
 import com.demonlab.lune.ai.model.MixCategory
+import com.demonlab.lune.ai.model.SongInteraction
 import com.demonlab.lune.ai.model.TimeOfDay
 import com.demonlab.lune.ai.storage.AiTelemetryStorage
 import com.demonlab.lune.tools.Song
@@ -269,13 +270,13 @@ class LuneAiEngine private constructor(private val context: Context) {
         return similarity.coerceIn(0f, 1f)
     }
 
-    private fun isCompatibleGenre(g1: String, g2: String): Boolean {
-        val rockFamily = setOf("rock", "alternative", "indie", "metal", "punk", "grunge", "hard rock")
-        val popFamily = setOf("pop", "dance", "electropop", "synthpop", "indie pop", "disco")
-        val electronicFamily = setOf("electronic", "edm", "house", "techno", "synthwave", "ambient", "trance")
-        val urbanFamily = setOf("hip hop", "rap", "trap", "r&b", "soul", "reggaeton", "urban")
-        val chillFamily = setOf("acoustic", "folk", "classical", "instrumental", "ambient", "lo-fi", "chill", "jazz")
+    private val rockFamily = setOf("rock", "alternative", "indie", "metal", "punk", "grunge", "hard rock")
+    private val popFamily = setOf("pop", "dance", "electropop", "synthpop", "indie pop", "disco")
+    private val electronicFamily = setOf("electronic", "edm", "house", "techno", "synthwave", "ambient", "trance")
+    private val urbanFamily = setOf("hip hop", "rap", "trap", "r&b", "soul", "reggaeton", "urban")
+    private val chillFamily = setOf("acoustic", "folk", "classical", "instrumental", "ambient", "lo-fi", "chill", "jazz")
 
+    private fun isCompatibleGenre(g1: String, g2: String): Boolean {
         return (g1 in rockFamily && g2 in rockFamily) ||
                (g1 in popFamily && g2 in popFamily) ||
                (g1 in electronicFamily && g2 in electronicFamily) ||
@@ -287,39 +288,98 @@ class LuneAiEngine private constructor(private val context: Context) {
     // 3. SMART SHUFFLE (HARMONIC FLOW REORDERING)
     // ─────────────────────────────────────────────────────────────
 
+    private class ShuffleEntry(
+        val song: Song,
+        val artist: String,
+        val genre: String,
+        val energy: Float,
+        val acoustic: Float,
+        val affinity: Float
+    )
+
+    /**
+     * Orders [songs] so neighbouring tracks flow into each other (same mood / genre, different artist, favourites first).
+     *
+     * Everything per-song is worked out once, and each pick only scores a random sample of the remaining songs. The
+     * earlier version profiled both songs of every pair and compared every pick against the whole library: on a
+     * ~1000 song library that is hundreds of thousands of comparisons on the UI thread, which froze the app and got it
+     * killed when "Start Smart Shuffle" was tapped.
+     */
     fun generateSmartShuffle(songs: List<Song>, startingSong: Song? = null): List<Song> {
         if (songs.size <= 2) return songs
 
-        val remaining = songs.toMutableList()
-        val result = mutableListOf<Song>()
+        val entries = ArrayList<ShuffleEntry>(songs.size)
+        for (song in songs) {
+            val profile = profileSong(song)
+            entries.add(
+                ShuffleEntry(
+                    song = song,
+                    artist = song.artist.trim().lowercase(Locale.getDefault()),
+                    genre = song.genre?.trim()?.lowercase(Locale.getDefault()).orEmpty(),
+                    energy = profile.energyScore,
+                    acoustic = profile.acousticScore,
+                    affinity = getSongAffinity(song.id)
+                )
+            )
+        }
 
-        val seed = startingSong?.let { s -> remaining.find { it.id == s.id } }
-            ?: remaining.maxByOrNull { getSongAffinity(it.id) }
-            ?: remaining.first()
-
-        result.add(seed)
-        remaining.remove(seed)
-
-        var current = seed
         val random = Random.Default
+        val seedAt = startingSong?.let { start -> entries.indexOfFirst { it.song.id == start.id }.takeIf { it >= 0 } }
+            ?: entries.indices.maxByOrNull { entries[it].affinity }
+            ?: 0
 
-        while (remaining.isNotEmpty()) {
-            val scoredCandidates = remaining.map { candidate ->
-                val similarity = computeSongSimilarity(current, candidate)
-                val affinity = getSongAffinity(candidate.id)
-                val sameArtistPenalty = if (candidate.artist.equals(current.artist, ignoreCase = true)) -0.35f else 0f
-                val noise = random.nextFloat() * 0.08f
+        // Order of the pool does not matter, so removing swaps with the last element (O(1)).
+        val pool = ArrayList<ShuffleEntry>(entries)
+        var current = pool[seedAt]
+        pool[seedAt] = pool[pool.size - 1]
+        pool.removeAt(pool.size - 1)
 
-                val finalScore = (similarity * 0.48f) + ((affinity / 45f).coerceIn(0f, 0.44f)) + sameArtistPenalty + noise
-                candidate to finalScore
-            }.sortedByDescending { it.second }
+        val result = ArrayList<Song>(songs.size)
+        result.add(current.song)
 
-            val topSliceSize = minOf(3, scoredCandidates.size)
-            val selected = scoredCandidates.take(topSliceSize).random(random).first
+        fun score(from: ShuffleEntry, learned: SongInteraction, candidate: ShuffleEntry): Float {
+            var similarity = 0f
+            val sameArtist = candidate.artist == from.artist
+            if (sameArtist) similarity += 0.42f
+            if (from.genre.isNotEmpty() && candidate.genre.isNotEmpty()) {
+                if (from.genre == candidate.genre) {
+                    similarity += 0.35f
+                } else if (isCompatibleGenre(from.genre, candidate.genre)) {
+                    similarity += 0.22f
+                }
+            }
+            val harmony = 1f - (abs(from.energy - candidate.energy) * 0.6f + abs(from.acoustic - candidate.acoustic) * 0.4f)
+            similarity += (harmony * 0.23f).coerceIn(0f, 0.23f)
+            val transition = learned.getTransitionProbabilityTo(candidate.song.id)
+            if (transition > 0f) similarity += (transition * 0.20f).coerceIn(0f, 0.20f)
+            similarity = similarity.coerceIn(0f, 1f)
 
-            result.add(selected)
-            remaining.remove(selected)
-            current = selected
+            val sameArtistPenalty = if (sameArtist) -0.35f else 0f
+            val noise = random.nextFloat() * 0.08f
+            return (similarity * 0.48f) + (candidate.affinity / 45f).coerceIn(0f, 0.44f) + sameArtistPenalty + noise
+        }
+
+        val sampleSize = 150
+        while (pool.isNotEmpty()) {
+            val learned = storage.getInteraction(current.song.id)
+            val scored = ArrayList<Pair<Int, Float>>(minOf(sampleSize, pool.size))
+            if (pool.size <= sampleSize) {
+                for (i in pool.indices) scored.add(i to score(current, learned, pool[i]))
+            } else {
+                repeat(sampleSize) {
+                    val i = random.nextInt(pool.size)
+                    scored.add(i to score(current, learned, pool[i]))
+                }
+            }
+            scored.sortByDescending { it.second }
+
+            val pick = scored.take(minOf(3, scored.size)).random(random).first
+            val chosen = pool[pick]
+            pool[pick] = pool[pool.size - 1]
+            pool.removeAt(pool.size - 1)
+
+            result.add(chosen.song)
+            current = chosen
         }
 
         return result
@@ -347,8 +407,10 @@ class LuneAiEngine private constructor(private val context: Context) {
         val result = mutableListOf<Song>(seed)
 
         // Find unexplored tracks that have high similarity to user's favorite tracks
+        // Comparing against the 40 strongest favourites is plenty and keeps this fast on big libraries.
+        val reference = familiar.sortedByDescending { getSongAffinity(it.id) }.take(40)
         val rankedUnexplored = unexplored.map { candidate ->
-            val maxSimToFavorites = familiar.maxOfOrNull { computeSongSimilarity(it, candidate) } ?: 0.3f
+            val maxSimToFavorites = reference.maxOfOrNull { computeSongSimilarity(it, candidate) } ?: 0.3f
             candidate to maxSimToFavorites
         }.sortedByDescending { it.second }
 

@@ -21,9 +21,7 @@ class SettingsManager(context: Context) {
                     .putInt("custom_color_palette", 6)
                     .putBoolean("glass_ui_enabled", true)
             }
-            // The animated visualizer next to the app name is on from now on.
-            editor.putBoolean("header_visualizer_enabled", true)
-                .putInt("design_version", 3)
+            editor.putInt("design_version", 3)
                 .apply()
         }
     }
@@ -321,14 +319,6 @@ class SettingsManager(context: Context) {
         get() = prefs.getString("active_category", "") ?: ""
         set(value) = prefs.edit().putString("active_category", value).apply()
 
-    var isFullPlayerVisualizerEnabled: Boolean
-        get() = prefs.getBoolean("is_full_player_visualizer_enabled", false)
-        set(value) = prefs.edit().putBoolean("is_full_player_visualizer_enabled", value).apply()
-
-    var isMiniPlayerVisualizerEnabled: Boolean
-        get() = prefs.getBoolean("is_mini_player_visualizer_enabled", false)
-        set(value) = prefs.edit().putBoolean("is_mini_player_visualizer_enabled", value).apply()
-
     var isCinematicPlayerEnabled: Boolean
         get() = prefs.getBoolean("is_cinematic_player_enabled", false)
         set(value) = prefs.edit().putBoolean("is_cinematic_player_enabled", value).apply()
@@ -491,13 +481,13 @@ class SettingsManager(context: Context) {
             prefs.edit().putBoolean("glass_ui_enabled", value).apply()
         }
 
-    // Header visualizer (default OFF): the "Transient" wordmark morphs into a small visualizer while music plays.
-    private val _headerVisualizerEnabled = mutableStateOf(prefs.getBoolean("header_visualizer_enabled", true))
-    var headerVisualizerEnabled: Boolean
-        get() = _headerVisualizerEnabled.value
+    // Now playing in the header (default ON): while music plays, the app name gives way to "Title · Artist".
+    private val _headerNowPlayingEnabled = mutableStateOf(prefs.getBoolean("header_now_playing_enabled", true))
+    var headerNowPlayingEnabled: Boolean
+        get() = _headerNowPlayingEnabled.value
         set(value) {
-            _headerVisualizerEnabled.value = value
-            prefs.edit().putBoolean("header_visualizer_enabled", value).apply()
+            _headerNowPlayingEnabled.value = value
+            prefs.edit().putBoolean("header_now_playing_enabled", value).apply()
         }
 
     var showBackupWarning: Boolean

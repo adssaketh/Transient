@@ -18,7 +18,6 @@ import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.Headphones
 import androidx.compose.material.icons.filled.Speaker
 import androidx.compose.ui.graphics.vector.ImageVector
-import android.media.audiofx.Visualizer
 import androidx.compose.runtime.mutableStateListOf
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -252,43 +251,6 @@ class PlaybackManager private constructor(private val context: Context) {
     private var sleepTimerHandler: android.os.Handler? = null
     private var sleepTimerRunnable: Runnable? = null
 
-    // Visualizer
-    var isFullPlayerVisualizerEnabled by mutableStateOf(settings.isFullPlayerVisualizerEnabled)
-    var isMiniPlayerVisualizerEnabled by mutableStateOf(settings.isMiniPlayerVisualizerEnabled)
-    
-    private val _visualizerData = MutableStateFlow(FloatArray(48) { 0.1f })
-    val visualizerData = _visualizerData.asStateFlow()
-    private var visualizer: Visualizer? = null
-    private var visualizerSessionId = 0
-
-    /** True while an ExoPlayer engine computes the spectrum itself (see PcmSpectrum); the Android Visualizer stays off. */
-    @Volatile
-    var externalSpectrum = false
-        set(value) {
-            if (value && !field) {
-                // Hand over from the Android Visualizer: release it so it cannot overwrite the data with silence.
-                visualizer?.enabled = false
-                visualizer?.release()
-                visualizer = null
-                visualizerSessionId = 0
-            }
-            field = value
-        }
-
-    /** Bars from the ExoPlayer engine: fast attack, slower release, then published like Visualizer data. */
-    fun publishSpectrum(values: FloatArray) {
-        val previous = lastMagnitudes
-        val out = FloatArray(values.size) { i ->
-            val prev = if (i < previous.size) previous[i] else 0.1f
-            val target = values[i]
-            if (target > prev) target else prev + 0.35f * (target - prev)
-        }
-        lastMagnitudes = out
-        _visualizerData.value = out
-    }
-    private var lastMagnitudes = FloatArray(48) { 0.1f }
-    private val smoothingFactor = 1f // 0.7f for very fast and reactive movement
-
     private val _favoriteChanged = MutableSharedFlow<Pair<Long, Boolean>>(extraBufferCapacity = 1)
     val favoriteChanged: SharedFlow<Pair<Long, Boolean>> = _favoriteChanged.asSharedFlow()
 
@@ -521,7 +483,6 @@ class PlaybackManager private constructor(private val context: Context) {
         if (musicService != null) {
             try {
                 musicService?.playSong(song)
-                startVisualizer()
             } catch (e: Exception) {
                 Log.e("PlaybackManager", "Error calling playSong on musicService: ${e.message}", e)
             }
@@ -542,105 +503,6 @@ class PlaybackManager private constructor(private val context: Context) {
 
         savePlaybackState(wasPlaying = true)
         preloadSurroundingArtwork()
-    }
-
-    fun startVisualizer() {
-        if (externalSpectrum) return
-        if (!isFullPlayerVisualizerEnabled && !isMiniPlayerVisualizerEnabled && !settings.headerVisualizerEnabled) {
-            stopVisualizer()
-            return
-        }
-
-        // Check permission before starting
-        if (androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.RECORD_AUDIO) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-            return
-        }
-
-        val sessionId = musicService?.getAudioSessionId() ?: 0
-        if (sessionId == 0) return
-
-        try {
-            visualizer?.release()
-            visualizerSessionId = sessionId
-            visualizer = Visualizer(sessionId).apply {
-                captureSize = Visualizer.getCaptureSizeRange()[1]
-                setDataCaptureListener(object : Visualizer.OnDataCaptureListener {
-                    override fun onWaveFormDataCapture(v: Visualizer?, data: ByteArray?, samplingRate: Int) {}
-                    override fun onFftDataCapture(v: Visualizer?, data: ByteArray?, samplingRate: Int) {
-                        if (data == null) return
-                        val barCount = 48
-                        val newMagnitudes = FloatArray(barCount)
-
-                        // getFft layout: [DC, Nyquist, re1, im1, re2, im2, ...]. Bars are spaced logarithmically in
-                        // frequency (like hearing), otherwise only the first few bars ever move because music energy
-                        // is concentrated in the low bins. Higher bands get a boost to offset the natural spectral tilt.
-                        val bins = data.size / 2
-                        val minBin = 2f
-                        val maxBin = (bins * 0.55f).coerceAtLeast(minBin + 8f)
-                        val ratio = maxBin / minBin
-                        for (i in 0 until barCount) {
-                            val lo = (minBin * Math.pow(ratio.toDouble(), i.toDouble() / barCount)).toInt()
-                            val hi = (minBin * Math.pow(ratio.toDouble(), (i + 1).toDouble() / barCount)).toInt()
-                                .coerceAtLeast(lo + 1)
-                            var peak = 0f
-                            for (k in lo until minOf(hi, bins)) {
-                                val real = data[2 * k].toInt()
-                                val imag = data[2 * k + 1].toInt()
-                                val m = Math.sqrt((real * real + imag * imag).toDouble()).toFloat()
-                                if (m > peak) peak = m
-                            }
-                            val tilt = 1f + 3f * i / (barCount - 1)
-                            val target = (kotlin.math.ln(1f + peak * tilt) / kotlin.math.ln(61f)).coerceIn(0.1f, 1f)
-                            // Fast attack, slower release: lively but not flickery.
-                            val prev = lastMagnitudes[i]
-                            newMagnitudes[i] = if (target > prev) target else prev + 0.35f * (target - prev)
-                        }
-
-                        lastMagnitudes = newMagnitudes
-                        _visualizerData.value = newMagnitudes
-                    }
-                }, Visualizer.getMaxCaptureRate() / 2, false, true)
-                enabled = true
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-    }
-
-    /**
-     * Every new MediaPlayer (next song, crossfade, ExoPlayer engine) has its own audio session, so a Visualizer
-     * attached to the previous one goes silent. The service calls this whenever the session may have changed.
-     */
-    fun refreshVisualizerSession() {
-        if (externalSpectrum) return
-        // Header / mini-player visualizers are always on screen; the full-player one is started by the UI itself.
-        val alwaysVisible = settings.headerVisualizerEnabled || isMiniPlayerVisualizerEnabled
-        if (visualizer == null && !alwaysVisible) return
-        val newId = musicService?.getAudioSessionId() ?: 0
-        if (newId == 0) return
-        if (visualizer == null || newId != visualizerSessionId) startVisualizer()
-    }
-
-    fun stopVisualizer() {
-        visualizer?.enabled = false
-        visualizer?.release()
-        visualizer = null
-        visualizerSessionId = 0
-        val resetData = FloatArray(48) { 0.1f }
-        lastMagnitudes = resetData
-        _visualizerData.value = resetData
-    }
-
-    fun toggleFullPlayerVisualizer() {
-        isFullPlayerVisualizerEnabled = !isFullPlayerVisualizerEnabled
-        settings.isFullPlayerVisualizerEnabled = isFullPlayerVisualizerEnabled
-        if (isFullPlayerVisualizerEnabled) startVisualizer() else if (!isMiniPlayerVisualizerEnabled) stopVisualizer()
-    }
-
-    fun toggleMiniPlayerVisualizer() {
-        isMiniPlayerVisualizerEnabled = !isMiniPlayerVisualizerEnabled
-        settings.isMiniPlayerVisualizerEnabled = isMiniPlayerVisualizerEnabled
-        if (isMiniPlayerVisualizerEnabled) startVisualizer() else if (!isFullPlayerVisualizerEnabled) stopVisualizer()
     }
 
     private fun updateShuffledQueue(keepCurrentFirst: Boolean = true) {
@@ -896,7 +758,6 @@ class PlaybackManager private constructor(private val context: Context) {
         }
         currentSong = song
         isPlaying = true
-        startVisualizer()
         // Sync shuffle position if needed
         if (isShuffle && shuffledIndices.isNotEmpty()) {
             val idx = activePlaylist.indexOfFirst { it.id == song.id }

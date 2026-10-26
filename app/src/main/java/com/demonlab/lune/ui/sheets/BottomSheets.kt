@@ -942,13 +942,10 @@ fun QueueBottomSheet(
 @Composable
 fun PlayerOptionsBottomSheet(
     playbackManager: PlaybackManager,
-    showWaveform: Boolean = false,
-    onToggleWaveform: () -> Unit = {},
     onRefreshSongs: (() -> Unit)? = null,
     onSyncFavorite: ((Long, Boolean) -> Unit)? = null,
     onDismiss: () -> Unit,
     onAddToPlaylistClick: () -> Unit = {},
-    onShowVisualizerSettings: () -> Unit,
     onShowLyrics: () -> Unit = {}
 ) {
     val currentSong = playbackManager.currentSong
@@ -1159,7 +1156,7 @@ fun PlayerOptionsBottomSheet(
 
                 Spacer(modifier = Modifier.height(18.dp))
 
-                // Dedicated audio options row: Timer, Crossfade, Automix, Visualizer, Share
+                // Dedicated audio options row: Timer, Crossfade, Automix, Share
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1197,17 +1194,7 @@ fun PlayerOptionsBottomSheet(
                         )
                     }
 
-                    // 4. Waveform Visualizer
-                    Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                        OptionButton(
-                            icon = Icons.Default.Audiotrack,
-                            label = stringResource(R.string.option_visualizer),
-                            active = playbackManager.isFullPlayerVisualizerEnabled || playbackManager.isMiniPlayerVisualizerEnabled,
-                            onClick = onShowVisualizerSettings
-                        )
-                    }
-
-                    // 5. Share
+                    // 4. Share
                     Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
                         OptionButton(
                             icon = Icons.Default.Share,
@@ -1229,107 +1216,6 @@ fun PlayerOptionsBottomSheet(
                             }
                         )
                     }
-                }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun VisualizerSettingsBottomSheet(
-    playbackManager: PlaybackManager,
-    onClose: () -> Unit,
-    onRequestPermission: () -> Unit
-) {
-    val context = LocalContext.current
-    val currentSong = playbackManager.currentSong
-    val blurColors = rememberBlurSheetColors(currentSong)
-    fun toggleVisualizer(isFull: Boolean) {
-        val hasPermission = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
-        if (!hasPermission) {
-            onRequestPermission()
-        } else {
-            if (isFull) playbackManager.toggleFullPlayerVisualizer()
-            else playbackManager.toggleMiniPlayerVisualizer()
-        }
-    }
-
-    ModalBottomSheet(
-        onDismissRequest = onClose,
-        containerColor = blurColors.containerColor,
-        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-        dragHandle = null,
-        contentWindowInsets = { WindowInsets(0, 0, 0, 0) }
-    ) {
-        AppBlurBackdrop(
-            hasBlurBackground = blurColors.hasBlur,
-            isDarkTheme = blurColors.isDark,
-            currentSong = currentSong,
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .navigationBarsPadding()
-                    .padding(horizontal = 24.dp)
-                    .padding(bottom = 24.dp)
-            ) {
-                Box(
-                    modifier = Modifier.fillMaxWidth(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    BottomSheetDefaults.DragHandle(
-                        color = if (blurColors.hasBlur) Color.White.copy(alpha = 0.5f) else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Text(
-                    stringResource(R.string.option_visualizer),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = blurColors.textColor,
-                    modifier = Modifier.padding(bottom = 24.dp)
-                )
-
-                ListItem(
-                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                    trailingContent = {
-                        BouncySwitch(
-                            checked = playbackManager.isFullPlayerVisualizerEnabled,
-                            onCheckedChange = { toggleVisualizer(true) },
-                            thumbContent = {
-                                Icon(
-                                    imageVector = if (playbackManager.isFullPlayerVisualizerEnabled) Icons.Default.Check else Icons.Default.Close,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(SwitchDefaults.IconSize)
-                                )
-                            }
-                        )
-                    },
-                    modifier = Modifier.clickable { toggleVisualizer(true) }
-                ) {
-                    Text(stringResource(R.string.visualizer_full_player), color = blurColors.textColor)
-                }
-
-                ListItem(
-                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                    trailingContent = {
-                        BouncySwitch(
-                            checked = playbackManager.isMiniPlayerVisualizerEnabled,
-                            onCheckedChange = { toggleVisualizer(false) },
-                            thumbContent = {
-                                Icon(
-                                    imageVector = if (playbackManager.isMiniPlayerVisualizerEnabled) Icons.Default.Check else Icons.Default.Close,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(SwitchDefaults.IconSize)
-                                )
-                            }
-                        )
-                    },
-                    modifier = Modifier.clickable { toggleVisualizer(false) }
-                ) {
-                    Text(stringResource(R.string.visualizer_mini_player), color = blurColors.textColor)
                 }
             }
         }

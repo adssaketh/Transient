@@ -85,7 +85,7 @@ import com.demonlab.lune.ui.components.BrandLogo
 import com.demonlab.lune.ui.components.BrandWordmark
 import com.demonlab.lune.ui.components.glassBorder
 
-private enum class SetupStep { WELCOME, MUSIC, FOLDER, NOTIFICATIONS, BLUETOOTH, VISUALIZER, VISIBILITY, DONE }
+private enum class SetupStep { WELCOME, MUSIC, FOLDER, NOTIFICATIONS, BLUETOOTH, VISIBILITY, DONE }
 
 /**
  * First-run setup: a short sequence of full-screen cards (one decision per screen) on the Aurora gradient.
@@ -113,7 +113,6 @@ fun OnboardingScreen(
     var folderGranted by remember { mutableStateOf(settings.musicFolderUri != null) }
     var notificationsGranted by remember { mutableStateOf(!needsNotifications || has(Manifest.permission.POST_NOTIFICATIONS)) }
     var bluetoothGranted by remember { mutableStateOf(!needsBluetooth || has(Manifest.permission.BLUETOOTH_CONNECT)) }
-    var microphoneGranted by remember { mutableStateOf(has(Manifest.permission.RECORD_AUDIO)) }
     var showAllFolders by remember { mutableStateOf(settings.showAllFoldersOnStart) }
 
     // Steps that do not exist on this Android version are left out.
@@ -132,7 +131,6 @@ fun OnboardingScreen(
     val musicLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { musicGranted = it }
     val notificationLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { notificationsGranted = it }
     val bluetoothLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { bluetoothGranted = it }
-    val microphoneLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { microphoneGranted = it }
 
     val initialFolderUri = remember {
         try {
@@ -247,16 +245,6 @@ fun OnboardingScreen(
                         granted = bluetoothGranted,
                         primaryLabel = stringResource(R.string.onboarding_grant_button),
                         onPrimary = { bluetoothLauncher.launch(Manifest.permission.BLUETOOTH_CONNECT) },
-                        onNext = { goNext() }
-                    )
-
-                    SetupStep.VISUALIZER -> SetupPage(
-                        icon = Icons.Default.GraphicEq,
-                        title = stringResource(R.string.onboarding_perm_audio_title),
-                        description = stringResource(R.string.onboarding_perm_audio_desc),
-                        granted = microphoneGranted,
-                        primaryLabel = stringResource(R.string.onboarding_grant_button),
-                        onPrimary = { microphoneLauncher.launch(Manifest.permission.RECORD_AUDIO) },
                         onNext = { goNext() }
                     )
 

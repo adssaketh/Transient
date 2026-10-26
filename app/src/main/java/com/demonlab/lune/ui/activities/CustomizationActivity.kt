@@ -516,41 +516,22 @@ fun CustomizationScreen(
                     }
                 )
 
-                var headerVisualizer by remember { mutableStateOf(settingsManager.headerVisualizerEnabled) }
-                val recordAudioLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
-                    androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
-                ) { granted ->
-                    headerVisualizer = granted
-                    settingsManager.headerVisualizerEnabled = granted
-                    if (!granted) {
-                        Toast.makeText(context, context.getString(R.string.header_visualizer_permission), Toast.LENGTH_SHORT).show()
-                    }
-                }
+                var headerNowPlaying by remember { mutableStateOf(settingsManager.headerNowPlayingEnabled) }
                 SettingsPreferenceItem(
-                    headlineText = stringResource(R.string.header_visualizer),
-                    supportingText = stringResource(R.string.header_visualizer_desc),
+                    headlineText = stringResource(R.string.header_now_playing),
+                    supportingText = stringResource(R.string.header_now_playing_desc),
                     icon = Icons.Default.Waves,
                     position = SectionPosition.MIDDLE,
                     trailingContent = {
                         BouncySwitch(
-                            checked = headerVisualizer,
+                            checked = headerNowPlaying,
                             onCheckedChange = { enabled ->
-                                if (!enabled) {
-                                    headerVisualizer = false
-                                    settingsManager.headerVisualizerEnabled = false
-                                } else if (androidx.core.content.ContextCompat.checkSelfPermission(
-                                        context, android.Manifest.permission.RECORD_AUDIO
-                                    ) == android.content.pm.PackageManager.PERMISSION_GRANTED
-                                ) {
-                                    headerVisualizer = true
-                                    settingsManager.headerVisualizerEnabled = true
-                                } else {
-                                    recordAudioLauncher.launch(android.Manifest.permission.RECORD_AUDIO)
-                                }
+                                headerNowPlaying = enabled
+                                settingsManager.headerNowPlayingEnabled = enabled
                             },
                             thumbContent = {
                                 Icon(
-                                    imageVector = if (headerVisualizer) Icons.Default.Check else Icons.Default.Close,
+                                    imageVector = if (headerNowPlaying) Icons.Default.Check else Icons.Default.Close,
                                     contentDescription = null,
                                     modifier = Modifier.size(SwitchDefaults.IconSize)
                                 )

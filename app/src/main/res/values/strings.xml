@@ -2,6 +2,8 @@
     <string name="app_name">Transient</string>
     <string name="settings">Settings</string>
     <string name="about">About</string>
+    <string name="header_now_playing">Now playing in header</string>
+    <string name="header_now_playing_desc">Show the current song in the header instead of the app name while music plays</string>
     <string name="version">Version</string>
     <string name="license">License</string>
     <string name="author">Author</string>
@@ -203,9 +205,6 @@
     <string name="glass_ui_desc">Gradient background, section chips, glass player, pill and cards (works with the Aurora Glass palette)</string>
     <string name="album_art_colors">Album art colors</string>
     <string name="album_art_colors_desc">Match the app colors to the artwork of the song that is playing</string>
-    <string name="header_visualizer">Header visualizer</string>
-    <string name="header_visualizer_desc">Turn the app name into a small music visualizer while a song plays</string>
-    <string name="header_visualizer_permission">Audio permission is needed to react to the music</string>
     <string name="amoled_pitch_black">AMOLED Pitch Black</string>
     <string name="amoled_pitch_black_desc">Use pitch black background in dark mode</string>
     <string name="media_player">Media Player</string>
@@ -259,9 +258,6 @@
     <string name="output_bluetooth">Bluetooth</string>
     <string name="queue_now_playing">Now Playing</string>
     <string name="queue_up_next">Up Next</string>
-    <string name="option_visualizer">Visualizer</string>
-    <string name="visualizer_full_player">Show in Full Player</string>
-    <string name="visualizer_mini_player">Show in Mini Player</string>
     <string name="credits">Credits</string>
     <string name="credits_desc">Testing and design suggestions for the original Lune</string>
     <string name="creator_desc">Creator and maintainer of Transient</string>
@@ -308,8 +304,6 @@
 
     <string name="perm_bluetooth_title">Bluetooth</string>
     <string name="perm_bluetooth_desc">Required to detect and manage connections with bluetooth audio devices.</string>
-    <string name="perm_record_audio_title">Audio Record</string>
-    <string name="perm_record_audio_desc">Necessary for the audio visualizer to process and display real-time frequency data.</string>
 
     <!-- Playlist Export/Import -->
     <string name="sort_options_title">Sort Songs</string>
@@ -347,9 +341,7 @@
     <!-- Onboarding -->
     <string name="onboarding_description">The most advanced music player for your device.</string>
     <string name="onboarding_start_button">Start</string>
-    <string name="onboarding_perm_audio_title">Record Audio</string>
     <string name="onboarding_perm_required">Permission Required</string>
-    <string name="onboarding_perm_audio_desc">Necessary for the audio visualizer to process and display real-time frequency data while you listen to your music.</string>
     <string name="onboarding_grant_button">Grant Permission</string>
     <string name="onboarding_next_button">Next</string>
     <string name="onboarding_perm_bluetooth_title">Bluetooth</string>

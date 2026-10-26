@@ -426,14 +426,6 @@ class Lune : AppCompatActivity() {
                 else Toast.makeText(context, context.getString(R.string.permission_required), Toast.LENGTH_SHORT).show()
             }
 
-            val recordAudioLauncher = rememberLauncherForActivityResult(
-                ActivityResultContracts.RequestPermission()
-            ) { granted ->
-                if (granted) {
-                    playbackManager.startVisualizer()
-                }
-            }
-
             LaunchedEffect(hasPermission) {
                 if (hasPermission) {
                     musicViewModel.loadSongs()
@@ -494,23 +486,6 @@ class Lune : AppCompatActivity() {
                     }
                 }
             }
-            // Sync Visualizer when permission or playback state changes
-            var audioPermissionAsked by remember { mutableStateOf(false) }
-            LaunchedEffect(isPlaying, isPlayerExpanded, settingsManager.headerVisualizerEnabled) {
-                val hasAudioPermission = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
-                if (!hasAudioPermission && isPlaying && settingsManager.headerVisualizerEnabled && !audioPermissionAsked) {
-                    // The visualizer next to the app name needs this permission; ask once per launch.
-                    audioPermissionAsked = true
-                    recordAudioLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                }
-                val visualizerNeeded = settingsManager.headerVisualizerEnabled || playbackManager.isMiniPlayerVisualizerEnabled || (isPlayerExpanded && playbackManager.isFullPlayerVisualizerEnabled)
-                if (hasAudioPermission && isPlaying && visualizerNeeded) {
-                    playbackManager.startVisualizer()
-                } else if (!isPlaying || !visualizerNeeded) {
-                    playbackManager.stopVisualizer()
-                }
-            }
-
             // Derivations (Reactive)
             val allFolders = remember(rawAllSongs) {
                 rawAllSongs.map { it.folderName }.distinct().sorted()
@@ -616,8 +591,7 @@ class Lune : AppCompatActivity() {
                     controlsIconStyle = controlsIconStyle,
                     isControlsFilled = isControlsFilled,
                     useCustomControlsColor = useCustomControlsColor,
-                    controlsColorPalette = controlsColorPalette,
-                    onRequestAudioPermission = { recordAudioLauncher.launch(Manifest.permission.RECORD_AUDIO) }
+                    controlsColorPalette = controlsColorPalette
                 )
 
             }
@@ -676,8 +650,7 @@ fun MainScreen(
     controlsIconStyle: Int,
     isControlsFilled: Boolean,
     useCustomControlsColor: Boolean,
-    controlsColorPalette: Int,
-    onRequestAudioPermission: () -> Unit
+    controlsColorPalette: Int
 ) {
     val context = LocalContext.current
     val bottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
@@ -1202,21 +1175,20 @@ fun MainScreen(
                                 tintColor = titleColor,
                                 modifier = Modifier.padding(end = 0.dp)
                             )
-                            // Header visualizer (setting OFF by default): the app name morphs into a small
-                            // visualizer once a song is playing, and back to the name when playback stops.
-                            val showHeaderViz = settingsManager.headerVisualizerEnabled && isPlaying && currentSong != null
-                            val vizFraction by animateFloatAsState(
-                                targetValue = if (showHeaderViz) 1f else 0f,
+                            // Now-playing ticker: while a song plays, the app name gives way to "Title · Artist",
+                            // and it comes back when playback stops.
+                            val showNowPlaying = settingsManager.headerNowPlayingEnabled && isPlaying && currentSong != null
+                            val tickerFraction by animateFloatAsState(
+                                targetValue = if (showNowPlaying) 1f else 0f,
                                 animationSpec = tween(durationMillis = 500, easing = FastOutSlowInEasing),
-                                label = "headerVizMorph"
+                                label = "headerTickerMorph"
                             )
-                            val vizMagnitudes by playbackManager.visualizerData.collectAsState()
                             Box(contentAlignment = Alignment.CenterStart) {
                                 Box(
                                     modifier = Modifier.graphicsLayer {
-                                        alpha = 1f - vizFraction
-                                        scaleX = 1f - 0.35f * vizFraction
-                                        scaleY = 1f - 0.35f * vizFraction
+                                        alpha = 1f - tickerFraction
+                                        scaleX = 1f - 0.35f * tickerFraction
+                                        scaleY = 1f - 0.35f * tickerFraction
                                         transformOrigin = TransformOrigin(0f, 0.5f)
                                     }
                                 ) {
@@ -1234,16 +1206,12 @@ fun MainScreen(
                                         )
                                     }
                                 }
-                                if (vizFraction > 0.01f) {
-                                    HeaderVisualizer(
-                                        magnitudes = vizMagnitudes,
+                                if (tickerFraction > 0.01f) {
+                                    NowPlayingTicker(
+                                        title = currentSong?.title.orEmpty(),
+                                        artist = currentSong?.artist.orEmpty(),
                                         color = titleColor,
-                                        modifier = Modifier.graphicsLayer {
-                                            alpha = vizFraction
-                                            scaleX = 0.6f + 0.4f * vizFraction
-                                            scaleY = 0.6f + 0.4f * vizFraction
-                                            transformOrigin = TransformOrigin(0f, 0.5f)
-                                        }
+                                        modifier = Modifier.graphicsLayer { alpha = tickerFraction }
                                     )
                                 }
                             }
@@ -2637,7 +2605,6 @@ fun MainScreen(
                                         song = song,
                                         isPlaying = isPlaying,
                                         progress = playbackProgress,
-                                        showWaveform = playbackManager.isMiniPlayerVisualizerEnabled,
                                         currentOutputIcon = playbackManager.currentOutputIcon,
                                         coverShape = coverShape,
                                         coverScale = coverScale,
@@ -2760,8 +2727,6 @@ fun MainScreen(
                     onPrevious = playPrevious,
                     onRefreshSongs = onRefreshSongs,
                     onSyncFavorite = { songId, isFav -> musicViewModel.syncFavoriteStatusInMemory(songId, isFav) },
-                    showWaveform = playbackManager.isFullPlayerVisualizerEnabled,
-                    onToggleWaveform = {}, // Not used anymore as we have settings sheet
                     coverShape = coverShape,
                     coverScale = coverScale,
                     coverSpin = coverSpin,
@@ -2774,7 +2739,6 @@ fun MainScreen(
                         val intent = Intent(context, LyricsActivity::class.java)
                         context.startActivity(intent)
                     },
-                    onRequestAudioPermission = onRequestAudioPermission,
                     onArtistClick = { artistName ->
                         val artistSongs = visibleSongs.filter { it.artist.trim().equals(artistName.trim(), ignoreCase = true) }
                         val artistAlbum = Album(

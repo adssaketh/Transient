@@ -947,7 +947,6 @@ class MusicService : MediaLibraryService() {
                         isDucked = false
                         applyBalance(PlaybackManager.getInstance(applicationContext).balance)
                         start()
-                        PlaybackManager.getInstance(applicationContext).refreshVisualizerSession()
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                             try {
                                 val speed = pm.playbackSpeed
@@ -1210,7 +1209,6 @@ class MusicService : MediaLibraryService() {
 
                 mediaPlayer?.setVolume(1f, 1f)
                 applyBalance(PlaybackManager.getInstance(applicationContext).balance)
-                playbackManager.refreshVisualizerSession()
                 
                 // Reconfigure the listener for the promoted player
                 mediaPlayer?.isLooping = PlaybackManager.getInstance(applicationContext).shouldLoopCurrentSong()
@@ -1441,8 +1439,6 @@ class MusicService : MediaLibraryService() {
         usbEngine?.isPlaying == true || mediaPlayer?.isPlaying == true || secondaryPlayer?.isPlaying == true
     fun currentPosition(): Int = usbEngine?.positionMs ?: (mediaPlayer?.currentPosition ?: 0)
     fun duration(): Int = usbEngine?.durationMs ?: (mediaPlayer?.duration ?: 0)
-    fun getAudioSessionId(): Int =
-        usbEngine?.takeIf { it.plainOutput }?.audioSessionId ?: (mediaPlayer?.audioSessionId ?: 0)
 
     fun setLooping(looping: Boolean) {
         try {
@@ -1590,7 +1586,6 @@ class MusicService : MediaLibraryService() {
                             acquireWakeLock()
                             start()
                         }
-                        pm.refreshVisualizerSession()
                         pm.updatePlayingState(andPlay)
                         if (andPlay) {
                             startWidgetUpdateTimer()
@@ -2124,8 +2119,7 @@ class MusicService : MediaLibraryService() {
             UsbPlaybackEngine(
                 applicationContext,
                 aiffCallbacks,
-                plainOutput = true,
-                onSpectrum = { PlaybackManager.getInstance(applicationContext).publishSpectrum(it) }
+                plainOutput = true
             ).also { usbEngine = it }
         } catch (t: Throwable) {
             Log.e("MusicService", "Could not start the ExoPlayer AIFF engine", t)
@@ -2134,7 +2128,6 @@ class MusicService : MediaLibraryService() {
             if (andPlay) playSong(song) else restorePlayback(song, positionMs, andPlay = false)
             return
         }
-        PlaybackManager.getInstance(applicationContext).externalSpectrum = true
         engine.load(song, positionMs, andPlay)
     }
 
@@ -2179,7 +2172,6 @@ class MusicService : MediaLibraryService() {
     private fun releaseUsbEngine() {
         val engine = usbEngine ?: return
         usbEngine = null
-        if (engine.plainOutput) PlaybackManager.getInstance(applicationContext).externalSpectrum = false
         engine.release()
     }
 
@@ -2207,7 +2199,6 @@ class MusicService : MediaLibraryService() {
             pm.updatePlayingState(playing)
             if (playing) startWidgetUpdateTimer() else stopWidgetUpdateTimer()
             updatePlaybackState()
-            pm.refreshVisualizerSession()
             serviceScope.launch {
                 val art = fetchAlbumArt(song)
                 updateMetadata(song, art)

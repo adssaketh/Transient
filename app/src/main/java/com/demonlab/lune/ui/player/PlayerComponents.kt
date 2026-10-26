@@ -116,14 +116,12 @@ import com.demonlab.lune.tools.toArtwork
 import com.demonlab.lune.ui.data.Album
 import com.demonlab.lune.ui.components.SongCoverImage
 import com.demonlab.lune.ui.components.VinylRecordAsyncCover
-import com.demonlab.lune.ui.components.WaveformVisualizer
 import com.demonlab.lune.ui.activities.EqualizerActivity
 import com.demonlab.lune.ui.sheets.AddToPlaylistDialog
 import com.demonlab.lune.ui.sheets.AudioDetailsBottomSheet
 import com.demonlab.lune.ui.sheets.CustomRepeatDialog
 import com.demonlab.lune.ui.sheets.PlayerOptionsBottomSheet
 import com.demonlab.lune.ui.sheets.QueueBottomSheet
-import com.demonlab.lune.ui.sheets.VisualizerSettingsBottomSheet
 import com.demonlab.lune.ui.theme.getControlsPrimaryColor
 import com.demonlab.lune.ui.utils.MaterialExpressiveScallopShape
 import com.demonlab.lune.ui.utils.bounceClick
@@ -743,9 +741,6 @@ fun FullPlayer(
     onPrevious: () -> Unit,
     onRefreshSongs: (() -> Unit)? = null,
     onSyncFavorite: ((Long, Boolean) -> Unit)? = null,
-    showWaveform: Boolean,
-    onToggleWaveform: () -> Unit,
-    visualizerData: FloatArray = remember { FloatArray(0) },
     coverShape: Int,
     coverScale: Float,
     coverSpin: Boolean,
@@ -755,7 +750,6 @@ fun FullPlayer(
     useCustomControlsColor: Boolean,
     controlsColorPalette: Int,
     onShowLyrics: () -> Unit,
-    onRequestAudioPermission: () -> Unit,
     onArtistClick: ((String) -> Unit)? = null
 ) {
     val context = LocalContext.current
@@ -810,28 +804,12 @@ fun FullPlayer(
     LaunchedEffect(song.id) {
         playbackManager.preloadSurroundingArtwork()
     }
-    val liveVisualizerData by playbackManager.visualizerData.collectAsState()
-    val effectiveVisualizerData = if (visualizerData.isNotEmpty()) visualizerData else liveVisualizerData
-
-    DisposableEffect(isPlaying, showWaveform) {
-        val hasAudioPermission = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
-        if (hasAudioPermission && isPlaying) {
-            playbackManager.startVisualizer()
-        }
-        onDispose {
-            if (!playbackManager.isMiniPlayerVisualizerEnabled) {
-                playbackManager.stopVisualizer()
-            }
-        }
-    }
-
     val sheetPeekHeight = 0.dp
     val sheetFullHeight = 0.dp
 
     var showQueueSheet by remember { mutableStateOf(false) }
     var showOptionsSheet by remember { mutableStateOf(false) }
     var showAddToPlaylistInPlayer by remember { mutableStateOf(false) }
-    var showVisualizerSettings by remember { mutableStateOf(false) }
     var showCustomRepeatDialog by remember { mutableStateOf(false) }
 
 
@@ -1613,19 +1591,6 @@ fun FullPlayer(
                 }
             }
 
-            // Aurora Glass layout: the visualizer sits above the wavy progress bar with clear breathing room.
-            if (showWaveform) {
-                WaveformVisualizer(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 4.dp)
-                        .height(40.dp),
-                    magnitudes = effectiveVisualizerData,
-                    color = if (useBlurControls) Color.White else MaterialTheme.colorScheme.primary
-                )
-                Spacer(modifier = Modifier.height(20.dp))
-            }
-
             Column {
                 Box(
                     modifier = Modifier.fillMaxWidth(),
@@ -2103,18 +2068,12 @@ fun FullPlayer(
         if (showOptionsSheet) {
             PlayerOptionsBottomSheet(
                 playbackManager = playbackManager,
-                showWaveform = showWaveform,
-                onToggleWaveform = onToggleWaveform,
                 onRefreshSongs = onRefreshSongs,
                 onSyncFavorite = onSyncFavorite,
                 onDismiss = { showOptionsSheet = false },
                 onAddToPlaylistClick = {
                     showOptionsSheet = false
                     showAddToPlaylistInPlayer = true
-                },
-                onShowVisualizerSettings = {
-                    showOptionsSheet = false
-                    showVisualizerSettings = true
                 },
                 onShowLyrics = {
                     showOptionsSheet = false
@@ -2141,14 +2100,6 @@ fun FullPlayer(
                     }
                 )
             }
-        }
-
-        if (showVisualizerSettings) {
-            VisualizerSettingsBottomSheet(
-                playbackManager = playbackManager,
-                onClose = { showVisualizerSettings = false },
-                onRequestPermission = onRequestAudioPermission
-            )
         }
 
         if (showAudioDetailsSheet) {
@@ -2279,8 +2230,6 @@ fun MiniPlayer(
     song: Song,
     isPlaying: Boolean,
     progress: Float = 0f,
-    showWaveform: Boolean,
-    visualizerData: FloatArray = remember { FloatArray(0) },
     currentOutputIcon: ImageVector,
     coverShape: Int,
     coverScale: Float,
@@ -2397,14 +2346,6 @@ fun MiniPlayer(
                             }
                         }
                     }
-                }
-
-                if (showWaveform) {
-                    MiniPlayerWaveform(
-                        context = miniContext,
-                        passedMagnitudes = visualizerData,
-                        color = MaterialTheme.colorScheme.primary
-                    )
                 }
 
                 Row(
@@ -2754,29 +2695,6 @@ fun MiniPlayerMinimized(
         }
     }
     }
-}
-
-@Composable
-private fun MiniPlayerWaveform(
-    context: Context,
-    passedMagnitudes: FloatArray,
-    color: Color
-) {
-    val activeMagnitudes = if (passedMagnitudes.isNotEmpty()) {
-        passedMagnitudes
-    } else {
-        val pm = remember(context) { PlaybackManager.getInstance(context) }
-        val pmData by pm.visualizerData.collectAsState()
-        pmData
-    }
-    WaveformVisualizer(
-        modifier = Modifier
-            .fillMaxSize()
-            .alpha(0.3f)
-            .blur(16.dp),
-        magnitudes = activeMagnitudes,
-        color = color
-    )
 }
 
 @Composable

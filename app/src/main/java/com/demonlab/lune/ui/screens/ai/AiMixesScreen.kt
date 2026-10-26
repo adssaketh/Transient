@@ -17,6 +17,9 @@ import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -141,6 +144,7 @@ fun AiMixesScreen(
 ) {
     val context = LocalContext.current
     val aiEngine = remember { LuneAiEngine.getInstance(context) }
+    val scope = rememberCoroutineScope()
     val mixes by aiEngine.aiMixes.collectAsState()
     val blurColors = rememberBlurSheetColors(playbackManager.currentSong)
 
@@ -165,8 +169,19 @@ fun AiMixesScreen(
                 blurColors = blurColors,
                 onSmartShuffleClick = {
                     if (allSongs.isNotEmpty()) {
-                        val shuffled = aiEngine.generateSmartShuffle(allSongs, playbackManager.currentSong)
-                        playbackManager.play(shuffled.first(), shuffled, category = "MIXES", playlistName = "Smart Shuffle")
+                        val seed = playbackManager.currentSong
+                        // Ordering a big library takes a moment: do it off the main thread so the UI never freezes.
+                        scope.launch {
+                            val shuffled = try {
+                                withContext(Dispatchers.Default) { aiEngine.generateSmartShuffle(allSongs, seed) }
+                            } catch (e: Exception) {
+                                android.util.Log.e("AiMixesScreen", "Smart Shuffle failed", e)
+                                allSongs.shuffled()
+                            }
+                            if (shuffled.isNotEmpty()) {
+                                playbackManager.play(shuffled.first(), shuffled, category = "MIXES", playlistName = "Smart Shuffle")
+                            }
+                        }
                     }
                 }
             )
@@ -190,9 +205,17 @@ fun AiMixesScreen(
                     hasBlur = hasBlurBackground,
                     onClick = {
                         if (allSongs.isNotEmpty()) {
-                            val discoveryQueue = aiEngine.generateDiscoveryQueue(allSongs, playbackManager.currentSong)
-                            if (discoveryQueue.isNotEmpty()) {
-                                playbackManager.play(discoveryQueue.first(), discoveryQueue, category = "MIXES", playlistName = discoveryQueue.first().title)
+                            val seed = playbackManager.currentSong
+                            scope.launch {
+                                val discoveryQueue = try {
+                                    withContext(Dispatchers.Default) { aiEngine.generateDiscoveryQueue(allSongs, seed) }
+                                } catch (e: Exception) {
+                                    android.util.Log.e("AiMixesScreen", "Discovery queue failed", e)
+                                    emptyList()
+                                }
+                                if (discoveryQueue.isNotEmpty()) {
+                                    playbackManager.play(discoveryQueue.first(), discoveryQueue, category = "MIXES", playlistName = discoveryQueue.first().title)
+                                }
                             }
                         }
                     }
@@ -207,10 +230,22 @@ fun AiMixesScreen(
                     modifier = Modifier.weight(1f),
                     hasBlur = hasBlurBackground,
                     onClick = {
-                        val seed = playbackManager.currentSong ?: allSongs.maxByOrNull { aiEngine.getSongAffinity(it.id) } ?: allSongs.firstOrNull()
-                        if (seed != null) {
-                            val smartQueue = aiEngine.generateSmartShuffle(allSongs, seed)
-                            playbackManager.play(seed, smartQueue, category = "MIXES", playlistName = seed.title)
+                        if (allSongs.isNotEmpty()) {
+                            val current = playbackManager.currentSong
+                            scope.launch {
+                                val queue = try {
+                                    withContext(Dispatchers.Default) {
+                                        val seed = current ?: allSongs.maxByOrNull { aiEngine.getSongAffinity(it.id) } ?: allSongs.first()
+                                        seed to aiEngine.generateSmartShuffle(allSongs, seed)
+                                    }
+                                } catch (e: Exception) {
+                                    android.util.Log.e("AiMixesScreen", "Smart Radio failed", e)
+                                    null
+                                }
+                                if (queue != null) {
+                                    playbackManager.play(queue.first, queue.second, category = "MIXES", playlistName = queue.first.title)
+                                }
+                            }
                         }
                     }
                 )

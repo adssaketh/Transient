@@ -1301,66 +1301,26 @@ fun FolderFilterContent(
     }
 }
 
-/** Compact bar visualizer used in the home header in place of the app name while music plays. */
+/** "Title · Artist" scrolling line shown in the home header in place of the app name while music plays. */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun HeaderVisualizer(
-    magnitudes: FloatArray,
+fun NowPlayingTicker(
+    title: String,
+    artist: String,
     modifier: Modifier = Modifier,
-    color: Color = MaterialTheme.colorScheme.primary,
-    barCount: Int = 14
-) {
-    Canvas(modifier = modifier.height(24.dp).width(104.dp)) {
-        if (magnitudes.isEmpty()) return@Canvas
-        val gap = 3.dp.toPx()
-        val barWidth = ((size.width - gap * (barCount - 1)) / barCount).coerceAtLeast(1f)
-        val radius = CornerRadius(barWidth / 2f, barWidth / 2f)
-        val perBar = (magnitudes.size / barCount).coerceAtLeast(1)
-        for (i in 0 until barCount) {
-            var sum = 0f
-            var n = 0
-            for (j in 0 until perBar) {
-                val idx = i * perBar + j
-                if (idx < magnitudes.size) { sum += magnitudes[idx]; n++ }
-            }
-            val m = (if (n > 0) sum / n else 0.1f).coerceIn(0.12f, 1f)
-            val h = size.height * m
-            drawRoundRect(
-                color = color,
-                topLeft = Offset(i * (barWidth + gap), (size.height - h) / 2f),
-                size = Size(barWidth, h),
-                cornerRadius = radius
-            )
-        }
-    }
-}
-
-@Composable
-fun WaveformVisualizer(
-    modifier: Modifier = Modifier,
-    magnitudes: FloatArray,
     color: Color = MaterialTheme.colorScheme.primary
 ) {
-    Canvas(modifier = modifier.fillMaxWidth()) {
-        if (magnitudes.isEmpty()) return@Canvas
-        val count = magnitudes.size
-        val spacingPx = 2.dp.toPx()
-        val totalSpacing = spacingPx * (count - 1)
-        val barWidth = ((size.width - totalSpacing) / count).coerceAtLeast(1f)
-        val cornerRadius = CornerRadius(2.dp.toPx(), 2.dp.toPx())
-
-        for (i in 0 until count) {
-            val magnitude = magnitudes[i].coerceIn(0.05f, 1f)
-            val barHeight = (size.height * magnitude).coerceAtLeast(2.dp.toPx())
-            val left = i * (barWidth + spacingPx)
-            val top = size.height - barHeight
-            drawRoundRect(
-                color = color,
-                topLeft = Offset(left, top),
-                size = Size(barWidth, barHeight),
-                cornerRadius = cornerRadius
-            )
-        }
-    }
+    val line = if (artist.isBlank() || artist.equals("<unknown>", ignoreCase = true)) title else "$title  \u00B7  $artist"
+    Text(
+        text = line,
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.Bold,
+        color = color,
+        maxLines = 1,
+        modifier = modifier
+            .fillMaxWidth()
+            .basicMarquee(iterations = Int.MAX_VALUE)
+    )
 }
 
 @OptIn(ExperimentalFoundationApi::class)
