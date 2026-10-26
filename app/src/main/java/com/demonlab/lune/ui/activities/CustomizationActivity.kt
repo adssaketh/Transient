@@ -502,6 +502,73 @@ fun CustomizationScreen(
                     }
                 )
 
+                var albumArtColors by remember { mutableStateOf(settingsManager.albumArtColorsEnabled) }
+                SettingsPreferenceItem(
+                    headlineText = stringResource(R.string.album_art_colors),
+                    supportingText = stringResource(R.string.album_art_colors_desc),
+                    icon = Icons.Default.ColorLens,
+                    position = SectionPosition.MIDDLE,
+                    trailingContent = {
+                        BouncySwitch(
+                            checked = albumArtColors,
+                            onCheckedChange = { enabled ->
+                                albumArtColors = enabled
+                                settingsManager.albumArtColorsEnabled = enabled
+                            },
+                            thumbContent = {
+                                Icon(
+                                    imageVector = if (albumArtColors) Icons.Default.Check else Icons.Default.Close,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(SwitchDefaults.IconSize)
+                                )
+                            }
+                        )
+                    }
+                )
+
+                var headerVisualizer by remember { mutableStateOf(settingsManager.headerVisualizerEnabled) }
+                val recordAudioLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+                    androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+                ) { granted ->
+                    headerVisualizer = granted
+                    settingsManager.headerVisualizerEnabled = granted
+                    if (!granted) {
+                        Toast.makeText(context, context.getString(R.string.header_visualizer_permission), Toast.LENGTH_SHORT).show()
+                    }
+                }
+                SettingsPreferenceItem(
+                    headlineText = stringResource(R.string.header_visualizer),
+                    supportingText = stringResource(R.string.header_visualizer_desc),
+                    icon = Icons.Default.Waves,
+                    position = SectionPosition.MIDDLE,
+                    trailingContent = {
+                        BouncySwitch(
+                            checked = headerVisualizer,
+                            onCheckedChange = { enabled ->
+                                if (!enabled) {
+                                    headerVisualizer = false
+                                    settingsManager.headerVisualizerEnabled = false
+                                } else if (androidx.core.content.ContextCompat.checkSelfPermission(
+                                        context, android.Manifest.permission.RECORD_AUDIO
+                                    ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                                ) {
+                                    headerVisualizer = true
+                                    settingsManager.headerVisualizerEnabled = true
+                                } else {
+                                    recordAudioLauncher.launch(android.Manifest.permission.RECORD_AUDIO)
+                                }
+                            },
+                            thumbContent = {
+                                Icon(
+                                    imageVector = if (headerVisualizer) Icons.Default.Check else Icons.Default.Close,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(SwitchDefaults.IconSize)
+                                )
+                            }
+                        )
+                    }
+                )
+
                 var showAiSection by remember { mutableStateOf(settingsManager.showAiSection) }
                 SettingsPreferenceItem(
                     headlineText = stringResource(R.string.show_ai_section),

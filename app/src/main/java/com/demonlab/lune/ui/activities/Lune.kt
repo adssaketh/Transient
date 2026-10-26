@@ -185,6 +185,7 @@ import com.demonlab.lune.ui.screens.*
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import coil.imageLoader
+import androidx.core.graphics.drawable.toBitmap
 import coil.request.ImageRequest
 
 class Lune : AppCompatActivity() {
@@ -372,6 +373,27 @@ class Lune : AppCompatActivity() {
             var useCustomControlsColor by remember { mutableStateOf(settingsManager.useCustomControlsColor) }
             var controlsColorPalette by remember { mutableIntStateOf(settingsManager.controlsColorPalette) }
 
+            // Album-art colour scheme (setting is OFF by default): extract a seed colour from the playing song's art.
+            LaunchedEffect(currentSong?.id, settingsManager.albumArtColorsEnabled) {
+                val song = currentSong ?: return@LaunchedEffect
+                if (!settingsManager.albumArtColorsEnabled) return@LaunchedEffect
+                val color = withContext(Dispatchers.IO) {
+                    try {
+                        val request = ImageRequest.Builder(context)
+                            .data(song.coverUrl ?: song.albumArtUri ?: song.uri)
+                            .size(128, 128)
+                            .allowHardware(false)
+                            .build()
+                        val result = context.imageLoader.execute(request)
+                        val bitmap = (result as? coil.request.SuccessResult)?.drawable?.toBitmap()
+                        bitmap?.let { ImageAnalyzer.dominantColor(it) }
+                    } catch (e: Exception) {
+                        null
+                    }
+                }
+                if (color != null) settingsManager.albumArtSeedColor = color
+            }
+
             LaunchedEffect(currentSong, isPlayerExpanded) {
                 if (currentSong == null && isPlayerExpanded) {
                     isPlayerExpanded = false
@@ -473,9 +495,9 @@ class Lune : AppCompatActivity() {
                 }
             }
             // Sync Visualizer when permission or playback state changes
-            LaunchedEffect(isPlaying, isPlayerExpanded) {
+            LaunchedEffect(isPlaying, isPlayerExpanded, settingsManager.headerVisualizerEnabled) {
                 val hasAudioPermission = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
-                val visualizerNeeded = playbackManager.isMiniPlayerVisualizerEnabled || (isPlayerExpanded && playbackManager.isFullPlayerVisualizerEnabled)
+                val visualizerNeeded = settingsManager.headerVisualizerEnabled || playbackManager.isMiniPlayerVisualizerEnabled || (isPlayerExpanded && playbackManager.isFullPlayerVisualizerEnabled)
                 if (hasAudioPermission && isPlaying && visualizerNeeded) {
                     playbackManager.startVisualizer()
                 } else if (!isPlaying || !visualizerNeeded) {
@@ -1167,18 +1189,50 @@ fun MainScreen(
                                 tintColor = titleColor,
                                 modifier = Modifier.padding(end = 0.dp)
                             )
-                            if (customTitle.isEmpty()) {
-                                // Default title: the Transient lettering. A user-set custom title stays plain text.
-                                BrandWordmark(height = 24.dp, color = titleColor)
-                            } else {
-                                ResponsiveText(
-                                    text = appDefaultTitle,
-                                    modifier = Modifier.fillMaxWidth(),
-                                    targetTextSize = 26.sp,
-                                    color = titleColor,
-                                    fontWeight = FontWeight.Bold,
-                                    maxLines = 1
-                                )
+                            // Header visualizer (setting OFF by default): the app name morphs into a small
+                            // visualizer once a song is playing, and back to the name when playback stops.
+                            val showHeaderViz = settingsManager.headerVisualizerEnabled && isPlaying && currentSong != null
+                            val vizFraction by animateFloatAsState(
+                                targetValue = if (showHeaderViz) 1f else 0f,
+                                animationSpec = tween(durationMillis = 500, easing = FastOutSlowInEasing),
+                                label = "headerVizMorph"
+                            )
+                            val vizMagnitudes by playbackManager.visualizerData.collectAsState()
+                            Box(contentAlignment = Alignment.CenterStart) {
+                                Box(
+                                    modifier = Modifier.graphicsLayer {
+                                        alpha = 1f - vizFraction
+                                        scaleX = 1f - 0.35f * vizFraction
+                                        scaleY = 1f - 0.35f * vizFraction
+                                        transformOrigin = TransformOrigin(0f, 0.5f)
+                                    }
+                                ) {
+                                    if (customTitle.isEmpty()) {
+                                        // Default title: the Transient lettering. A user-set custom title stays plain text.
+                                        BrandWordmark(height = 24.dp, color = titleColor)
+                                    } else {
+                                        ResponsiveText(
+                                            text = appDefaultTitle,
+                                            modifier = Modifier.fillMaxWidth(),
+                                            targetTextSize = 26.sp,
+                                            color = titleColor,
+                                            fontWeight = FontWeight.Bold,
+                                            maxLines = 1
+                                        )
+                                    }
+                                }
+                                if (vizFraction > 0.01f) {
+                                    HeaderVisualizer(
+                                        magnitudes = vizMagnitudes,
+                                        color = titleColor,
+                                        modifier = Modifier.graphicsLayer {
+                                            alpha = vizFraction
+                                            scaleX = 0.6f + 0.4f * vizFraction
+                                            scaleY = 0.6f + 0.4f * vizFraction
+                                            transformOrigin = TransformOrigin(0f, 0.5f)
+                                        }
+                                    )
+                                }
                             }
                         }
                     },

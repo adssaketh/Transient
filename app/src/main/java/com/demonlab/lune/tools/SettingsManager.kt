@@ -447,6 +447,32 @@ class SettingsManager(context: Context) {
         get() = prefs.getInt("custom_color_palette", 0)
         set(value) = prefs.edit().putInt("custom_color_palette", value).apply()
 
+    // Album-art colour scheme (default OFF). The seed colour is the last colour extracted from the playing song's art.
+    private val _albumArtColorsEnabled = mutableStateOf(prefs.getBoolean("album_art_colors_enabled", false))
+    var albumArtColorsEnabled: Boolean
+        get() = _albumArtColorsEnabled.value
+        set(value) {
+            _albumArtColorsEnabled.value = value
+            prefs.edit().putBoolean("album_art_colors_enabled", value).apply()
+        }
+
+    private val _albumArtSeedColor = mutableStateOf(prefs.getInt("album_art_seed_color", 0))
+    var albumArtSeedColor: Int
+        get() = _albumArtSeedColor.value
+        set(value) {
+            _albumArtSeedColor.value = value
+            prefs.edit().putInt("album_art_seed_color", value).apply()
+        }
+
+    // Header visualizer (default OFF): the "Transient" wordmark morphs into a small visualizer while music plays.
+    private val _headerVisualizerEnabled = mutableStateOf(prefs.getBoolean("header_visualizer_enabled", false))
+    var headerVisualizerEnabled: Boolean
+        get() = _headerVisualizerEnabled.value
+        set(value) {
+            _headerVisualizerEnabled.value = value
+            prefs.edit().putBoolean("header_visualizer_enabled", value).apply()
+        }
+
     var showBackupWarning: Boolean
         get() = prefs.getBoolean("show_backup_warning", true)
         set(value) = prefs.edit().putBoolean("show_backup_warning", value).apply()

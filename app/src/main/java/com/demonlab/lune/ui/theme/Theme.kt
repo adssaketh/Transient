@@ -15,6 +15,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 
 private val DarkColorScheme = darkColorScheme(
     primary = Purple80,
@@ -107,6 +108,60 @@ fun getControlsPrimaryColor(
     }
 }
 
+/** Builds a Material3 scheme from a single seed colour (hue kept, saturation/lightness tuned per theme). */
+private fun schemeFromSeed(seed: Color, dark: Boolean): androidx.compose.material3.ColorScheme {
+    val hsl = FloatArray(3)
+    androidx.core.graphics.ColorUtils.colorToHSL(seed.toArgb(), hsl)
+    val h = hsl[0]
+    val s = hsl[1].coerceIn(0.35f, 0.85f)
+    fun c(hue: Float, sat: Float, light: Float) =
+        Color(androidx.core.graphics.ColorUtils.HSLToColor(floatArrayOf((hue + 360f) % 360f, sat.coerceIn(0f, 1f), light.coerceIn(0f, 1f))))
+    return if (dark) {
+        darkColorScheme(
+            primary = c(h, s, 0.75f),
+            onPrimary = c(h, s, 0.15f),
+            primaryContainer = c(h, s * 0.8f, 0.28f),
+            onPrimaryContainer = c(h, s, 0.90f),
+            secondary = c(h, s * 0.35f, 0.75f),
+            onSecondary = c(h, s * 0.35f, 0.15f),
+            secondaryContainer = c(h, s * 0.30f, 0.26f),
+            onSecondaryContainer = c(h, s * 0.35f, 0.90f),
+            tertiary = c(h + 40f, s * 0.6f, 0.75f),
+            background = c(h, s * 0.18f, 0.09f),
+            surface = c(h, s * 0.18f, 0.09f),
+            surfaceVariant = c(h, s * 0.15f, 0.22f),
+            onSurface = c(h, 0.10f, 0.92f),
+            onSurfaceVariant = c(h, 0.12f, 0.78f)
+        )
+    } else {
+        lightColorScheme(
+            primary = c(h, s, 0.38f),
+            onPrimary = Color.White,
+            primaryContainer = c(h, s * 0.9f, 0.88f),
+            onPrimaryContainer = c(h, s, 0.14f),
+            secondary = c(h, s * 0.30f, 0.40f),
+            onSecondary = Color.White,
+            secondaryContainer = c(h, s * 0.35f, 0.90f),
+            onSecondaryContainer = c(h, s * 0.40f, 0.14f),
+            tertiary = c(h + 40f, s * 0.5f, 0.38f),
+            background = c(h, s * 0.35f, 0.97f),
+            surface = c(h, s * 0.35f, 0.97f),
+            surfaceVariant = c(h, s * 0.25f, 0.91f),
+            onSurface = c(h, 0.15f, 0.10f),
+            onSurfaceVariant = c(h, 0.12f, 0.30f)
+        )
+    }
+}
+
+/** The album-art seed colour when the setting is on and a colour has been extracted; otherwise null. */
+@Composable
+fun rememberAlbumArtSeed(): Color? {
+    val context = LocalContext.current
+    val settings = com.demonlab.lune.tools.SettingsManager.getInstance(context)
+    val seed = settings.albumArtSeedColor
+    return if (settings.albumArtColorsEnabled && seed != 0) Color(seed) else null
+}
+
 @Composable
 fun LuneTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
@@ -114,9 +169,11 @@ fun LuneTheme(
     useCustomColors: Boolean = false,
     customColorPalette: Int = 0,
     useAmoledPitchBlack: Boolean = false,
+    albumSeedColor: Color? = rememberAlbumArtSeed(),
     content: @Composable () -> Unit
 ) {
     val baseColorScheme = when {
+        albumSeedColor != null -> schemeFromSeed(albumSeedColor, darkTheme)
         useCustomColors -> {
             if (darkTheme) {
                 when (customColorPalette) {

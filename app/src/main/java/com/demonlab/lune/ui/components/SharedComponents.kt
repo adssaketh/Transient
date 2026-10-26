@@ -1301,6 +1301,39 @@ fun FolderFilterContent(
     }
 }
 
+/** Compact bar visualizer used in the home header in place of the app name while music plays. */
+@Composable
+fun HeaderVisualizer(
+    magnitudes: FloatArray,
+    modifier: Modifier = Modifier,
+    color: Color = MaterialTheme.colorScheme.primary,
+    barCount: Int = 14
+) {
+    Canvas(modifier = modifier.height(24.dp).width(104.dp)) {
+        if (magnitudes.isEmpty()) return@Canvas
+        val gap = 3.dp.toPx()
+        val barWidth = ((size.width - gap * (barCount - 1)) / barCount).coerceAtLeast(1f)
+        val radius = CornerRadius(barWidth / 2f, barWidth / 2f)
+        val perBar = (magnitudes.size / barCount).coerceAtLeast(1)
+        for (i in 0 until barCount) {
+            var sum = 0f
+            var n = 0
+            for (j in 0 until perBar) {
+                val idx = i * perBar + j
+                if (idx < magnitudes.size) { sum += magnitudes[idx]; n++ }
+            }
+            val m = (if (n > 0) sum / n else 0.1f).coerceIn(0.12f, 1f)
+            val h = size.height * m
+            drawRoundRect(
+                color = color,
+                topLeft = Offset(i * (barWidth + gap), (size.height - h) / 2f),
+                size = Size(barWidth, h),
+                cornerRadius = radius
+            )
+        }
+    }
+}
+
 @Composable
 fun WaveformVisualizer(
     modifier: Modifier = Modifier,

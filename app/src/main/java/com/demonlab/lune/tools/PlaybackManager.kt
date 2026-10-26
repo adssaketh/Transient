@@ -518,7 +518,7 @@ class PlaybackManager private constructor(private val context: Context) {
     }
 
     fun startVisualizer() {
-        if (!isFullPlayerVisualizerEnabled && !isMiniPlayerVisualizerEnabled) {
+        if (!isFullPlayerVisualizerEnabled && !isMiniPlayerVisualizerEnabled && !settings.headerVisualizerEnabled) {
             stopVisualizer()
             return
         }
