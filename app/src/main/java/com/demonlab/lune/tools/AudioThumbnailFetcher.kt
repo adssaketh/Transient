@@ -28,11 +28,61 @@ class AudioThumbnailFetcher(
         // Android's own thumbnail comes second because it can be an album-level or folder-level image
         // (e.g. a cover.jpg shared by everything in a folder), which made different songs and albums
         // show the same cover. With the setting off, that system thumbnail is tried first instead.
-        return if (SettingsManager.getInstance(context).preferEmbeddedArt) {
+        val own = if (SettingsManager.getInstance(context).preferEmbeddedArt) {
             embeddedArt() ?: systemThumbnail()
         } else {
             systemThumbnail() ?: embeddedArt()
         }
+        // A song with no picture of its own borrows the cover of another song from the same album.
+        return own ?: albumSiblingArt()
+    }
+
+    /**
+     * Finds another track with the same album name that has embedded art and uses that picture.
+     * The donor track is remembered per album so the other tracks of the album resolve instantly.
+     */
+    private fun albumSiblingArt(): FetchResult? {
+        if (uri.scheme != "content") return null
+        val id = runCatching { android.content.ContentUris.parseId(uri) }.getOrNull() ?: return null
+        val collection = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+        var albumName: String? = null
+        runCatching {
+            context.contentResolver.query(
+                android.content.ContentUris.withAppendedId(collection, id),
+                arrayOf(MediaStore.Audio.Media.ALBUM), null, null, null
+            )?.use { c -> if (c.moveToFirst()) albumName = c.getString(0) }
+        }
+        val album = albumName?.trim()
+        if (album.isNullOrEmpty() || album.equals("<unknown>", ignoreCase = true) || album.equals("unknown", ignoreCase = true)) return null
+        val key = album.lowercase()
+
+        donorCache[key]?.let { donor ->
+            return if (donor == Uri.EMPTY) null else (embeddedViaRetriever(donor) ?: embeddedViaTagger(donor))
+        }
+
+        val siblings = mutableListOf<Uri>()
+        runCatching {
+            context.contentResolver.query(
+                collection,
+                arrayOf(MediaStore.Audio.Media._ID),
+                "${MediaStore.Audio.Media.ALBUM} = ? AND ${MediaStore.Audio.Media._ID} != ?",
+                arrayOf(albumName!!, id.toString()),
+                "${MediaStore.Audio.Media.TRACK} ASC"
+            )?.use { c ->
+                while (c.moveToNext() && siblings.size < 15) {
+                    siblings.add(android.content.ContentUris.withAppendedId(collection, c.getLong(0)))
+                }
+            }
+        }
+        for (sibling in siblings) {
+            val result = embeddedViaRetriever(sibling) ?: embeddedViaTagger(sibling)
+            if (result != null) {
+                donorCache[key] = sibling
+                return result
+            }
+        }
+        donorCache[key] = Uri.EMPTY
+        return null
     }
 
     /** Android's thumbnail for the file (fast and system-cached, but may come from the folder / album). */
@@ -56,18 +106,18 @@ class AudioThumbnailFetcher(
         return embeddedViaTagger()
     }
 
-    private fun embeddedViaRetriever(): FetchResult? {
+    private fun embeddedViaRetriever(target: Uri = uri): FetchResult? {
         val retriever = MediaMetadataRetriever()
         try {
-            if (uri.scheme == "file") {
-                val path = uri.path
+            if (target.scheme == "file") {
+                val path = target.path
                 if (path != null && java.io.File(path).exists()) {
                     retriever.setDataSource(path)
                 } else {
-                    retriever.setDataSource(context, uri)
+                    retriever.setDataSource(context, target)
                 }
             } else {
-                retriever.setDataSource(context, uri)
+                retriever.setDataSource(context, target)
             }
             val picture = retriever.embeddedPicture
             if (picture != null && picture.isNotEmpty()) return decode(picture)
@@ -79,11 +129,11 @@ class AudioThumbnailFetcher(
         return null
     }
 
-    private fun embeddedViaTagger(): FetchResult? {
+    private fun embeddedViaTagger(target: Uri = uri): FetchResult? {
         try {
-            var filePath: String? = if (uri.scheme == "file") uri.path else null
-            if (filePath == null && uri.scheme == "content") {
-                context.contentResolver.query(uri, arrayOf(MediaStore.Audio.Media.DATA), null, null, null)?.use { cursor ->
+            var filePath: String? = if (target.scheme == "file") target.path else null
+            if (filePath == null && target.scheme == "content") {
+                context.contentResolver.query(target, arrayOf(MediaStore.Audio.Media.DATA), null, null, null)?.use { cursor ->
                     if (cursor.moveToFirst()) {
                         val idx = cursor.getColumnIndex(MediaStore.Audio.Media.DATA)
                         if (idx != -1) filePath = cursor.getString(idx)
@@ -123,6 +173,11 @@ class AudioThumbnailFetcher(
             isSampled = sample > 1,
             dataSource = DataSource.DISK
         )
+    }
+
+    private companion object {
+        /** album name (lower-case) -> a track of that album known to carry artwork, or [Uri.EMPTY] if none does. */
+        val donorCache = java.util.concurrent.ConcurrentHashMap<String, Uri>()
     }
 
     class Factory(private val context: Context) : Fetcher.Factory<Uri> {

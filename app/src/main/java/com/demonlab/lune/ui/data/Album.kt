@@ -149,7 +149,7 @@ fun AlbumCard(
     // Corner radius is a share of the tile width so a small tile looks like a scaled-down player cover
     // (a fixed 24dp turned 4-column tiles into blobby squircles).
     val cardShape = RoundedCornerShape(topStartPercent = 8, topEndPercent = 8, bottomStartPercent = 3, bottomEndPercent = 3)
-    val coverShape = RoundedCornerShape(percent = 8)
+    val coverShape = RoundedCornerShape(10.dp)
     val showYear = SettingsManager.getInstance(LocalContext.current).showAlbumYear
     val albumSubtitle = remember(album, showYear) { albumSubtitleWithYear(album, showYear) }
     Column(

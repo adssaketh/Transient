@@ -967,13 +967,14 @@ fun FullPlayer(
     val playingFromContext = remember(song.id, playbackManager.activePlaylistId, playbackManager.activePlaylistName, playbackManager.activeCategory) {
         when {
             playbackManager.activePlaylistId == -300L -> context.getString(R.string.playing_from_search)
+            !playbackManager.activePlaylistName.isNullOrBlank() && playbackManager.activePlaylistName == song.folderName && song.album.isNotBlank() -> song.album
             !playbackManager.activePlaylistName.isNullOrBlank() -> playbackManager.activePlaylistName!!
             playbackManager.activeCategory == "ALL" -> context.getString(R.string.tab_all)
             playbackManager.activeCategory == "FAVORITES" -> context.getString(R.string.tab_favorites)
             playbackManager.activeCategory == "RESUME" -> context.getString(R.string.tab_resume)
             playbackManager.activeCategory == "ALBUMS" -> song.album.ifBlank { context.getString(R.string.tab_albums_real) }
             playbackManager.activeCategory == "ARTISTS" -> song.artist.ifBlank { context.getString(R.string.tab_artists) }
-            playbackManager.activeCategory == "FOLDERS" -> song.folderName.ifBlank { context.getString(R.string.tab_folders) }
+            playbackManager.activeCategory == "FOLDERS" -> song.album.ifBlank { song.folderName.ifBlank { context.getString(R.string.tab_folders) } }
             playbackManager.activeCategory == "PLAYLISTS" -> context.getString(R.string.playlists)
             playbackManager.activeCategory == "MIXES" -> context.getString(R.string.tab_mixes)
             playbackManager.activeCategory == "GENRES" -> song.genre ?: context.getString(R.string.tab_genres)
@@ -1419,7 +1420,7 @@ fun FullPlayer(
                     val activeShape = when (coverShape) {
                         1 -> RoundedCornerShape(0.dp)
                         2 -> CircleShape
-                        else -> RoundedCornerShape(28.dp)
+                        else -> RoundedCornerShape(12.dp)
                     }
                     val glowProgress = favoriteGlowAnim.value
 
@@ -1448,7 +1449,7 @@ fun FullPlayer(
                                     val baseRadius = when (coverShape) {
                                         1 -> 0f
                                         2 -> size.minDimension / 2f
-                                        else -> 28.dp.toPx()
+                                        else -> 12.dp.toPx()
                                     }
 
                                     val maxAlpha = 0.85f * glowProgress

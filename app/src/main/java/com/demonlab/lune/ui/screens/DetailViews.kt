@@ -197,59 +197,6 @@ fun PlaylistDetailView(
             ) {
                 item {
                     Box(modifier = Modifier.fillMaxWidth()) {
-                        if (activeCover != null) {
-                            val fadeBrush = remember {
-                                Brush.verticalGradient(
-                                    0.0f to Color.Black,
-                                    0.40f to Color.Black,
-                                    0.70f to Color.Black.copy(alpha = 0.50f),
-                                    0.88f to Color.Black.copy(alpha = 0.15f),
-                                    1.0f to Color.Transparent
-                                )
-                            }
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(380.dp)
-                                    .offset(y = (-50).dp)
-                                    .graphicsLayer {
-                                        alpha = headerAlpha
-                                        compositingStrategy = CompositingStrategy.Offscreen
-                                    }
-                                    .drawWithContent {
-                                        drawContent()
-                                        drawRect(
-                                            brush = fadeBrush,
-                                            blendMode = BlendMode.DstIn
-                                        )
-                                    }
-                            ) {
-                                Crossfade(
-                                    targetState = activeCover,
-                                    animationSpec = tween(durationMillis = 1000),
-                                    label = "playlistCoverCrossfade"
-                                ) { cover ->
-                                    AsyncImage(
-                                        model = cover,
-                                        contentDescription = null,
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentScale = ContentScale.Crop
-                                    )
-                                }
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .background(
-                                            Brush.verticalGradient(
-                                                0.0f to Color.Transparent,
-                                                0.50f to Color.Transparent,
-                                                1.0f to (if (hasBlurBackground) Color.Black.copy(alpha = 0.40f) else Color.Transparent)
-                                            )
-                                        )
-                                )
-                            }
-                        }
-                        
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -261,7 +208,7 @@ fun PlaylistDetailView(
                                 .padding(bottom = 8.dp, start = 16.dp, end = 16.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Spacer(modifier = Modifier.height(260.dp))
+                            DetailCoverFrame(cover = activeCover, widthFraction = 0.78f)
                         
                         val currentPlaylistName = viewModel.playlists.find { it.id == playlist.id }?.name ?: playlist.name
                         Text(
@@ -788,59 +735,6 @@ fun AlbumDetailView(
             ) {
                 item {
                     Box(modifier = Modifier.fillMaxWidth()) {
-                        if (currentDisplayCover != null) {
-                            val fadeBrush = remember {
-                                Brush.verticalGradient(
-                                    0.0f to Color.Black,
-                                    0.40f to Color.Black,
-                                    0.70f to Color.Black.copy(alpha = 0.50f),
-                                    0.88f to Color.Black.copy(alpha = 0.15f),
-                                    1.0f to Color.Transparent
-                                )
-                            }
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(380.dp)
-                                    .offset(y = (-50).dp)
-                                    .graphicsLayer {
-                                        alpha = headerAlpha
-                                        compositingStrategy = CompositingStrategy.Offscreen
-                                    }
-                                    .drawWithContent {
-                                        drawContent()
-                                        drawRect(
-                                            brush = fadeBrush,
-                                            blendMode = BlendMode.DstIn
-                                        )
-                                    }
-                            ) {
-                                Crossfade(
-                                    targetState = currentDisplayCover,
-                                    animationSpec = tween(durationMillis = 1000),
-                                    label = "albumCoverCrossfade"
-                                ) { cover ->
-                                    AsyncImage(
-                                        model = cover,
-                                        contentDescription = null,
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentScale = ContentScale.Crop
-                                    )
-                                }
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .background(
-                                            Brush.verticalGradient(
-                                                0.0f to Color.Transparent,
-                                                0.50f to Color.Transparent,
-                                                1.0f to (if (hasBlurBackground) Color.Black.copy(alpha = 0.40f) else Color.Transparent)
-                                            )
-                                        )
-                                )
-                            }
-                        }
-                        
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -852,7 +746,7 @@ fun AlbumDetailView(
                                 .padding(bottom = 8.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Spacer(modifier = Modifier.height(260.dp))
+                            DetailCoverFrame(cover = currentDisplayCover, widthFraction = 0.72f)
                         
                         Text(
                             text = album.name,
@@ -1465,59 +1359,6 @@ fun FolderDetailView(
                 item {
                     Box(modifier = Modifier.fillMaxWidth()) {
 
-                        if (activeCover != null) {
-                            val fadeBrush = remember {
-                                Brush.verticalGradient(
-                                    0.0f to Color.Black,
-                                    0.40f to Color.Black,
-                                    0.70f to Color.Black.copy(alpha = 0.50f),
-                                    0.88f to Color.Black.copy(alpha = 0.15f),
-                                    1.0f to Color.Transparent
-                                )
-                            }
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(380.dp)
-                                    .offset(y = (-50).dp)
-                                    .graphicsLayer {
-                                        alpha = headerAlpha
-                                        compositingStrategy = CompositingStrategy.Offscreen
-                                    }
-                                    .drawWithContent {
-                                        drawContent()
-                                        drawRect(
-                                            brush = fadeBrush,
-                                            blendMode = BlendMode.DstIn
-                                        )
-                                    }
-                            ) {
-                                Crossfade(
-                                    targetState = activeCover,
-                                    animationSpec = tween(durationMillis = 1000),
-                                    label = "folderCoverCrossfade"
-                                ) { cover ->
-                                    AsyncImage(
-                                        model = cover,
-                                        contentDescription = null,
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentScale = ContentScale.Crop
-                                    )
-                                }
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .background(
-                                            Brush.verticalGradient(
-                                                0.0f to Color.Transparent,
-                                                0.50f to Color.Transparent,
-                                                1.0f to (if (hasBlurBackground) Color.Black.copy(alpha = 0.40f) else Color.Transparent)
-                                            )
-                                        )
-                                )
-                            }
-                        }
-
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -1529,7 +1370,7 @@ fun FolderDetailView(
                                 .padding(bottom = 8.dp, start = 16.dp, end = 16.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Spacer(modifier = Modifier.height(260.dp))
+                            DetailCoverFrame(cover = activeCover, widthFraction = 0.78f)
 
                             Text(
                                 text = folderName,
@@ -1848,4 +1689,34 @@ private fun MoreAlbumsByArtist(
             }
         }
     }
+}
+
+
+/** Square, rounded album / playlist / folder cover shown in full above the title (instead of a cropped full-bleed banner). */
+@Composable
+private fun DetailCoverFrame(cover: Any?, widthFraction: Float) {
+    Spacer(modifier = Modifier.statusBarsPadding().height(20.dp))
+    Box(
+        modifier = Modifier
+            .fillMaxWidth(widthFraction)
+            .aspectRatio(1f)
+            .clip(RoundedCornerShape(10.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        if (cover != null) {
+            Crossfade(
+                targetState = cover,
+                animationSpec = tween(durationMillis = 1000),
+                label = "detailCoverCrossfade"
+            ) { c ->
+                AsyncImage(
+                    model = c,
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            }
+        }
+    }
+    Spacer(modifier = Modifier.height(18.dp))
 }

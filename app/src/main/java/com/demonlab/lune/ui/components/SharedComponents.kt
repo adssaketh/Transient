@@ -544,7 +544,7 @@ fun SongGridItem(
 ) {
     val activePrimary = com.demonlab.lune.ui.theme.getControlsPrimaryColor(useCustomControlsColor, controlsColorPalette)
     val cardShape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp, bottomStart = 8.dp, bottomEnd = 8.dp)
-    val coverShape = RoundedCornerShape(24.dp)
+    val coverShape = RoundedCornerShape(10.dp)
     Column(
         modifier = modifier
             .fillMaxWidth()
