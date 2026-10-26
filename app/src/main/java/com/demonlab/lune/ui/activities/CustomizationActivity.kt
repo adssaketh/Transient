@@ -566,7 +566,7 @@ fun CustomizationScreen(
                 SettingsPreferenceItem(
                     headlineText = stringResource(R.string.jewel_case_sway),
                     supportingText = stringResource(R.string.jewel_case_sway_desc),
-                    icon = Icons.Default.ThreeDRotation,
+                    icon = Icons.Default.Waves,
                     position = SectionPosition.MIDDLE,
                     trailingContent = {
                         BouncySwitch(
