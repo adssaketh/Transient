@@ -38,6 +38,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.demonlab.lune.R
+import kotlin.math.asin
 
 // Geometry of res/drawable-nodpi/jewel_case_frame.webp (cut from the reference render): the case is 1078 x 948 and the
 // booklet window, where the album art shows through, sits at these fractions of it.
@@ -100,13 +101,15 @@ fun JewelCaseCover(coverUrl: Any?, modifier: Modifier = Modifier, sway: Boolean 
                         .size(caseWidth, caseHeight)
                         .graphicsLayer {
                             scaleY = -1f
-                            alpha = 0.30f
+                            alpha = 0.40f
                             compositingStrategy = CompositingStrategy.Offscreen
                         }
                         .drawWithContent {
                             drawContent()
+                            // This mask is drawn in the case's own (not yet flipped) coordinates, so the bottom of the case,
+                            // which becomes the top of the reflection after the flip, is the opaque end.
                             drawRect(
-                                brush = Brush.verticalGradient(0f to Color.Black, fade to Color.Transparent, 1f to Color.Transparent),
+                                brush = Brush.verticalGradient(0f to Color.Transparent, (1f - fade) to Color.Transparent, 1f to Color.Black),
                                 blendMode = BlendMode.DstIn
                             )
                         }
@@ -158,10 +161,12 @@ private fun JewelCase(coverUrl: Any?, modifier: Modifier = Modifier) {
     }
 }
 
-private const val MAX_SWAY_DEGREES = 9f
+private const val MAX_SWAY_Y_DEGREES = 16f
+private const val MAX_SWAY_X_DEGREES = 12f
+private const val SWAY_RESPONSE = 0.7f
 
 /**
- * Small 3D sway: while the screen is visible, the phone's accelerometer gently turns the case (at most about 9 degrees),
+ * Small 3D sway: while the screen is visible, the phone's accelerometer gently turns the case (up to about 16 degrees),
  * so the plastic seems to catch the light as you move. How the phone is usually held is learned slowly, so only changes
  * of angle move the case. No permission is needed, and the sensor is released when the screen is not in front.
  */
@@ -172,17 +177,20 @@ private fun PhoneTiltEffect(tiltX: MutableFloatState, tiltY: MutableFloatState) 
     DisposableEffect(lifecycleOwner) {
         val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as? SensorManager
         val accelerometer = sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
-        var resting = Float.NaN
+        var restingPitch = Float.NaN
         val listener = object : SensorEventListener {
             override fun onSensorChanged(event: SensorEvent) {
                 val g = 9.81f
-                val side = (event.values[0] / g).coerceIn(-1f, 1f)
-                val back = (event.values[2] / g).coerceIn(-1f, 1f)
-                resting = if (resting.isNaN()) back else resting + (back - resting) * 0.01f
-                val targetY = side * MAX_SWAY_DEGREES
-                val targetX = ((back - resting) * MAX_SWAY_DEGREES * 1.5f).coerceIn(-MAX_SWAY_DEGREES, MAX_SWAY_DEGREES)
-                tiltY.floatValue += (targetY - tiltY.floatValue) * 0.12f
-                tiltX.floatValue += (targetX - tiltX.floatValue) * 0.12f
+                // The tilt of the phone in degrees: left / right (roll) and forward / back (pitch).
+                val rollDeg = Math.toDegrees(asin((event.values[0] / g).coerceIn(-1f, 1f).toDouble())).toFloat()
+                val pitchDeg = Math.toDegrees(asin((event.values[2] / g).coerceIn(-1f, 1f).toDouble())).toFloat()
+                // The usual holding angle is learned slowly, so only changes of forward / back angle move the case.
+                restingPitch = if (restingPitch.isNaN()) pitchDeg else restingPitch + (pitchDeg - restingPitch) * 0.004f
+                // The case stays put in the room while the phone moves, so it turns against the phone's movement.
+                val targetY = (-rollDeg * SWAY_RESPONSE).coerceIn(-MAX_SWAY_Y_DEGREES, MAX_SWAY_Y_DEGREES)
+                val targetX = (-(pitchDeg - restingPitch) * SWAY_RESPONSE).coerceIn(-MAX_SWAY_X_DEGREES, MAX_SWAY_X_DEGREES)
+                tiltY.floatValue += (targetY - tiltY.floatValue) * 0.18f
+                tiltX.floatValue += (targetX - tiltX.floatValue) * 0.18f
             }
 
             override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
