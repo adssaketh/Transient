@@ -48,6 +48,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.filled.Brush
+import androidx.compose.material.icons.filled.BugReport
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Save
+import com.demonlab.lune.tools.DiagnosticLogger
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -124,6 +129,8 @@ fun SettingsScreen(
     val musicProvider = remember { MusicProvider(context) }
     var autoSyncBackupUri by remember { mutableStateOf(settingsManager.autoSyncBackupUri) }
     var isAutoSyncEnabled by remember { mutableStateOf(settingsManager.isAutoSyncBackupEnabled) }
+    var crashLogsOn by remember { mutableStateOf(settingsManager.crashLogsEnabled) }
+    var logCount by remember { mutableIntStateOf(DiagnosticLogger.logFiles(context).size) }
 
     val exportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/json")
@@ -370,6 +377,73 @@ fun SettingsScreen(
                                     )
                                 }
                             )
+                        }
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Diagnostics Section: crash / freeze / low-memory reports, kept in a logs folder
+                SettingsSection(title = stringResource(R.string.diagnostics)) {
+                    SettingsPreferenceItem(
+                        headlineText = stringResource(R.string.crash_logs),
+                        supportingText = stringResource(R.string.crash_logs_desc),
+                        icon = Icons.Default.BugReport,
+                        position = SectionPosition.FIRST,
+                        trailingContent = {
+                            BouncySwitch(
+                                checked = crashLogsOn,
+                                onCheckedChange = {
+                                    crashLogsOn = it
+                                    settingsManager.crashLogsEnabled = it
+                                    DiagnosticLogger.applyEnabled(context)
+                                },
+                                thumbContent = {
+                                    Icon(
+                                        imageVector = if (crashLogsOn) Icons.Default.Check else Icons.Default.Close,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(SwitchDefaults.IconSize)
+                                    )
+                                }
+                            )
+                        }
+                    )
+                    SettingsPreferenceItem(
+                        headlineText = stringResource(R.string.logs_share),
+                        supportingText = if (logCount > 0) stringResource(R.string.logs_share_desc, logCount) else stringResource(R.string.logs_none),
+                        icon = Icons.Default.Share,
+                        position = SectionPosition.MIDDLE,
+                        onClick = {
+                            logCount = DiagnosticLogger.logFiles(context).size
+                            if (!DiagnosticLogger.share(context)) {
+                                Toast.makeText(context, context.getString(R.string.logs_none), Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    )
+                    SettingsPreferenceItem(
+                        headlineText = stringResource(R.string.logs_save_downloads),
+                        supportingText = stringResource(R.string.logs_save_downloads_desc),
+                        icon = Icons.Default.Save,
+                        position = SectionPosition.MIDDLE,
+                        onClick = {
+                            val where = DiagnosticLogger.saveToDownloads(context)
+                            Toast.makeText(
+                                context,
+                                if (where != null) context.getString(R.string.logs_saved_to, where)
+                                else if (DiagnosticLogger.logFiles(context).isEmpty()) context.getString(R.string.logs_none)
+                                else context.getString(R.string.logs_save_failed),
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
+                    )
+                    SettingsPreferenceItem(
+                        headlineText = stringResource(R.string.logs_clear),
+                        icon = Icons.Default.Delete,
+                        position = SectionPosition.LAST,
+                        onClick = {
+                            val removed = DiagnosticLogger.clear(context)
+                            logCount = 0
+                            Toast.makeText(context, context.getString(R.string.logs_cleared, removed), Toast.LENGTH_SHORT).show()
                         }
                     )
                 }

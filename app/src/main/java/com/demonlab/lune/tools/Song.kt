@@ -25,7 +25,20 @@ data class Song(
     val isHiRes: Boolean = false,
     val sampleRate: Int? = null,
     val bitDepth: Int? = null,
-    val year: Int = 0
+    val year: Int = 0,
+    val albumArtist: String? = null,
+    val composer: String? = null
+)
+
+/** Stored as a song's cover when the user deletes its embedded image; no loader can open it, so the placeholder shows. */
+const val NO_COVER = "transient-no-cover:"
+
+/** The extra tags of the Edit Information screen. A null track number or year means "keep the file's own value". */
+data class ExtraTags(
+    val albumArtist: String,
+    val composer: String,
+    val trackNumber: Int?,
+    val year: Int?
 )
 
 data class SongArtwork(

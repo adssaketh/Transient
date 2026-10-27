@@ -10,7 +10,11 @@ data class SongOverride(
     val album: String? = null,
     val genre: String? = null,
     val coverUri: String? = null,
-    val isFavorite: Boolean = false
+    val isFavorite: Boolean = false,
+    val albumArtist: String? = null,
+    val composer: String? = null,
+    val trackNumber: Int? = null,
+    val year: Int? = null
 )
 
 @Entity(tableName = "playlists")
@@ -133,10 +137,11 @@ interface PlaybackStatsDao {
 
 @Database(
     entities = [SongOverride::class, Playlist::class, PlaylistSong::class, PlaybackStats::class],
-    version = 7,
+    version = 8,
     autoMigrations = [
         AutoMigration(from = 5, to = 6),
-        AutoMigration(from = 6, to = 7)
+        AutoMigration(from = 6, to = 7),
+        AutoMigration(from = 7, to = 8)
     ],
     exportSchema = true
 )

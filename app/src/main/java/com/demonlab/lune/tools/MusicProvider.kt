@@ -125,6 +125,10 @@ class MusicProvider(private val context: Context) {
             projectionList.add(MediaStore.Audio.Media.BITRATE)
         }
         projectionList.add(MediaStore.Audio.Media.YEAR)
+        projectionList.add(MediaStore.Audio.Media.COMPOSER)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            projectionList.add(MediaStore.Audio.Media.ALBUM_ARTIST)
+        }
         val projection = projectionList.toTypedArray()
 
         val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0"
@@ -155,6 +159,10 @@ class MusicProvider(private val context: Context) {
             val bitrateColumn = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 cursor.getColumnIndex(MediaStore.Audio.Media.BITRATE)
             } else -1
+            val composerColumn = cursor.getColumnIndex(MediaStore.Audio.Media.COMPOSER)
+            val albumArtistColumn = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                cursor.getColumnIndex(MediaStore.Audio.Media.ALBUM_ARTIST)
+            } else -1
 
             while (cursor.moveToNext()) {
                 val id = cursor.getLong(idColumn)
@@ -166,8 +174,10 @@ class MusicProvider(private val context: Context) {
                 val data = cursor.getString(dataColumn)
                 val dateAdded = cursor.getLong(dateAddedColumn)
                 var trackNumber = if (trackColumn != -1) cursor.getInt(trackColumn) else 0
-                val year = if (yearColumn != -1) cursor.getInt(yearColumn).coerceAtLeast(0) else 0
+                var year = if (yearColumn != -1) cursor.getInt(yearColumn).coerceAtLeast(0) else 0
                 var genre = if (genreColumn != -1) cursor.getString(genreColumn) else null
+                var albumArtist: String? = if (albumArtistColumn != -1) cursor.getString(albumArtistColumn) else null
+                var composer: String? = if (composerColumn != -1) cursor.getString(composerColumn) else null
 
                 val override = overrides[id]
                 var coverUrl: String? = null
@@ -178,9 +188,18 @@ class MusicProvider(private val context: Context) {
                     override.artist?.let { if (it.isNotBlank()) artist = it }
                     override.album?.let { if (it.isNotBlank()) album = it }
                     override.genre?.let { if (it.isNotBlank()) genre = it }
+                    override.albumArtist?.let { if (it.isNotBlank()) albumArtist = it }
+                    override.composer?.let { if (it.isNotBlank()) composer = it }
+                    override.trackNumber?.let { if (it > 0) trackNumber = it }
+                    override.year?.let { if (it > 0) year = it }
                     coverUrl = override.coverUri
                     isFavorite = override.isFavorite
                 }
+
+                albumArtist = albumArtist?.let { CharsetUtils.sanitizeText(it) }
+                    ?.takeIf { it.isNotBlank() && !it.equals("<unknown>", ignoreCase = true) }
+                composer = composer?.let { CharsetUtils.sanitizeText(it) }
+                    ?.takeIf { it.isNotBlank() && !it.equals("<unknown>", ignoreCase = true) }
 
                 title = CharsetUtils.sanitizeText(title)
                 artist = CharsetUtils.sanitizeText(artist)
@@ -245,6 +264,14 @@ class MusicProvider(private val context: Context) {
                                 val tagAlbum = runCatching { tag.getFirst(org.jaudiotagger.tag.FieldKey.ALBUM) }.getOrNull()?.trim()
                                 val tagGenre = runCatching { tag.getFirst(org.jaudiotagger.tag.FieldKey.GENRE) }.getOrNull()?.trim()
                                 val tagTrack = runCatching { tag.getFirst(org.jaudiotagger.tag.FieldKey.TRACK) }.getOrNull()?.trim()
+                                val tagAlbumArtist = runCatching { tag.getFirst(org.jaudiotagger.tag.FieldKey.ALBUM_ARTIST) }.getOrNull()?.trim()
+                                val tagComposer = runCatching { tag.getFirst(org.jaudiotagger.tag.FieldKey.COMPOSER) }.getOrNull()?.trim()
+                                if (!tagAlbumArtist.isNullOrBlank() && albumArtist.isNullOrBlank()) {
+                                    albumArtist = CharsetUtils.sanitizeText(tagAlbumArtist)
+                                }
+                                if (!tagComposer.isNullOrBlank() && composer.isNullOrBlank()) {
+                                    composer = CharsetUtils.sanitizeText(tagComposer)
+                                }
 
                                 if (!tagTitle.isNullOrBlank()) {
                                     title = CharsetUtils.sanitizeText(tagTitle)
@@ -280,7 +307,8 @@ class MusicProvider(private val context: Context) {
                     Song(
                         id, albumId, title, artist, album, duration, contentUri, data,
                         dateAdded, albumArtUri, genre, folderName, isHiFi, coverUrl, isFavorite, null,
-                        format, bitrate, trackNumber, isHiRes, sampleRate, bitDepth, year = year
+                        format, bitrate, trackNumber, isHiRes, sampleRate, bitDepth, year = year,
+                        albumArtist = albumArtist, composer = composer
                     )
                 )
             }

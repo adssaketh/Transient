@@ -63,6 +63,14 @@ import com.demonlab.lune.ui.viewmodels.MusicViewModel
 import com.demonlab.lune.tools.PlaybackManager
 import com.demonlab.lune.tools.SettingsManager
 import com.demonlab.lune.tools.Song
+import com.demonlab.lune.tools.ExtraTags
+import com.demonlab.lune.tools.NO_COVER
+import com.demonlab.lune.tools.AudioTagWriter
+import com.demonlab.lune.tools.FileTagEdit
+import androidx.activity.result.IntentSenderRequest
+import kotlinx.coroutines.launch
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import com.demonlab.lune.ui.activities.EqualizerActivity
 import com.demonlab.lune.ui.utils.rememberReorderableState
 import com.demonlab.lune.ui.utils.reorderable
@@ -624,7 +632,7 @@ fun QueueBottomSheet(
                     }
                 )
             },
-            onSave = { updatedTitle, updatedArtist, updatedAlbum, updatedGenre, updatedCoverUri ->
+            onSave = { updatedTitle, updatedArtist, updatedAlbum, updatedGenre, updatedCoverUri, extras ->
                 musicViewModel.updateMetadata(
                     song = optionsSong!!,
                     title = updatedTitle,
@@ -632,13 +640,18 @@ fun QueueBottomSheet(
                     album = updatedAlbum,
                     genre = updatedGenre,
                     coverUri = updatedCoverUri,
+                    extras = extras,
                     onSuccess = {
                         val updatedSong = optionsSong!!.copy(
                             title = updatedTitle,
                             artist = updatedArtist,
                             album = updatedAlbum,
                             genre = updatedGenre,
-                            coverUrl = updatedCoverUri?.toString() ?: optionsSong!!.coverUrl
+                            coverUrl = updatedCoverUri?.toString() ?: optionsSong!!.coverUrl,
+                            albumArtist = extras.albumArtist.trim().ifEmpty { null },
+                            composer = extras.composer.trim().ifEmpty { null },
+                            trackNumber = extras.trackNumber ?: optionsSong!!.trackNumber,
+                            year = extras.year ?: optionsSong!!.year
                         )
                         playbackManager.updateSongMetadata(updatedSong)
                         Toast.makeText(context, context.getString(R.string.info_updated), Toast.LENGTH_SHORT).show()
@@ -1228,7 +1241,7 @@ fun EditSongBottomSheet(
     song: Song,
     onDismiss: () -> Unit,
     onRestore: () -> Unit,
-    onSave: (title: String, artist: String, album: String, genre: String, coverUri: Uri?) -> Unit
+    onSave: (title: String, artist: String, album: String, genre: String, coverUri: Uri?, extras: ExtraTags) -> Unit
 ) {
     val context = LocalContext.current
     val playbackManager = remember { PlaybackManager.getInstance(context) }
@@ -1237,8 +1250,64 @@ fun EditSongBottomSheet(
     var title by remember { mutableStateOf(song.title) }
     var artist by remember { mutableStateOf(song.artist) }
     var album by remember { mutableStateOf(song.album) }
+    var albumArtist by remember { mutableStateOf(song.albumArtist ?: "") }
+    var composer by remember { mutableStateOf(song.composer ?: "") }
     var genre by remember { mutableStateOf(song.genre ?: "") }
+    var trackNumber by remember { mutableStateOf(if (song.trackNumber > 0) song.trackNumber.toString() else "") }
+    var year by remember { mutableStateOf(if (song.year > 0) song.year.toString() else "") }
     var selectedCoverUri by remember { mutableStateOf<Uri?>(null) }
+    val coverRemoved = selectedCoverUri?.toString() == NO_COVER
+    val numberKeyboard = KeyboardOptions(keyboardType = KeyboardType.Number)
+
+    // Saving writes into the audio file as well as the app. Android asks the user to approve changing the song first.
+    val saveScope = rememberCoroutineScope()
+    var saving by remember { mutableStateOf(false) }
+    var afterApproval by remember { mutableStateOf<((Boolean) -> Unit)?>(null) }
+    val approvalLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
+        val next = afterApproval
+        afterApproval = null
+        next?.invoke(result.resultCode == android.app.Activity.RESULT_OK)
+    }
+    fun saveEverywhere() {
+        if (saving) return
+        val extras = ExtraTags(
+            albumArtist = albumArtist,
+            composer = composer,
+            trackNumber = trackNumber.toIntOrNull()?.takeIf { it > 0 },
+            year = year.toIntOrNull()?.takeIf { it > 0 }
+        )
+        val fileEdit = FileTagEdit(
+            title = title, artist = artist, album = album, genre = genre,
+            albumArtist = albumArtist, composer = composer,
+            trackNumber = extras.trackNumber, year = extras.year,
+            coverUri = selectedCoverUri
+        )
+        fun finishInApp(message: Int?) {
+            if (message != null) Toast.makeText(context, context.getString(message), Toast.LENGTH_LONG).show()
+            saving = false
+            onSave(title, artist, album, genre, selectedCoverUri, extras)
+        }
+        if (!AudioTagWriter.hasChanges(song, fileEdit)) {
+            finishInApp(null)
+            return
+        }
+        saving = true
+        saveScope.launch {
+            suspend fun writeFile() {
+                val ok = AudioTagWriter.write(context, song, fileEdit)
+                finishInApp(if (ok) R.string.edit_saved_in_file else R.string.edit_file_failed)
+            }
+            val sender = AudioTagWriter.approvalRequest(context, song)
+            if (sender == null) {
+                writeFile()
+            } else {
+                afterApproval = { granted ->
+                    if (granted) saveScope.launch { writeFile() } else finishInApp(R.string.edit_file_denied)
+                }
+                approvalLauncher.launch(IntentSenderRequest.Builder(sender).build())
+            }
+        }
+    }
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia(),
         onResult = { uri -> selectedCoverUri = uri }
@@ -1320,13 +1389,13 @@ fun EditSongBottomSheet(
                         .background(blurColors.itemContainerColor),
                     contentAlignment = Alignment.Center
                 ) {
-                    AsyncImage(
-                        model = selectedCoverUri ?: song.coverUrl ?: song.albumArtUri,
+                    SongCoverImage(
+                        coverUrl = if (coverRemoved || song.coverUrl == NO_COVER) null else (selectedCoverUri ?: song.coverUrl ?: song.albumArtUri ?: song.uri),
                         contentDescription = null,
                         modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
+                        shape = RoundedCornerShape(24.dp)
                     )
-                    
+
                     Surface(
                         onClick = { 
                             photoPickerLauncher.launch(
@@ -1367,6 +1436,18 @@ fun EditSongBottomSheet(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 OutlinedTextField(
+                    value = album,
+                    onValueChange = { album = it },
+                    label = { Text(stringResource(R.string.edit_album)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    singleLine = true,
+                    colors = textFieldColors
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                OutlinedTextField(
                     value = artist,
                     onValueChange = { artist = it },
                     label = { Text(stringResource(R.string.edit_artist)) },
@@ -1379,9 +1460,21 @@ fun EditSongBottomSheet(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 OutlinedTextField(
-                    value = album,
-                    onValueChange = { album = it },
-                    label = { Text(stringResource(R.string.edit_album)) },
+                    value = albumArtist,
+                    onValueChange = { albumArtist = it },
+                    label = { Text(stringResource(R.string.edit_album_artist)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    singleLine = true,
+                    colors = textFieldColors
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                OutlinedTextField(
+                    value = composer,
+                    onValueChange = { composer = it },
+                    label = { Text(stringResource(R.string.edit_composer)) },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
                     singleLine = true,
@@ -1400,10 +1493,67 @@ fun EditSongBottomSheet(
                     colors = textFieldColors
                 )
 
+                Spacer(modifier = Modifier.height(16.dp))
+
+                OutlinedTextField(
+                    value = trackNumber,
+                    onValueChange = { v -> trackNumber = v.filter { it.isDigit() }.take(4) },
+                    label = { Text(stringResource(R.string.edit_track_number)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    singleLine = true,
+                    keyboardOptions = numberKeyboard,
+                    colors = textFieldColors
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                OutlinedTextField(
+                    value = year,
+                    onValueChange = { v -> year = v.filter { it.isDigit() }.take(4) },
+                    label = { Text(stringResource(R.string.edit_year)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    singleLine = true,
+                    keyboardOptions = numberKeyboard,
+                    colors = textFieldColors
+                )
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Embedded image: shows the picture the song has now, with a button to remove it.
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        stringResource(R.string.edit_embedded_image),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = blurColors.textSecondaryColor
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        SongCoverImage(
+                            coverUrl = if (coverRemoved || song.coverUrl == NO_COVER) null else (selectedCoverUri ?: song.coverUrl ?: song.albumArtUri ?: song.uri),
+                            contentDescription = null,
+                            modifier = Modifier.size(96.dp),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        Spacer(modifier = Modifier.width(16.dp))
+                        TextButton(
+                            onClick = { selectedCoverUri = Uri.parse(NO_COVER) },
+                            enabled = !coverRemoved && song.coverUrl != NO_COVER
+                        ) {
+                            Text(
+                                stringResource(R.string.edit_delete_image),
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+
                 Spacer(modifier = Modifier.height(32.dp))
 
                 Button(
-                    onClick = { onSave(title, artist, album, genre, selectedCoverUri) },
+                    onClick = { saveEverywhere() },
+                    enabled = !saving,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp)

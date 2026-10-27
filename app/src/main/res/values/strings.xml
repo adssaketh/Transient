@@ -51,10 +51,19 @@
     <string name="band_brilliance">Brilliance</string>
 
     <!-- Metadata Editor -->
-    <string name="edit_title">Title</string>
+    <string name="edit_title">Track name</string>
     <string name="edit_artist">Artist</string>
     <string name="edit_album">Album</string>
     <string name="edit_genre">Genre</string>
+    <string name="edit_album_artist">Album artist</string>
+    <string name="edit_composer">Composer</string>
+    <string name="edit_track_number">Track number</string>
+    <string name="edit_year">Year</string>
+    <string name="edit_embedded_image">Embedded image</string>
+    <string name="edit_delete_image">DELETE</string>
+    <string name="edit_saved_in_file">Saved in the app and in the audio file</string>
+    <string name="edit_file_failed">Saved in the app only. The audio file could not be changed (it was left as it was).</string>
+    <string name="edit_file_denied">Saved in the app only. You did not allow changing the audio file.</string>
     <string name="save_changes">Save Changes</string>
 
     <!-- Library Tabs -->
@@ -252,6 +261,18 @@
     <string name="restore_default_title">Restore default</string>
     <string name="categories">Categories</string>
     <string name="edit_information">Edit Information</string>
+    <string name="diagnostics">Diagnostics</string>
+    <string name="crash_logs">Crash &amp; lag logs</string>
+    <string name="crash_logs_desc">Saves a report when the app crashes, freezes or runs low on memory. Reports stay on your phone until you share them.</string>
+    <string name="logs_share">Share logs</string>
+    <string name="logs_share_desc">%1$d report(s) saved. Send them as one zip file.</string>
+    <string name="logs_none">No reports yet</string>
+    <string name="logs_save_downloads">Save logs to Downloads</string>
+    <string name="logs_save_downloads_desc">Copies a zip to Download/Transient/logs</string>
+    <string name="logs_saved_to">Saved to %1$s</string>
+    <string name="logs_save_failed">Could not save the logs</string>
+    <string name="logs_clear">Delete saved logs</string>
+    <string name="logs_cleared">Deleted %1$d report(s)</string>
     <string name="info_updated">Information updated</string>
     <string name="info_restored">Information restored</string>
     <string name="player_queue">Queue</string>

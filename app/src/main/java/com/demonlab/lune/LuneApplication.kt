@@ -5,8 +5,19 @@ import coil.ImageLoader
 import coil.ImageLoaderFactory
 import coil.disk.DiskCache
 import com.demonlab.lune.tools.AudioThumbnailFetcher
+import com.demonlab.lune.tools.DiagnosticLogger
 
 class LuneApplication : Application(), ImageLoaderFactory {
+    override fun onCreate() {
+        super.onCreate()
+        DiagnosticLogger.install(this)
+    }
+
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        if (level >= android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL) DiagnosticLogger.onLowMemory(level)
+    }
+
     override fun newImageLoader(): ImageLoader {
         return ImageLoader.Builder(this)
             .components {

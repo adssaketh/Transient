@@ -116,7 +116,8 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         album: String,
         genre: String?,
         coverUri: android.net.Uri?,
-        onSuccess: () -> Unit
+        onSuccess: () -> Unit,
+        extras: com.demonlab.lune.tools.ExtraTags? = null
     ) {
         viewModelScope.launch {
             val success = metadataManager.updateSongMetadata(
@@ -125,7 +126,8 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 artist = artist,
                 album = album,
                 genre = genre,
-                coverUri = coverUri?.toString()
+                coverUri = coverUri?.toString(),
+                extras = extras
             )
             if (success) {
                 allSongs = allSongs.map {
@@ -134,7 +136,11 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                         artist = artist,
                         album = album,
                         genre = genre ?: it.genre,
-                        coverUrl = coverUri?.toString() ?: it.coverUrl
+                        coverUrl = coverUri?.toString() ?: it.coverUrl,
+                        albumArtist = if (extras != null) extras.albumArtist.trim().ifEmpty { null } else it.albumArtist,
+                        composer = if (extras != null) extras.composer.trim().ifEmpty { null } else it.composer,
+                        trackNumber = extras?.trackNumber ?: it.trackNumber,
+                        year = extras?.year ?: it.year
                     ) else it
                 }
                 onSuccess()

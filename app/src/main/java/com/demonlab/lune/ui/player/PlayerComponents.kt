@@ -118,6 +118,7 @@ import com.demonlab.lune.ui.data.Album
 import com.demonlab.lune.ui.components.SongCoverImage
 import com.demonlab.lune.ui.components.VinylRecordAsyncCover
 import com.demonlab.lune.ui.activities.EqualizerActivity
+import com.demonlab.lune.ui.activities.SectionPosition
 import com.demonlab.lune.ui.sheets.AddToPlaylistDialog
 import com.demonlab.lune.ui.sheets.AudioDetailsBottomSheet
 import com.demonlab.lune.ui.sheets.CustomRepeatDialog
@@ -1565,26 +1566,27 @@ fun FullPlayer(
                             expanded = showMoreMenu,
                             onDismissRequest = { showMoreMenu = false },
                             shape = RoundedCornerShape(28.dp),
-                            containerColor = if (useBlurControls) Color(0xFF14121F).copy(alpha = 0.94f) else MaterialTheme.colorScheme.surfaceContainerHigh,
+                            // Transparent: the rows below are separate rounded cards, exactly like the Settings list.
+                            containerColor = Color.Transparent,
                             tonalElevation = 0.dp,
-                            shadowElevation = 14.dp,
-                            border = glassBorder(),
+                            shadowElevation = 0.dp,
+                            border = null,
                             offset = DpOffset(0.dp, 6.dp)
                         ) {
                             val menuAccent = if (useBlurControls) Color.White else MaterialTheme.colorScheme.primary
-                            PlayerMenuItem(Icons.Default.Lyrics, stringResource(R.string.option_lyrics), menuAccent, useBlurControls) {
+                            PlayerMenuItem(Icons.Default.Lyrics, stringResource(R.string.option_lyrics), menuAccent, useBlurControls, position = SectionPosition.FIRST) {
                                 showMoreMenu = false
                                 onShowLyrics()
                             }
-                            PlayerMenuItem(Icons.Default.Info, stringResource(R.string.menu_meta_data), menuAccent, useBlurControls) {
+                            PlayerMenuItem(Icons.Default.Info, stringResource(R.string.menu_meta_data), menuAccent, useBlurControls, position = SectionPosition.MIDDLE) {
                                 showMoreMenu = false
                                 if (onEditSong != null) onEditSong(song) else showAudioDetailsSheet = true
                             }
-                            PlayerMenuItem(Icons.Default.Person, stringResource(R.string.menu_go_to_artist), menuAccent, useBlurControls) {
+                            PlayerMenuItem(Icons.Default.Person, stringResource(R.string.menu_go_to_artist), menuAccent, useBlurControls, position = SectionPosition.MIDDLE) {
                                 showMoreMenu = false
                                 onArtistClick?.invoke(song.artist)
                             }
-                            PlayerMenuItem(Icons.Default.Album, stringResource(R.string.menu_show_album), menuAccent, useBlurControls) {
+                            PlayerMenuItem(Icons.Default.Album, stringResource(R.string.menu_show_album), menuAccent, useBlurControls, position = SectionPosition.MIDDLE) {
                                 showMoreMenu = false
                                 onAlbumClick?.invoke(song.album)
                             }
@@ -1593,7 +1595,8 @@ fun FullPlayer(
                                 stringResource(R.string.delete),
                                 MaterialTheme.colorScheme.error,
                                 useBlurControls,
-                                destructive = true
+                                destructive = true,
+                                position = SectionPosition.LAST
                             ) {
                                 showMoreMenu = false
                                 onDeleteSong?.invoke(song)
@@ -2937,33 +2940,54 @@ private fun PlayerMenuItem(
     accent: Color,
     onBlur: Boolean,
     destructive: Boolean = false,
+    position: SectionPosition = SectionPosition.MIDDLE,
     onClick: () -> Unit
 ) {
-    DropdownMenuItem(
-        text = {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold,
-                color = when {
-                    destructive -> MaterialTheme.colorScheme.error
-                    onBlur -> Color.White
-                    else -> MaterialTheme.colorScheme.onSurface
-                }
-            )
-        },
-        leadingIcon = {
+    // Same shapes, icon circle and bold text as the rows of the Settings screen.
+    val shape = when (position) {
+        SectionPosition.FIRST -> RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp, bottomStart = 4.dp, bottomEnd = 4.dp)
+        SectionPosition.MIDDLE -> RoundedCornerShape(4.dp)
+        SectionPosition.LAST -> RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp, bottomStart = 28.dp, bottomEnd = 28.dp)
+        SectionPosition.SINGLE -> RoundedCornerShape(28.dp)
+    }
+    val cardBg = if (onBlur) Color(0xFF14121F).copy(alpha = 0.94f) else MaterialTheme.colorScheme.surfaceContainerHigh
+    val tint = if (destructive) MaterialTheme.colorScheme.error else accent
+    val iconBg = if (onBlur && !destructive) Color.White.copy(alpha = 0.15f) else tint.copy(alpha = 0.10f)
+    val textColor = when {
+        destructive -> MaterialTheme.colorScheme.error
+        onBlur -> Color.White
+        else -> MaterialTheme.colorScheme.onSurface
+    }
+    Surface(
+        modifier = Modifier
+            .widthIn(min = 232.dp)
+            .padding(vertical = 1.dp)
+            .clip(shape)
+            .clickable(onClick = onClick),
+        shape = shape,
+        color = cardBg,
+        tonalElevation = 1.dp
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+        ) {
             Box(
                 modifier = Modifier
-                    .size(36.dp)
+                    .size(40.dp)
                     .clip(CircleShape)
-                    .background(accent.copy(alpha = 0.16f)),
+                    .background(iconBg),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(imageVector = icon, contentDescription = null, tint = accent, modifier = Modifier.size(20.dp))
+                Icon(imageVector = icon, contentDescription = null, tint = tint, modifier = Modifier.size(20.dp))
             }
-        },
-        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
-        onClick = onClick
-    )
+            Spacer(modifier = Modifier.width(16.dp))
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Bold,
+                color = textColor
+            )
+        }
+    }
 }

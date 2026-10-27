@@ -553,6 +553,15 @@ class SettingsManager(context: Context) {
             prefs.edit().putBoolean("online_artist_info", value).apply()
         }
 
+    // Crash / freeze / low-memory reports saved to the logs folder (see DiagnosticLogger). Stays on the phone; ON by default.
+    private val _crashLogsEnabled = mutableStateOf(prefs.getBoolean("crash_logs_enabled", true))
+    var crashLogsEnabled: Boolean
+        get() = _crashLogsEnabled.value
+        set(value) {
+            _crashLogsEnabled.value = value
+            prefs.edit().putBoolean("crash_logs_enabled", value).apply()
+        }
+
     var showBackupWarning: Boolean
         get() = prefs.getBoolean("show_backup_warning", true)
         set(value) = prefs.edit().putBoolean("show_backup_warning", value).apply()

@@ -896,7 +896,8 @@ fun MainScreen(
                 Album(
                     id = albumName.hashCode().toLong(),
                     name = albumName,
-                    artist = songs.first().artist,
+                    // Album artist first (the tag that names the whole album); the song artist only when it is missing.
+                    artist = songs.firstNotNullOfOrNull { it.albumArtist } ?: songs.first().artist,
                     albumArtUri = songs.first().albumArtUri,
                     coverUrl = songs.first().coverUrl,
                     songs = songs.sortedBy { it.title }
@@ -2965,7 +2966,7 @@ fun MainScreen(
                         }
                     )
                 },
-                onSave = { updatedTitle, updatedArtist, updatedAlbum, updatedGenre, updatedCoverUri ->
+                onSave = { updatedTitle, updatedArtist, updatedAlbum, updatedGenre, updatedCoverUri, extras ->
                     musicViewModel.updateMetadata(
                         song = song,
                         title = updatedTitle,
@@ -2973,6 +2974,7 @@ fun MainScreen(
                         album = updatedAlbum,
                         genre = updatedGenre,
                         coverUri = updatedCoverUri,
+                        extras = extras,
                         onSuccess = {
                             val updatedSong = musicViewModel.allSongs.find { it.id == song.id }
                             if (updatedSong != null && currentSong?.id == song.id) {

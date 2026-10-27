@@ -20,13 +20,18 @@ class MetadataManager(private val context: Context) {
         artist: String,
         album: String,
         genre: String?,
-        coverUri: String?
+        coverUri: String?,
+        extras: ExtraTags? = null
     ): Boolean = withContext(Dispatchers.IO) {
         try {
             val existing = database.songOverrideDao().getOverrideForSong(songId)
 
             val finalCoverUri = if (coverUri != null) {
-                if (!coverUri.startsWith("file://${context.filesDir}")) {
+                if (coverUri == NO_COVER) {
+                    // The user deleted the embedded image: drop any custom cover file and remember "no cover".
+                    File(coversDir, "cover_$songId.jpg").takeIf { it.exists() }?.delete()
+                    NO_COVER
+                } else if (!coverUri.startsWith("file://${context.filesDir}")) {
                     saveCustomCover(songId, coverUri.toUri())?.toString() ?: coverUri
                 } else {
                     coverUri
@@ -42,7 +47,11 @@ class MetadataManager(private val context: Context) {
                 album = album,
                 genre = genre,
                 coverUri = finalCoverUri,
-                isFavorite = existing?.isFavorite ?: false
+                isFavorite = existing?.isFavorite ?: false,
+                albumArtist = if (extras != null) extras.albumArtist.trim().ifEmpty { null } else existing?.albumArtist,
+                composer = if (extras != null) extras.composer.trim().ifEmpty { null } else existing?.composer,
+                trackNumber = if (extras != null) extras.trackNumber else existing?.trackNumber,
+                year = if (extras != null) extras.year else existing?.year
             )
             database.songOverrideDao().insertOverride(override)
             true
