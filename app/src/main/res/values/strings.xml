@@ -6,7 +6,7 @@
     <string name="jewel_case_cover">Jewel case cover</string>
     <string name="jewel_case_cover_desc">Show the album art inside a CD jewel case in the full player</string>
     <string name="online_artist_info">Artist photos &amp; info from the internet</string>
-    <string name="online_artist_info_desc">Look up a photo and short bio for your top artists (Wikipedia, Deezer). Only the artist's name is sent. Turn off to stay fully offline.</string>
+    <string name="online_artist_info_desc">Look up a photo and short bio for your top artists (Wikipedia, Deezer). Only the artist\'s name is sent. Turn off to stay fully offline.</string>
     <string name="jewel_case_sway">3D sway</string>
     <string name="jewel_case_sway_desc">Gently tilts the jewel case as you move your phone</string>
     <string name="menu_meta_data">Meta data</string>
