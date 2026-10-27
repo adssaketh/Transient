@@ -261,6 +261,10 @@ class ArtistInfoRepository private constructor(context: Context) {
             }
         }
 
+        // Keep the picture on the phone: Wikimedia asks apps to say who they are, and the image loader does not.
+        val remote = image
+        if (remote != null) image = saveOnlinePhoto(name, remote) ?: remote
+
         if (!reached) return null
         return ArtistInfo(
             name = name,
@@ -272,6 +276,38 @@ class ArtistInfoRepository private constructor(context: Context) {
             found = bio != null || image != null,
             fetchedAt = System.currentTimeMillis()
         )
+    }
+
+    /** Downloads an online picture into the app's own folder and returns its file address, or null if that did not work. */
+    private fun saveOnlinePhoto(name: String, url: String): String? {
+        var connection: HttpURLConnection? = null
+        return try {
+            connection = (URL(url).openConnection() as HttpURLConnection).apply {
+                connectTimeout = 8000
+                readTimeout = 15000
+                setRequestProperty("User-Agent", "Transient/1.0 (Android music player; https://github.com/adssaketh/Transient)")
+            }
+            if (connection.responseCode !in 200..299) {
+                Log.w("ArtistInfo", "Picture download failed: HTTP ${connection.responseCode} for $url")
+                return null
+            }
+            val bytes = connection.inputStream.use { it.readBytes() }
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+            if (bytes.isEmpty() || bytes.size > 8_000_000 || bounds.outWidth <= 0) return null
+
+            val dir = File(appContext.filesDir, "artist_online").apply { mkdirs() }
+            val prefix = photoPrefix(name)
+            dir.listFiles()?.filter { it.name.startsWith(prefix) }?.forEach { it.delete() }
+            val file = File(dir, prefix + System.currentTimeMillis() + ".img")
+            file.writeBytes(bytes)
+            Uri.fromFile(file).toString()
+        } catch (e: Exception) {
+            Log.w("ArtistInfo", "Could not save the online picture: ${e.message}")
+            null
+        } finally {
+            connection?.disconnect()
+        }
     }
 
     private fun summaryOf(title: String): JSONObject? {
