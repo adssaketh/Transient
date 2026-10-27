@@ -244,6 +244,7 @@ class Lune : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         com.demonlab.lune.tools.DiagnosticLogger.note("ACTIVITY onResume")
+        com.demonlab.lune.tools.BitPerfectProbe.run(this, "app opened")
         // Coming back from another app: make sure a playing song is audible again (focus / volume recovery).
         PlaybackManager.getInstance(this).onAppForeground()
     }

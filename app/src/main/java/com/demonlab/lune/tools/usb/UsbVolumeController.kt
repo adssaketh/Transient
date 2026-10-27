@@ -80,6 +80,9 @@ class UsbVolumeController(
         if (gain != lastLoggedGain) {
             lastLoggedGain = gain
             Log.i("TransientTrace", "media volume refresh: gain=$gain")
+            val index = runCatching { audioManager.getStreamVolume(AudioManager.STREAM_MUSIC) }.getOrNull()
+            val outputs = runCatching { audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS).joinToString(",") { it.type.toString() } }.getOrNull()
+            com.demonlab.lune.tools.DiagnosticLogger.note("VOLUME index=$index gain=$gain outputDeviceTypes=$outputs (2=speaker 22=usb headset 11=usb device)")
         }
         onGainChanged(gain)
     }

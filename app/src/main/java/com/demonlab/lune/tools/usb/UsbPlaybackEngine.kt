@@ -162,6 +162,20 @@ class UsbPlaybackEngine(
     private val volumeController = UsbVolumeController(appContext) { gain -> applyGain(gain) }
 
     private var lastGainNote = ""
+    private var appliedGain = -1f
+    private var targetGain = 1f
+
+    /** Raises the applied gain towards [targetGain] in ~1 dB steps, so a sudden jump in the volume reading can never blast. */
+    private val gainRamp = object : Runnable {
+        override fun run() {
+            val sink = usbSink ?: return
+            if (appliedGain >= targetGain) return
+            appliedGain = if (appliedGain <= 0.001f) 0.001f else appliedGain * RAMP_STEP
+            if (appliedGain >= targetGain || targetGain - appliedGain < 0.0005f) appliedGain = targetGain
+            sink.softwareVolume = appliedGain
+            if (appliedGain < targetGain) mainHandler.postDelayed(this, RAMP_INTERVAL_MS)
+        }
+    }
     private var stallLastProgress = Long.MIN_VALUE
     private var stallLastChangeAt = 0L
     private var stallStartedAt = 0L
@@ -208,6 +222,7 @@ class UsbPlaybackEngine(
         mainHandler.post(snapshotTicker)
         if (!plainOutput) volumeController.start()
         if (!plainOutput) com.demonlab.lune.tools.ProcessHeartbeat.start()
+        if (!plainOutput) com.demonlab.lune.tools.BitPerfectProbe.run(appContext, "USB engine started")
     }
 
     private fun applyGain(gain: Float) {
@@ -220,7 +235,16 @@ class UsbPlaybackEngine(
             lastGainNote = gainNote
             com.demonlab.lune.tools.DiagnosticLogger.note("GAIN $gainNote")
         }
-        sink.softwareVolume = gain
+        targetGain = gain
+        // Going quieter is immediate; going louder is ramped (see gainRamp).
+        if (appliedGain < 0f || gain <= appliedGain) {
+            appliedGain = gain
+            mainHandler.removeCallbacks(gainRamp)
+            sink.softwareVolume = gain
+        } else {
+            mainHandler.removeCallbacks(gainRamp)
+            mainHandler.post(gainRamp)
+        }
         sink.nativeEngineAllowed = !needsPipeline
         UsbSignalPathStore.setGain(gain)
         if (needsPipeline && nativeRunning) {
@@ -447,5 +471,7 @@ class UsbPlaybackEngine(
         const val WATCHDOG_DELAY_MS = 1_500L
         const val END_TOLERANCE_MS = 2_000L
         const val SNAPSHOT_INTERVAL_MS = 500L
+        const val RAMP_STEP = 1.122f // about +1 dB per step
+        const val RAMP_INTERVAL_MS = 60L
     }
 }
