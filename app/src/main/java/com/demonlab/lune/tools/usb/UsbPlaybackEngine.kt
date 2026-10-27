@@ -157,9 +157,44 @@ class UsbPlaybackEngine(
      */
     private val volumeController = UsbVolumeController(appContext) { gain -> applyGain(gain) }
 
+    private var lastGainNote = ""
+    private var stallLastProgress = Long.MIN_VALUE
+    private var stallLastChangeAt = 0L
+    private var stallStartedAt = 0L
+
+    /**
+     * Diagnostics: notes when the USB output stops advancing while the player still says it is playing (the "song
+     * pauses for a few seconds" case), with the stream's health at that moment, and when it recovers.
+     */
+    private fun watchOutputStall() {
+        val sink = usbSink
+        if (plainOutput || sink == null || !player.isPlaying) {
+            stallLastProgress = Long.MIN_VALUE
+            stallStartedAt = 0L
+            return
+        }
+        val now = android.os.SystemClock.elapsedRealtime()
+        val progress = sink.outputProgress()
+        if (progress != stallLastProgress) {
+            val gap = now - stallLastChangeAt
+            if (stallStartedAt != 0L) {
+                com.demonlab.lune.tools.DiagnosticLogger.note("STALL ended after ${now - stallStartedAt} ms | ${sink.debugState()}")
+                stallStartedAt = 0L
+            } else if (stallLastProgress != Long.MIN_VALUE && gap >= 1500L) {
+                com.demonlab.lune.tools.DiagnosticLogger.note("GAP of $gap ms between checks (app main thread was stuck, or output stopped) | ${sink.debugState()}")
+            }
+            stallLastProgress = progress
+            stallLastChangeAt = now
+        } else if (stallStartedAt == 0L && now - stallLastChangeAt >= 900L) {
+            stallStartedAt = stallLastChangeAt
+            com.demonlab.lune.tools.DiagnosticLogger.note("STALL output stopped advancing while the player says playing | ${sink.debugState()} state=${player.playbackState}")
+        }
+    }
+
     private val snapshotTicker = object : Runnable {
         override fun run() {
             refreshSnapshot()
+            watchOutputStall()
             mainHandler.postDelayed(this, SNAPSHOT_INTERVAL_MS)
         }
     }
@@ -175,7 +210,11 @@ class UsbPlaybackEngine(
         val needsPipeline = gain < 0.9999f
         val nativeRunning = sink.isNativeEngineActive
         Log.i(TAG, "applyGain gain=$gain needsPipeline=$needsPipeline nativeRunning=$nativeRunning")
-        com.demonlab.lune.tools.DiagnosticLogger.note("GAIN applyGain gain=$gain needsPipeline=$needsPipeline nativeRunning=$nativeRunning")
+        val gainNote = "applyGain gain=$gain needsPipeline=$needsPipeline nativeRunning=$nativeRunning"
+        if (gainNote != lastGainNote) {
+            lastGainNote = gainNote
+            com.demonlab.lune.tools.DiagnosticLogger.note("GAIN $gainNote")
+        }
         sink.softwareVolume = gain
         sink.nativeEngineAllowed = !needsPipeline
         UsbSignalPathStore.setGain(gain)

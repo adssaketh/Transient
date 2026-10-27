@@ -339,6 +339,27 @@ object DiagnosticLogger {
         }
     }
 
+    private val noisyLogTags = setOf("flac", "wav", "id3", "WavListChunk")
+    private val logLineTag = Regex("""^\S+\s+\S+\s+\d+\s+\d+\s+[VDIWEF]\s+(.+?)\s*:""")
+
+    /** The app's whole recent log without the library-scan tag spam (so the interesting minute is still in it). */
+    private fun readOwnLogcatFiltered(maxChars: Int): String {
+        return try {
+            val process = ProcessBuilder("logcat", "-d", "-v", "threadtime").redirectErrorStream(true).start()
+            val sb = StringBuilder()
+            process.inputStream.bufferedReader().useLines { lines ->
+                lines.forEach { line ->
+                    val tag = logLineTag.find(line)?.groupValues?.get(1)
+                    if (tag == null || tag !in noisyLogTags) sb.append(line).append('\n')
+                }
+            }
+            process.destroy()
+            if (sb.length > maxChars) sb.substring(sb.length - maxChars) else sb.toString()
+        } catch (_: Throwable) {
+            ""
+        }
+    }
+
     private fun trim(dir: File) {
         val files = dir.listFiles { f -> f.isFile && f.name.endsWith(".txt") }?.sortedByDescending { it.lastModified() } ?: return
         files.drop(MAX_FILES).forEach { it.delete() }
@@ -394,7 +415,7 @@ object DiagnosticLogger {
             }
             // A fresh copy of the app's own recent log, so something just heard (a gap in the sound, say) can be traced.
             // Export right after it happens: the system only keeps the last minute or so.
-            val live = readOwnLogcat(2000, 600_000)
+            val live = readOwnLogcatFiltered(600_000)
             if (live.isNotBlank()) {
                 out.putNextEntry(ZipEntry("live_log_${SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.US).format(Date())}.txt"))
                 out.write(live.toByteArray())

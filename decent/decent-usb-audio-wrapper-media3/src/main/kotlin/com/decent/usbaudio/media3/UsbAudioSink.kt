@@ -448,6 +448,18 @@ class UsbAudioSink(
 
     private var posLogCount = 0L
 
+    /** Diagnostics only: a number that keeps growing while audio really flows out (native position, else USB frames). */
+    fun outputProgress(): Long {
+        val engine = nativeEngine
+        if (engine != null && engine.isCreated) return engine.getPositionUs()
+        return usbAudioStream?.framesWritten ?: -1L
+    }
+
+    /** Diagnostics only: one-line health summary of the USB output. */
+    fun debugState(): String =
+        "streamAlive=${usbAudioStream?.isAlive} framesWritten=${usbAudioStream?.framesWritten} " +
+            "engineRunning=${nativeEngine?.isRunning} queue=${usbStreamingThread?.queueSize()}"
+
     private var engineEndNotified = false
 
     override fun getCurrentPositionUs(sourceEnded: Boolean): Long {
