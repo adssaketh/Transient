@@ -222,9 +222,9 @@ class MusicService : MediaLibraryService() {
             }
             AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
                 if (usbEngine != null && usbEngine?.plainOutput != true) {
-                    // Bit-perfect output has no software volume to duck, so pause and resume on focus gain.
-                    wasPlayingBeforeLoss = isPlaying()
-                    pause()
+                    // Bit-perfect output goes straight to the DAC, so another app's short sound plays on the phone and
+                    // does not need the music to stop. Keep playing: pausing here caused a 2-3 s gap whenever an app
+                    // (for example Claude) briefly asked for audio focus. A full LOSS / LOSS_TRANSIENT still pauses.
                 } else {
                     // Notification/brief sound: lower volume
                     isDucked = true
