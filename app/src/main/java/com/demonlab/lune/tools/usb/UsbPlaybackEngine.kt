@@ -185,6 +185,7 @@ class UsbPlaybackEngine(
      * pauses for a few seconds" case), with the stream's health at that moment, and when it recovers.
      */
     private fun watchOutputStall() {
+        if (!com.demonlab.lune.tools.DiagnosticLogger.isEnabled()) return
         val sink = usbSink
         if (plainOutput || sink == null || !player.isPlaying) {
             stallLastProgress = Long.MIN_VALUE
@@ -223,6 +224,7 @@ class UsbPlaybackEngine(
         if (!plainOutput) volumeController.start()
         if (!plainOutput) com.demonlab.lune.tools.ProcessHeartbeat.start()
         if (!plainOutput) com.demonlab.lune.tools.BitPerfectProbe.run(appContext, "USB engine started")
+        if (!plainOutput) com.demonlab.lune.tools.DiagnosticLogger.note("FLAC mode: normal player path (native FLAC engine off = $USE_NATIVE_FLAC_ENGINE)")
     }
 
     private fun applyGain(gain: Float) {
@@ -245,7 +247,7 @@ class UsbPlaybackEngine(
             mainHandler.removeCallbacks(gainRamp)
             mainHandler.post(gainRamp)
         }
-        sink.nativeEngineAllowed = !needsPipeline
+        sink.nativeEngineAllowed = USE_NATIVE_FLAC_ENGINE && !needsPipeline
         UsbSignalPathStore.setGain(gain)
         if (needsPipeline && nativeRunning) {
             val current = song ?: return
@@ -473,5 +475,11 @@ class UsbPlaybackEngine(
         const val SNAPSHOT_INTERVAL_MS = 500L
         const val RAMP_STEP = 1.122f // about +1 dB per step
         const val RAMP_INTERVAL_MS = 60L
+
+        /**
+         * false = FLAC is played through the normal ExoPlayer path, exactly like WAV/AIFF (found stable in testing).
+         * true = bit-perfect volumes use the dedicated native FLAC engine, which froze for ~2 s when another app started.
+         */
+        val USE_NATIVE_FLAC_ENGINE = false
     }
 }

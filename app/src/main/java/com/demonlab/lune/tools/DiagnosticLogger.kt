@@ -83,6 +83,7 @@ object DiagnosticLogger {
         } else {
             watchdog?.interrupt()
             watchdog = null
+            ProcessHeartbeat.stop()
         }
     }
 

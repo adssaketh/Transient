@@ -19,6 +19,7 @@ object BitPerfectProbe {
     private val lastRun = HashMap<String, Long>()
 
     fun run(context: Context, reason: String) {
+        if (!DiagnosticLogger.isEnabled(context)) return // logging switched off in Settings
         val now = SystemClock.elapsedRealtime()
         synchronized(lastRun) {
             val last = lastRun[reason]

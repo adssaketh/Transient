@@ -74,9 +74,12 @@ class UsbAudioSink(
     @Volatile
     var softwareVolume: Float = 1f
 
-    /** When false, FLAC goes through the ExoPlayer pipeline too (so [softwareVolume] applies to it). */
+    /**
+     * When false (the default now), FLAC goes through the ExoPlayer pipeline like WAV/AIFF (so [softwareVolume] applies to it).
+     * The native FLAC engine is only used when this is switched on explicitly.
+     */
     @Volatile
-    var nativeEngineAllowed: Boolean = true
+    var nativeEngineAllowed: Boolean = false
 
     private var activeDeviceName: String = ""
     private var activeUsbBitDepth: Int = 0

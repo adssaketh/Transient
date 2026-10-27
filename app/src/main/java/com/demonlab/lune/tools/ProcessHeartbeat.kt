@@ -17,6 +17,7 @@ object ProcessHeartbeat {
     @Volatile private var thread: Thread? = null
 
     fun start() {
+        if (!DiagnosticLogger.isEnabled()) return // logging switched off in Settings
         if (thread?.isAlive == true) return
         val t = Thread({ loop() }, "transient-heartbeat").apply { isDaemon = true }
         thread = t
@@ -39,8 +40,10 @@ object ProcessHeartbeat {
         var lastAdj = read("/proc/self/oom_score_adj")
         var lastSched = read("/proc/thread-self/schedstat")
         DiagnosticLogger.note("HEARTBEAT started | cgroup=$lastCgroup oom_adj=$lastAdj schedstat=[$lastSched]")
+        var ticks = 0
         try {
             while (!Thread.currentThread().isInterrupted) {
+                if (++ticks % 20 == 0 && !DiagnosticLogger.isEnabled()) break // switched off while running
                 val t0 = SystemClock.uptimeMillis()
                 Thread.sleep(100)
                 val late = SystemClock.uptimeMillis() - t0 - 100

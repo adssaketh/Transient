@@ -263,7 +263,7 @@
     <string name="edit_information">Edit Information</string>
     <string name="diagnostics">Diagnostics</string>
     <string name="crash_logs">Crash &amp; lag logs</string>
-    <string name="crash_logs_desc">Saves a report when the app crashes, freezes or runs low on memory. Reports stay on your phone until you share them.</string>
+    <string name="crash_logs_desc">Saves reports when the app crashes, freezes or runs low on memory, plus a playback event trace. Reports stay on your phone until you share them. Turn this off to stop all logging.</string>
     <string name="logs_share">Share logs</string>
     <string name="logs_share_desc">%1$d report(s) saved. Send them as one zip file.</string>
     <string name="logs_none">No reports yet</string>
