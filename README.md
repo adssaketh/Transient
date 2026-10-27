@@ -34,7 +34,8 @@
 - Album, playlist and folder screens with a square, rounded cover
 - Header that shows the current **title, artist and album** while music plays (can be turned off in Customization)
 - Mini player with a **spinning CD cover**; round covers in the full player also spin like a disc
-- **Jewel case cover** in the full player: the album art sits inside a CD jewel case (ribbed spine, clear plastic, soft reflection). Full player only, can be switched off in Customization; when it is on it replaces the cover shape. An optional **3D sway** (off by default) tilts the case a few degrees as you move the phone
+- **Jewel case cover** in the full player and in the *Top artist* card on the home screen: the album art sits inside a CD jewel case (ribbed spine, clear plastic, soft reflection). Full player only, can be switched off in Customization; when it is on it replaces the cover shape. An optional **3D sway** (off by default) tilts the case a few degrees as you move the phone, and three sliders (strength, fade, blur) control the reflection under every case, with a live preview
+- **Top Artists with real photos**: one entry per singer; photos and short bios come from Wikipedia (and Deezer for pictures), or add your own photo. Tap an artist for a photo, a short bio and every song of theirs in your library (play all / shuffle). Name variants such as initials and short forms ("SP Balu" for S. P. Balasubrahmanyam) are matched automatically, and *Search by another name* lets you point an artist at the right Wikipedia name
 - Full player three-dot menu: **Lyrics, Meta data (edit song information), Go to artist, Show album, Delete**
 - Reliable song deletion through Android's system delete request (a song never comes back while its file is still on the phone)
 
@@ -51,7 +52,8 @@
 
 ### Setup and privacy
 - Three-page first-run setup: theme and colours, all permissions on one page with **Allow all** (the prompts appear one after the other), and the music folder
-- No internet permission, no ads, no analytics, no donation prompts, no microphone permission
+- **Internet is used for one thing only:** looking up artist photos and bios (the artist's name is sent to Wikipedia and Deezer, nothing else). It is **off by default**: turn on *Artist photos & info from the internet* in Customization to use it. While it is off the app makes no network requests. Photos you add yourself stay on the phone
+- No ads, no analytics, no donation prompts, no microphone permission
 
 > While USB bit-perfect output is active, the equalizer, effects, crossfade and speed/pitch are bypassed by design,
 > and volume is controlled on the DAC. Requires Android 10+ for USB output. DSD is not supported yet.

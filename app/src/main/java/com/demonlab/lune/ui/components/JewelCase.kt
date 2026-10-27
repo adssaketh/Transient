@@ -21,9 +21,11 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
@@ -34,6 +36,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import com.demonlab.lune.tools.SettingsManager
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -65,6 +69,11 @@ fun JewelCaseCover(coverUrl: Any?, modifier: Modifier = Modifier, sway: Boolean 
         }
     }
     val density = LocalDensity.current.density
+    // Reflection controls from Customization (strength, how far it fades out, blur); the same everywhere a case appears.
+    val settings = SettingsManager.getInstance(LocalContext.current)
+    val reflectionAlpha = settings.jewelReflectionStrength / 100f
+    val reflectionReach = (settings.jewelReflectionFade / 100f).coerceAtLeast(0.05f)
+    val reflectionBlur = settings.jewelReflectionBlur * 0.2f
     BoxWithConstraints(
         modifier = modifier.graphicsLayer {
             // Read here (draw phase) so the sensor never recomposes the player, it only redraws the case.
@@ -84,8 +93,8 @@ fun JewelCaseCover(coverUrl: Any?, modifier: Modifier = Modifier, sway: Boolean 
                 .size(caseWidth, caseHeight)
         )
 
-        if (reflectionHeight.value > 6f) {
-            val fade = (reflectionHeight.value / caseHeight.value).coerceIn(0.05f, 1f)
+        if (reflectionHeight.value > 6f && reflectionAlpha > 0f) {
+            val fade = ((reflectionHeight.value / caseHeight.value) * reflectionReach).coerceIn(0.02f, 1f)
             Box(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
@@ -101,9 +110,10 @@ fun JewelCaseCover(coverUrl: Any?, modifier: Modifier = Modifier, sway: Boolean 
                         .size(caseWidth, caseHeight)
                         .graphicsLayer {
                             scaleY = -1f
-                            alpha = 0.40f
+                            alpha = reflectionAlpha
                             compositingStrategy = CompositingStrategy.Offscreen
                         }
+                        .then(if (reflectionBlur > 0f) Modifier.blur(reflectionBlur.dp, BlurredEdgeTreatment.Unbounded) else Modifier)
                         .drawWithContent {
                             drawContent()
                             // This mask is drawn in the case's own (not yet flipped) coordinates, so the bottom of the case,

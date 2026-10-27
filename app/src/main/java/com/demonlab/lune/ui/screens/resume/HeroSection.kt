@@ -180,8 +180,21 @@ private fun TopStatsCardContent(
         modifier = Modifier.fillMaxSize(),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Left side: Large artist cover in M3 Expressive shape
-        Box(
+        // Left side: the artist's cover, as a CD jewel case (same setting, reflection and sway as the full player)
+        val heroSettings = com.demonlab.lune.tools.SettingsManager.getInstance(androidx.compose.ui.platform.LocalContext.current)
+        val heroCover = artistCoverSong?.coverUrl ?: artistCoverSong?.albumArtUri
+        if (heroSettings.jewelCaseCover && heroCover != null) {
+            com.demonlab.lune.ui.components.JewelCaseCover(
+                coverUrl = heroCover,
+                sway = heroSettings.jewelCaseSway,
+                modifier = Modifier
+                    .width(152.dp)
+                    .fillMaxHeight()
+                    .clickable(enabled = onArtistClick != null) {
+                        onArtistClick?.invoke(topArtist)
+                    }
+            )
+        } else Box(
             modifier = Modifier
                 .size(140.dp)
                 .clip(expressiveShape)
@@ -191,7 +204,7 @@ private fun TopStatsCardContent(
                 },
             contentAlignment = Alignment.Center
         ) {
-            val coverObj = artistCoverSong?.coverUrl ?: artistCoverSong?.albumArtUri
+            val coverObj = heroCover
             if (coverObj != null) {
                 SongCoverImage(
                     coverUrl = coverObj,
@@ -209,7 +222,7 @@ private fun TopStatsCardContent(
             }
         }
 
-        Spacer(modifier = Modifier.width(16.dp))
+        Spacer(modifier = Modifier.width(12.dp))
 
         // Right side: All "top" stats vertically aligned with basicMarquee
         Column(

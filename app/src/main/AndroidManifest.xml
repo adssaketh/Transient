@@ -6,6 +6,8 @@
          every call into them is gated by UsbDacSupport.isSupported(). -->
     <uses-sdk tools:overrideLibrary="com.decent.usbaudio, com.decent.usbaudio.media3, com.decent.media3.decoder.flac" />
 
+    <!-- Only used to look up artist photos and short bios (the artist's name is the only thing sent); can be turned off in Customization. -->
+    <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
 

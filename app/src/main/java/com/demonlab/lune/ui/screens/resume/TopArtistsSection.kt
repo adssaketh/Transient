@@ -70,6 +70,7 @@ private fun ArtistCircleCard(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
+            // The album cover is shown until the artist's real photo (added by hand, or found online) is ready.
             SongCoverImage(
                 coverUrl = artist.coverUrl,
                 contentDescription = artist.name,
@@ -77,6 +78,15 @@ private fun ArtistCircleCard(
                 shape = CircleShape,
                 iconScale = 0.65f
             )
+            val photo = rememberArtistPhoto(artist.name)
+            if (photo != null) {
+                coil.compose.AsyncImage(
+                    model = photo,
+                    contentDescription = artist.name,
+                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
         }
     }
 }

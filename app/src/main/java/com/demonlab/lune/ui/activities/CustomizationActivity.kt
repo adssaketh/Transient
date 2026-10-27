@@ -585,6 +585,75 @@ fun CustomizationScreen(
                         )
                     }
                 )
+                // Reflection under the jewel case: three sliders with a live preview.
+                var reflStrength by remember { mutableStateOf(settingsManager.jewelReflectionStrength) }
+                var reflFade by remember { mutableStateOf(settingsManager.jewelReflectionFade) }
+                var reflBlur by remember { mutableStateOf(settingsManager.jewelReflectionBlur) }
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 1.dp),
+                    shape = RoundedCornerShape(4.dp),
+                    color = if (hasBlurBackground) (if (isDarkTheme) Color.White.copy(alpha = 0.09f) else Color.Black.copy(alpha = 0.22f)) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    tonalElevation = if (hasBlurBackground) 0.dp else 1.dp
+                ) {
+                    val titleColor = if (hasBlurBackground) Color.White else MaterialTheme.colorScheme.onSurface
+                    val bodyColor = if (hasBlurBackground) Color.White.copy(alpha = 0.75f) else MaterialTheme.colorScheme.onSurfaceVariant
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text("Jewel case reflection", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium, color = titleColor)
+                        Text(
+                            "Applies to every jewel case in the app: the full player and the top artist card. Blur needs Android 12 or newer.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = bodyColor
+                        )
+                        com.demonlab.lune.ui.components.JewelCaseCover(
+                            coverUrl = R.drawable.ic_brand_glyph,
+                            modifier = Modifier
+                                .fillMaxWidth(0.62f)
+                                .aspectRatio(1f)
+                                .align(Alignment.CenterHorizontally)
+                        )
+                        ReflectionSliderRow("Strength", "$reflStrength%", reflStrength, titleColor, bodyColor) {
+                            reflStrength = it
+                            settingsManager.jewelReflectionStrength = it
+                        }
+                        ReflectionSliderRow("Fade", "$reflFade%", reflFade, titleColor, bodyColor) {
+                            reflFade = it
+                            settingsManager.jewelReflectionFade = it
+                        }
+                        ReflectionSliderRow("Blur", if (reflBlur == 0) "Off" else "$reflBlur%", reflBlur, titleColor, bodyColor) {
+                            reflBlur = it
+                            settingsManager.jewelReflectionBlur = it
+                        }
+                    }
+                }
+
+                var onlineArtists by remember { mutableStateOf(settingsManager.onlineArtistInfo) }
+                SettingsPreferenceItem(
+                    headlineText = stringResource(R.string.online_artist_info),
+                    supportingText = stringResource(R.string.online_artist_info_desc),
+                    icon = Icons.Default.Waves,
+                    position = SectionPosition.MIDDLE,
+                    trailingContent = {
+                        BouncySwitch(
+                            checked = onlineArtists,
+                            onCheckedChange = { enabled ->
+                                onlineArtists = enabled
+                                settingsManager.onlineArtistInfo = enabled
+                            },
+                            thumbContent = {
+                                Icon(
+                                    imageVector = if (onlineArtists) Icons.Default.Check else Icons.Default.Close,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(SwitchDefaults.IconSize)
+                                )
+                            }
+                        )
+                    }
+                )
 
                 var showAiSection by remember { mutableStateOf(settingsManager.showAiSection) }
                 SettingsPreferenceItem(
@@ -966,4 +1035,27 @@ fun CustomizationScreen(
         )
     }
 }
+}
+
+/** Label + value on one line with a 0-100 slider underneath (used by the jewel case reflection settings). */
+@Composable
+private fun ReflectionSliderRow(
+    label: String,
+    valueText: String,
+    value: Int,
+    titleColor: Color,
+    bodyColor: Color,
+    onValueChange: (Int) -> Unit
+) {
+    Column {
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = titleColor, modifier = Modifier.weight(1f))
+            Text(valueText, style = MaterialTheme.typography.bodyMedium, color = bodyColor)
+        }
+        Slider(
+            value = value.toFloat(),
+            onValueChange = { onValueChange(it.toInt()) },
+            valueRange = 0f..100f
+        )
+    }
 }

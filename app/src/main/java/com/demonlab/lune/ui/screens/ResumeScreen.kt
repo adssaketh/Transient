@@ -22,6 +22,8 @@ import com.demonlab.lune.ui.screens.resume.RecentlyAddedSection
 import com.demonlab.lune.ui.screens.resume.SectionHeader
 import com.demonlab.lune.ui.screens.resume.TopArtistsSection
 import com.demonlab.lune.ui.screens.resume.ArtistItem
+import com.demonlab.lune.ui.screens.resume.ArtistInfoSheet
+import com.demonlab.lune.tools.ArtistNames
 import com.demonlab.lune.ui.screens.resume.TopGenresSection
 import com.demonlab.lune.ui.screens.resume.GenreItem
 import com.demonlab.lune.ui.viewmodels.MusicViewModel
@@ -124,42 +126,34 @@ fun ResumeScreen(
         allPlaylists.take(10)
     }
 
-    val topArtistsList = remember(allSongs, viewModel.topArtistStats, viewModel.topSongStats) {
-        val artistPlaysMap = mutableMapOf<String, Long>()
+    // One entry per singer (not per "Karthik, Shreya Ghoshal" style credit), so a photo lookup finds a real person.
+    val topArtistsList = remember(allSongs, viewModel.topSongStats) {
+        val playsBySong = HashMap<Long, Long>()
         for (stat in viewModel.topSongStats) {
-            val sId = stat.id.removePrefix("SONG_").toLongOrNull()
-            if (sId != null && stat.playCount > 0) {
-                val s = allSongs.find { it.id == sId }
-                val art = s?.artist?.trim()
-                if (!art.isNullOrBlank() && !art.equals("<unknown>", ignoreCase = true)) {
-                    artistPlaysMap[art] = (artistPlaysMap[art] ?: 0L) + stat.playCount
-                }
+            val songId = stat.id.removePrefix("SONG_").toLongOrNull()
+            if (songId != null && stat.playCount > 0) playsBySong[songId] = stat.playCount
+        }
+        val bySinger = LinkedHashMap<String, Pair<String, MutableList<Song>>>()
+        for (song in allSongs) {
+            for (singer in ArtistNames.singers(song.artist)) {
+                bySinger.getOrPut(ArtistNames.key(singer)) { singer to mutableListOf() }.second.add(song)
             }
         }
-        for (stat in viewModel.topArtistStats) {
-            val art = stat.id.removePrefix("ARTIST_").trim()
-            if (art.isNotBlank() && !art.equals("<unknown>", ignoreCase = true) && stat.playCount > 0) {
-                val existing = artistPlaysMap[art] ?: 0L
-                artistPlaysMap[art] = maxOf(existing, stat.playCount)
-            }
-        }
-
-        allSongs.filter { it.artist.isNotBlank() && !it.artist.equals("<unknown>", ignoreCase = true) }
-            .groupBy { it.artist.trim() }
-            .entries
-            .map { (artistName, songs) ->
-                val playCount: Int = (artistPlaysMap[artistName] ?: songs.size.toLong()).toInt()
+        bySinger.values
+            .map { (displayName, songs) ->
+                val plays = songs.sumOf { playsBySong[it.id] ?: 0L }.toInt()
                 val coverSong = songs.firstOrNull { !it.coverUrl.isNullOrEmpty() || it.albumArtUri != null } ?: songs.firstOrNull()
-                val coverStr: String? = coverSong?.coverUrl ?: coverSong?.albumArtUri?.toString()
                 ArtistItem(
-                    name = artistName,
-                    playCount = playCount,
-                    coverUrl = coverStr,
+                    name = displayName,
+                    playCount = if (plays > 0) plays else songs.size,
+                    coverUrl = coverSong?.coverUrl ?: coverSong?.albumArtUri?.toString(),
                     songs = songs
                 )
             }
             .sortedByDescending { it.playCount }
+            .take(30)
     }
+    var artistSheetName by remember { mutableStateOf<String?>(null) }
 
     val topGenresList = remember(allSongs) {
         allSongs.groupBy { song ->
@@ -284,7 +278,7 @@ fun ResumeScreen(
                 TopArtistsSection(
                     artists = topArtistsList,
                     hasBlurBackground = hasBlurBackground,
-                    onArtistClick = onArtistClick
+                    onArtistClick = { artistSheetName = it }
                 )
             }
         }
@@ -300,6 +294,16 @@ fun ResumeScreen(
                     onGenreClick = onGenreClick
                 )
             }
+        }
+
+        artistSheetName?.let { name ->
+            ArtistInfoSheet(
+                artistName = name,
+                allSongs = allSongs,
+                onDismiss = { artistSheetName = null },
+                onSongClick = onSongClick,
+                onOpenArtistPage = onArtistClick
+            )
         }
 
         if (recentlyAdded.isNotEmpty()) {

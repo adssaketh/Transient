@@ -515,6 +515,44 @@ class SettingsManager(context: Context) {
             prefs.edit().putBoolean("jewel_case_sway", value).apply()
         }
 
+    // Reflection under the jewel case (all three apply to every jewel case in the app).
+    private val _jewelReflectionStrength = mutableStateOf(prefs.getInt("jewel_refl_strength", 40).coerceIn(0, 100))
+    /** How visible the reflection is, 0-100 %. */
+    var jewelReflectionStrength: Int
+        get() = _jewelReflectionStrength.value
+        set(value) {
+            _jewelReflectionStrength.value = value.coerceIn(0, 100)
+            prefs.edit().putInt("jewel_refl_strength", value.coerceIn(0, 100)).apply()
+        }
+
+    private val _jewelReflectionFade = mutableStateOf(prefs.getInt("jewel_refl_fade", 100).coerceIn(0, 100))
+    /** How far down the reflection reaches before it has faded out, 0-100 % of the space under the case. */
+    var jewelReflectionFade: Int
+        get() = _jewelReflectionFade.value
+        set(value) {
+            _jewelReflectionFade.value = value.coerceIn(0, 100)
+            prefs.edit().putInt("jewel_refl_fade", value.coerceIn(0, 100)).apply()
+        }
+
+    private val _jewelReflectionBlur = mutableStateOf(prefs.getInt("jewel_refl_blur", 0).coerceIn(0, 100))
+    /** Blur of the reflection, 0-100 % (0 = sharp, 100 = 20 dp). Needs Android 12+. */
+    var jewelReflectionBlur: Int
+        get() = _jewelReflectionBlur.value
+        set(value) {
+            _jewelReflectionBlur.value = value.coerceIn(0, 100)
+            prefs.edit().putInt("jewel_refl_blur", value.coerceIn(0, 100)).apply()
+        }
+
+    // Artist photos and short bios from the internet (Wikipedia / Deezer). Only the artist's name is sent. OFF by default:
+    // until the user turns it on, the app makes no network requests.
+    private val _onlineArtistInfo = mutableStateOf(prefs.getBoolean("online_artist_info", false))
+    var onlineArtistInfo: Boolean
+        get() = _onlineArtistInfo.value
+        set(value) {
+            _onlineArtistInfo.value = value
+            prefs.edit().putBoolean("online_artist_info", value).apply()
+        }
+
     var showBackupWarning: Boolean
         get() = prefs.getBoolean("show_backup_warning", true)
         set(value) = prefs.edit().putBoolean("show_backup_warning", value).apply()
