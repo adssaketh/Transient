@@ -38,7 +38,7 @@ object DiagnosticLogger {
     private const val LAG_MIN_GAP_MS = 20_000L
     private const val MEMORY_MIN_GAP_MS = 60_000L
     private const val PREFS = "diagnostic_logger"
-    private const val KEY_LAST_EXIT = "last_exit_seen"
+    private const val KEY_LAST_EXIT = "last_exit_seen_v2"
     private const val FILE_PROVIDER = "com.transientplayer.app.fileprovider"
 
     @Volatile private var appContext: Context? = null
@@ -208,7 +208,22 @@ object DiagnosticLogger {
                 body.append("The system ended the app: ").append(reason).append('\n')
                 body.append("When: ").append(formatTime(e.timestamp)).append('\n')
                 body.append("Description: ").append(e.description ?: "-").append('\n')
-                body.append("Importance: ").append(e.importance).append("   Status: ").append(e.status).append('\n')
+                body.append("Importance: ").append(e.importance).append("   Status: ").append(e.status)
+                if (e.reason == ApplicationExitInfo.REASON_CRASH_NATIVE) {
+                    body.append("  (signal ").append(signalName(e.status)).append(')')
+                }
+                body.append('\n')
+                body.append("Process: ").append(e.processName).append("   Pid: ").append(e.pid).append('\n')
+                if (e.reason == ApplicationExitInfo.REASON_CRASH_NATIVE) {
+                    // The system keeps a binary crash dump; its readable text (library and function names) is what helps.
+                    runCatching {
+                        e.traceInputStream?.use { input ->
+                            val raw = input.readBytes().take(400_000).toByteArray()
+                            val text = readableStrings(raw)
+                            if (text.isNotBlank()) body.append("\nReadable parts of the native crash dump:\n").append(text).append('\n')
+                        }
+                    }
+                }
                 if (e.reason == ApplicationExitInfo.REASON_ANR) {
                     runCatching {
                         e.traceInputStream?.use { input ->
@@ -260,7 +275,7 @@ object DiagnosticLogger {
         val pkg = runCatching { context.packageManager.getPackageInfo(context.packageName, 0) }.getOrNull()
         @Suppress("DEPRECATION")
         val code = pkg?.let { if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) it.longVersionCode else it.versionCode.toLong() }
-        info.append("App: ").append(context.packageName).append(' ').append(pkg?.versionName ?: "?").append(" (").append(code ?: "?").append(")\n")
+        info.append("Report written by app: ").append(context.packageName).append(' ').append(pkg?.versionName ?: "?").append(" (").append(code ?: "?").append(")\n")
         info.append("Time: ").append(formatTime(System.currentTimeMillis())).append('\n')
         info.append("Device: ").append(Build.MANUFACTURER).append(' ').append(Build.MODEL).append(" (").append(Build.DEVICE).append(")\n")
         info.append("Android: ").append(Build.VERSION.RELEASE).append(" (API ").append(Build.VERSION.SDK_INT).append(")\n")
@@ -299,6 +314,36 @@ object DiagnosticLogger {
     private fun trim(dir: File) {
         val files = dir.listFiles { f -> f.isFile && f.name.endsWith(".txt") }?.sortedByDescending { it.lastModified() } ?: return
         files.drop(MAX_FILES).forEach { it.delete() }
+    }
+
+    private fun signalName(n: Int): String = when (n) {
+        4 -> "4 SIGILL"
+        6 -> "6 SIGABRT (the program stopped itself, usually after a failed check or an unhandled C++ error)"
+        7 -> "7 SIGBUS"
+        8 -> "8 SIGFPE"
+        11 -> "11 SIGSEGV (bad memory access)"
+        else -> n.toString()
+    }
+
+    /** Printable text runs (4+ characters) from a binary dump, de-duplicated, capped at about 12 000 characters. */
+    private fun readableStrings(bytes: ByteArray): String {
+        val seen = LinkedHashSet<String>()
+        val run = StringBuilder()
+        fun flush() {
+            if (run.length >= 4) seen.add(run.toString())
+            run.setLength(0)
+        }
+        for (b in bytes) {
+            val c = b.toInt() and 0xFF
+            if (c in 32..126) run.append(c.toChar()) else flush()
+        }
+        flush()
+        val out = StringBuilder()
+        for (line in seen) {
+            if (out.length + line.length > 12_000) break
+            out.append("    ").append(line).append('\n')
+        }
+        return out.toString()
     }
 
     private fun formatTime(ms: Long): String = SimpleDateFormat("yyyy-MM-dd HH:mm:ss Z", Locale.US).format(Date(ms))
