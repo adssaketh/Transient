@@ -227,6 +227,21 @@ class ArtistInfoRepository private constructor(context: Context) {
             }
         }
 
+        // Wikipedia's summary has no thumbnail for some pages; the page-images API often still has the page's lead image.
+        val wikiTitle = title
+        if (image == null && !wikiTitle.isNullOrBlank()) {
+            val pageImages = httpGet(
+                "https://en.wikipedia.org/w/api.php?action=query&prop=pageimages&piprop=thumbnail&pithumbsize=800" +
+                    "&redirects=1&format=json&formatversion=2&titles=" + enc(wikiTitle)
+            )
+            if (pageImages != null) {
+                image = runCatching {
+                    JSONObject(pageImages).getJSONObject("query").getJSONArray("pages").getJSONObject(0)
+                        .getJSONObject("thumbnail").getString("source")
+                }.getOrNull()?.takeIf { it.isNotBlank() }
+            }
+        }
+
         if (image == null) {
             val deezer = httpGet("https://api.deezer.com/search/artist?q=${enc(query)}&limit=5")
             if (deezer != null) {
