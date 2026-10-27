@@ -122,6 +122,10 @@ class UsbPlaybackEngine(
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             Log.i(TAG, "isPlaying=$isPlaying state=${player.playbackState} pos=${player.currentPosition}")
             com.demonlab.lune.tools.DiagnosticLogger.note("EXO isPlaying=$isPlaying state=${player.playbackState} pos=${player.currentPosition}")
+            if (!plainOutput) {
+                if (isPlaying) com.demonlab.lune.tools.SilentAudioKeepAlive.start(appContext)
+                else com.demonlab.lune.tools.SilentAudioKeepAlive.stop()
+            }
         }
 
         override fun onPlaybackSuppressionReasonChanged(playbackSuppressionReason: Int) {
@@ -414,6 +418,7 @@ class UsbPlaybackEngine(
         }
         song?.let { NativeCrashGuard.end(appContext, it.id) }
         if (!plainOutput) com.demonlab.lune.tools.ProcessHeartbeat.stop()
+        if (!plainOutput) com.demonlab.lune.tools.SilentAudioKeepAlive.stop()
         song = null
         if (!plainOutput) UsbSignalPathStore.setActive(false)
     }
