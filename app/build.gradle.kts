@@ -27,8 +27,8 @@ android {
         applicationId = "com.transientplayer.app"
         minSdk = 24
         targetSdk = 37
-        versionCode = 8
-        versionName = "1.0.7"
+        versionCode = 9
+        versionName = "1.0.8"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         // APK size: only these CPU types are built and packaged. arm64-v8a runs on every phone made since about 2019

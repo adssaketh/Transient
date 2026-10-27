@@ -203,6 +203,7 @@ class UsbPlaybackEngine(
         if (!plainOutput) UsbSignalPathStore.setActive(true)
         mainHandler.post(snapshotTicker)
         if (!plainOutput) volumeController.start()
+        if (!plainOutput) com.demonlab.lune.tools.ProcessHeartbeat.start()
     }
 
     private fun applyGain(gain: Float) {
@@ -412,6 +413,7 @@ class UsbPlaybackEngine(
             Log.w(TAG, "Error releasing USB engine: ${t.message}")
         }
         song?.let { NativeCrashGuard.end(appContext, it.id) }
+        if (!plainOutput) com.demonlab.lune.tools.ProcessHeartbeat.stop()
         song = null
         if (!plainOutput) UsbSignalPathStore.setActive(false)
     }
