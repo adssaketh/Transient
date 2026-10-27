@@ -96,6 +96,34 @@ object DiagnosticLogger {
         logsDir(context).listFiles { f -> f.isFile && f.name.endsWith(".txt") }
             ?.sortedByDescending { it.lastModified() } ?: emptyList()
 
+    // ------------------------------------------------------------------------------------------------------------
+    // Playback event trace (logs/playback_trace.txt): one line per event, kept across restarts, exported with the zip.
+
+    private const val TRACE_FILE = "playback_trace.txt"
+    private const val TRACE_MAX_BYTES = 200_000L
+    private val traceLock = Any()
+
+    /** Adds "HH:mm:ss.SSS  message" to the playback trace. Cheap; used for pause/resume/focus/lifecycle events. */
+    fun note(message: String) {
+        val c = appContext ?: return
+        if (!isEnabled(c)) return
+        runCatching {
+            synchronized(traceLock) {
+                val f = File(logsDir(c), TRACE_FILE)
+                if (f.length() > TRACE_MAX_BYTES) {
+                    val keep = f.readText().takeLast((TRACE_MAX_BYTES / 2).toInt())
+                    f.writeText(keep.substringAfter('\n'))
+                }
+                f.appendText(SimpleDateFormat("HH:mm:ss.SSS", Locale.US).format(Date()) + "  " + message + "\n")
+            }
+        }
+    }
+
+    /** "Who called me": the next few stack frames as Class.method:line, for note(). */
+    fun callers(skip: Int = 2, count: Int = 3): String =
+        Throwable().stackTrace.drop(skip).take(count)
+            .joinToString(" < ") { "${it.className.substringAfterLast('.')}.${it.methodName}:${it.lineNumber}" }
+
     fun clear(context: Context): Int {
         var removed = 0
         logFiles(context).forEach { if (it.delete()) removed++ }

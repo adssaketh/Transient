@@ -200,6 +200,7 @@ class MusicService : MediaLibraryService() {
      * taken away without a callback reaching us), take it back and restore the volume, so the system stops muting us.
      */
     fun onAppForeground() {
+        DiagnosticLogger.note("app foreground: playing=${isPlaying()} hasFocus=$hasAudioFocus")
         if (!isPlaying()) return
         if (!hasAudioFocus) requestAudioFocus()
         ensureAudible()
@@ -215,6 +216,7 @@ class MusicService : MediaLibraryService() {
 
     private val audioFocusListener = AudioManager.OnAudioFocusChangeListener { focusChange ->
         Log.i("TransientTrace", "audio focus change=${focusChangeName(focusChange)} playing=${isPlaying()} usbEngine=${usbEngine != null}")
+        DiagnosticLogger.note("FOCUS ${focusChangeName(focusChange)} playing=${isPlaying()} usb=${usbEngine != null}")
         when (focusChange) {
             AudioManager.AUDIOFOCUS_LOSS -> {
                 // Permanent focus loss (another app claimed audio): pause
@@ -292,6 +294,7 @@ class MusicService : MediaLibraryService() {
         becomingNoisyReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
                 if (intent?.action == AudioManager.ACTION_AUDIO_BECOMING_NOISY && isPlaying()) {
+                    DiagnosticLogger.note("BECOMING_NOISY broadcast")
                     PlaybackManager.getInstance(applicationContext).pause()
                 }
             }
@@ -1337,6 +1340,7 @@ class MusicService : MediaLibraryService() {
     }
 
     fun pause() {
+        DiagnosticLogger.note("PAUSE  <- ${DiagnosticLogger.callers()}")
         pauseTimeoutJob?.cancel()
         // Persist playback state immediately when paused (do NOT wait for timeout)
         PlaybackManager.getInstance(applicationContext).savePlaybackState(wasPlaying = false)
@@ -1379,6 +1383,7 @@ class MusicService : MediaLibraryService() {
     }
 
     fun resume() {
+        DiagnosticLogger.note("RESUME <- ${DiagnosticLogger.callers()}")
         if (!requestAudioFocus()) {
             if (resumeOnFocusGain) {
                 Log.d("MusicService", "Audio focus delayed; playback will resume when granted")
@@ -1392,6 +1397,7 @@ class MusicService : MediaLibraryService() {
     }
 
     private fun resumeInternal() {
+        DiagnosticLogger.note("RESUME-INTERNAL <- ${DiagnosticLogger.callers()}")
         val pm = PlaybackManager.getInstance(applicationContext)
         if (pm.isQueueFinished) {
             pm.resume()
@@ -2335,6 +2341,7 @@ class MusicService : MediaLibraryService() {
 
     /** DAC unplugged: pause (like wired headphones), drop the engine, and let the next play use standard output. */
     private fun onUsbDacDetached() {
+        DiagnosticLogger.note("USB DAC DETACHED broadcast")
         usbSuppressed = false
         usbConsecutiveFailures = 0
         usbSkipSongId = null

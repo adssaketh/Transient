@@ -231,8 +231,19 @@ class Lune : AppCompatActivity() {
         }
     }
 
+    override fun onPause() {
+        super.onPause()
+        com.demonlab.lune.tools.DiagnosticLogger.note("ACTIVITY onPause (multiWindow=${isInMultiWindowMode})")
+    }
+
+    override fun onStop() {
+        super.onStop()
+        com.demonlab.lune.tools.DiagnosticLogger.note("ACTIVITY onStop")
+    }
+
     override fun onResume() {
         super.onResume()
+        com.demonlab.lune.tools.DiagnosticLogger.note("ACTIVITY onResume")
         // Coming back from another app: make sure a playing song is audible again (focus / volume recovery).
         PlaybackManager.getInstance(this).onAppForeground()
     }

@@ -92,6 +92,7 @@ class UsbPlaybackEngine(
     private val listener = object : Player.Listener {
         override fun onPlaybackStateChanged(playbackState: Int) {
             Log.i(TAG, "state=$playbackState (2=buffering 3=ready) playWhenReady=${player.playWhenReady} pos=${player.currentPosition}")
+            com.demonlab.lune.tools.DiagnosticLogger.note("EXO state=$playbackState (2=buffering 3=ready 4=ended)")
             when (playbackState) {
                 Player.STATE_READY -> announceReady()
                 Player.STATE_ENDED -> announceEnded()
@@ -103,6 +104,7 @@ class UsbPlaybackEngine(
         // at the very end of the track as "ended".
         override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
             Log.i(TAG, "playWhenReady=$playWhenReady reason=$reason pausedByUs=$pausedByUs")
+            com.demonlab.lune.tools.DiagnosticLogger.note("EXO playWhenReady=$playWhenReady reason=$reason pausedByUs=$pausedByUs")
             if (playWhenReady || pausedByUs) return
             val duration = player.duration
             if (duration != C.TIME_UNSET && duration > 0 && player.currentPosition >= duration - END_TOLERANCE_MS) {
@@ -119,6 +121,7 @@ class UsbPlaybackEngine(
 
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             Log.i(TAG, "isPlaying=$isPlaying state=${player.playbackState} pos=${player.currentPosition}")
+            com.demonlab.lune.tools.DiagnosticLogger.note("EXO isPlaying=$isPlaying state=${player.playbackState} pos=${player.currentPosition}")
         }
 
         override fun onPlaybackSuppressionReasonChanged(playbackSuppressionReason: Int) {
@@ -172,6 +175,7 @@ class UsbPlaybackEngine(
         val needsPipeline = gain < 0.9999f
         val nativeRunning = sink.isNativeEngineActive
         Log.i(TAG, "applyGain gain=$gain needsPipeline=$needsPipeline nativeRunning=$nativeRunning")
+        com.demonlab.lune.tools.DiagnosticLogger.note("GAIN applyGain gain=$gain needsPipeline=$needsPipeline nativeRunning=$nativeRunning")
         sink.softwareVolume = gain
         sink.nativeEngineAllowed = !needsPipeline
         UsbSignalPathStore.setGain(gain)
@@ -293,6 +297,7 @@ class UsbPlaybackEngine(
 
     /** Loads [song] and starts (or, with [playWhenReady] = false, just prepares) playback at [startPositionMs]. */
     fun load(song: Song, startPositionMs: Long, playWhenReady: Boolean) = runOnMain {
+        com.demonlab.lune.tools.DiagnosticLogger.note("ENGINE load song=${song.id} pos=$startPositionMs play=$playWhenReady plain=$plainOutput")
         mainHandler.removeCallbacks(outputWatchdog)
         this.song = song
         loadToken++
@@ -326,6 +331,7 @@ class UsbPlaybackEngine(
     }
 
     fun resume() = runOnMain {
+        com.demonlab.lune.tools.DiagnosticLogger.note("ENGINE resume")
         pausedByUs = false
         when (player.playbackState) {
             Player.STATE_IDLE -> {
@@ -343,6 +349,7 @@ class UsbPlaybackEngine(
     }
 
     fun pause() = runOnMain {
+        com.demonlab.lune.tools.DiagnosticLogger.note("ENGINE pause")
         pausedByUs = true
         player.pause()
         refreshSnapshot()
