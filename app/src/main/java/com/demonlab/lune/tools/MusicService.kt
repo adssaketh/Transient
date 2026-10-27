@@ -2152,6 +2152,7 @@ class MusicService : MediaLibraryService() {
     private fun shouldUseUsbEngine(song: Song): Boolean =
         !usbSuppressed &&
             song.id != usbSkipSongId &&
+            !NativeCrashGuard.isQuarantined(applicationContext, song.id) &&
             UsbDacSupport.availability(applicationContext, settingsManager) == UsbDacSupport.Availability.READY
 
     /** Hand [song] to the USB engine, tearing down the MediaPlayer/AudioFX side first. */
@@ -2183,7 +2184,8 @@ class MusicService : MediaLibraryService() {
 
     /** AIFF on the normal output plays through ExoPlayer, which handles 24/32-bit PCM that MediaPlayer may reject. */
     private fun shouldUsePlainAiffEngine(song: Song): Boolean =
-        (AiffSupport.isAiff(song) || song.id == exoFallbackSongId) && song.id != aiffPlainFailedId
+        (AiffSupport.isAiff(song) || song.id == exoFallbackSongId) && song.id != aiffPlainFailedId &&
+            !NativeCrashGuard.isQuarantined(applicationContext, song.id)
 
     private fun startPlainAiffPlayback(song: Song, positionMs: Long, andPlay: Boolean) {
         if (android.os.Looper.myLooper() != android.os.Looper.getMainLooper()) {

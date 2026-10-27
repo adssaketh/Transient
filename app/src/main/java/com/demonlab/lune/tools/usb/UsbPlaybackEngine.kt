@@ -1,6 +1,7 @@
 package com.demonlab.lune.tools.usb
 
 import com.demonlab.lune.tools.AiffSupport
+import com.demonlab.lune.tools.NativeCrashGuard
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
 import androidx.media3.datasource.DataSource
 import android.content.Context
@@ -110,6 +111,7 @@ class UsbPlaybackEngine(
         override fun onPlayerError(error: PlaybackException) {
             Log.e(TAG, "ExoPlayer error: ${error.errorCodeName}", error)
             val current = song ?: return
+            NativeCrashGuard.end(appContext, current.id)
             callbacks.onFailure(current, error.errorCodeName)
         }
 
@@ -301,6 +303,8 @@ class UsbPlaybackEngine(
             player.setMediaItem(item, start)
         }
         player.playWhenReady = playWhenReady
+        // Remember what is being opened: a native abort here cannot be caught, but the next launch can read this.
+        NativeCrashGuard.begin(appContext, song.id)
         player.prepare()
         refreshSnapshot()
     }
@@ -313,7 +317,10 @@ class UsbPlaybackEngine(
     fun resume() = runOnMain {
         pausedByUs = false
         when (player.playbackState) {
-            Player.STATE_IDLE -> player.prepare()
+            Player.STATE_IDLE -> {
+                song?.let { NativeCrashGuard.begin(appContext, it.id) }
+                player.prepare()
+            }
             Player.STATE_ENDED -> {
                 // The sink cannot rewind a finished native engine; a fresh load rebuilds it.
                 song?.let { load(it, 0L, true) }
@@ -347,6 +354,7 @@ class UsbPlaybackEngine(
         } catch (t: Throwable) {
             Log.w(TAG, "Error releasing USB engine: ${t.message}")
         }
+        song?.let { NativeCrashGuard.end(appContext, it.id) }
         song = null
         if (!plainOutput) UsbSignalPathStore.setActive(false)
     }
@@ -357,6 +365,7 @@ class UsbPlaybackEngine(
         if (readyToken == loadToken) return
         readyToken = loadToken
         val current = song ?: return
+        NativeCrashGuard.end(appContext, current.id)
         mainHandler.removeCallbacks(outputWatchdog)
         if (!plainOutput) mainHandler.postDelayed(outputWatchdog, WATCHDOG_DELAY_MS)
         callbacks.onReady(current, player.playWhenReady)

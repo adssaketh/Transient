@@ -6,11 +6,14 @@ import coil.ImageLoaderFactory
 import coil.disk.DiskCache
 import com.demonlab.lune.tools.AudioThumbnailFetcher
 import com.demonlab.lune.tools.DiagnosticLogger
+import com.demonlab.lune.tools.NativeCrashGuard
 
 class LuneApplication : Application(), ImageLoaderFactory {
     override fun onCreate() {
         super.onCreate()
         DiagnosticLogger.install(this)
+        // If the last run died natively while loading a song, remember which one so it is not reopened the same way.
+        NativeCrashGuard.resolvePrevious(this)
     }
 
     override fun onTrimMemory(level: Int) {
