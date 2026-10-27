@@ -25,6 +25,7 @@
 #include <cstring>
 #include <cstdlib>
 #include <sys/stat.h>
+#include <sys/resource.h>
 #include <sys/mman.h>
 
 #define TAG "NativeAudioEngine"
@@ -255,6 +256,14 @@ static void *decodeThreadFunc(void *arg) {
          engine->sampleRate, engine->channels,
          engine->bitsPerSample, engine->dacBitDepth);
 
+    // Normal apps are usually refused SCHED_FIFO (see nativeStart), so also lower this thread's nice value,
+    // which Android does allow. -19 is Android's "urgent audio" level. The result is logged either way.
+    if (setpriority(PRIO_PROCESS, (id_t)gettid(), -19) == 0) {
+        LOGI("Decode thread priority raised (nice -19)");
+    } else {
+        LOGW("Could not raise decode thread priority: errno=%d (%s)", errno, strerror(errno));
+    }
+
     while (engine->running.load()) {
         // Handle pause
         if (engine->paused.load()) {
@@ -459,7 +468,8 @@ Java_com_decent_usbaudio_NativeAudioEngine_nativeStart(
     // Set high priority for the decode thread
     struct sched_param param;
     param.sched_priority = sched_get_priority_max(SCHED_FIFO);
-    pthread_setschedparam(engine->thread, SCHED_FIFO, &param);
+    int rtResult = pthread_setschedparam(engine->thread, SCHED_FIFO, &param);
+    LOGI("SCHED_FIFO request result=%d (0 = granted)", rtResult);
 
     LOGI("Engine started");
     return JNI_TRUE;

@@ -42,6 +42,8 @@ class UsbStreamingThread(private val usbStream: UsbAudioStream) {
     fun start() {
         running = true
         thread = Thread({
+            // Java's MAX_PRIORITY barely changes scheduling on Android; ask for the real audio priority too.
+            runCatching { android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_URGENT_AUDIO) }
             Log.i(TAG, "USB streaming thread started")
             while (running) {
                 if (paused) {

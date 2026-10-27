@@ -23,13 +23,15 @@
 
 /**
  * Number of URBs in the ring buffer.
- * 80 URBs ≈ 80 ms of in-flight audio at 44.1 kHz, which empirically gives
+ * 160 URBs ≈ 160 ms of in-flight audio at high speed (was 80). A longer ring lets the feeder thread be
+ * delayed for ~150 ms (for example while another app is cold-starting and the CPU is busy) without the
+ * stream running dry (some DACs then mute for a while). 80 URBs ≈ 80 ms at 44.1 kHz empirically gave
  * the xHCI host controller enough scheduling headroom to maintain
  * continuous isochronous output without underruns on commodity Android
  * SoCs. Smaller pipelines (< ~64 URBs at 44.1 kHz) trigger glitches as
  * the ring drains faster than the URB submit/reap cycle can refill it.
  */
-#define USB_AUDIO_NUM_URBS 80
+#define USB_AUDIO_NUM_URBS 160
 
 /**
  * Max bytes per URB data buffer.
