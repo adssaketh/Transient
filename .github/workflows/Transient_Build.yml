@@ -31,7 +31,7 @@ jobs:
       - name: Create keystore.properties
         run: |
           cat <<EOF > keystore.properties
-          storeFile=keystore.jks
+          storeFile=../keystore.jks
           storePassword=${{ secrets.STORE_PASSWORD }}
           keyAlias=${{ secrets.KEY_ALIAS }}
           keyPassword=${{ secrets.KEY_PASSWORD}}
