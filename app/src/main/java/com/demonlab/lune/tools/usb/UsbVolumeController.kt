@@ -10,6 +10,7 @@ import android.media.AudioManager
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
+import android.util.Log
 import com.demonlab.lune.tools.SettingsManager
 import kotlin.math.pow
 
@@ -28,6 +29,7 @@ class UsbVolumeController(
     private val audioManager = appContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     private val settings = SettingsManager.getInstance(appContext)
     private var started = false
+    private var lastLoggedGain = -1f
 
     private val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
         override fun onChange(selfChange: Boolean) {
@@ -74,6 +76,10 @@ class UsbVolumeController(
             )
         } else {
             1f
+        }
+        if (gain != lastLoggedGain) {
+            lastLoggedGain = gain
+            Log.i("TransientTrace", "media volume refresh: gain=$gain")
         }
         onGainChanged(gain)
     }

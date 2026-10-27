@@ -205,7 +205,16 @@ class MusicService : MediaLibraryService() {
         ensureAudible()
     }
 
+    private fun focusChangeName(change: Int): String = when (change) {
+        AudioManager.AUDIOFOCUS_GAIN -> "GAIN"
+        AudioManager.AUDIOFOCUS_LOSS -> "LOSS"
+        AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> "LOSS_TRANSIENT"
+        AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> "LOSS_TRANSIENT_CAN_DUCK"
+        else -> change.toString()
+    }
+
     private val audioFocusListener = AudioManager.OnAudioFocusChangeListener { focusChange ->
+        Log.i("TransientTrace", "audio focus change=${focusChangeName(focusChange)} playing=${isPlaying()} usbEngine=${usbEngine != null}")
         when (focusChange) {
             AudioManager.AUDIOFOCUS_LOSS -> {
                 // Permanent focus loss (another app claimed audio): pause

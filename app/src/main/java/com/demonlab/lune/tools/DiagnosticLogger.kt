@@ -297,15 +297,15 @@ object DiagnosticLogger {
         return info.toString()
     }
 
-    private fun readOwnLogcat(): String {
+    private fun readOwnLogcat(lines: Int = 300, maxChars: Int = 60_000): String {
         return try {
-            val process = ProcessBuilder("logcat", "-d", "-t", "300", "-v", "threadtime")
+            val process = ProcessBuilder("logcat", "-d", "-t", lines.toString(), "-v", "threadtime")
                 .redirectErrorStream(true)
                 .start()
             val text = process.inputStream.bufferedReader().use { it.readText() }
             process.destroy()
             // Keep reports small enough to share by chat.
-            if (text.length > 60_000) text.takeLast(60_000) else text
+            if (text.length > maxChars) text.takeLast(maxChars) else text
         } catch (_: Throwable) {
             ""
         }
@@ -362,6 +362,14 @@ object DiagnosticLogger {
             files.forEach { f ->
                 out.putNextEntry(ZipEntry(f.name))
                 f.inputStream().use { it.copyTo(out) }
+                out.closeEntry()
+            }
+            // A fresh copy of the app's own recent log, so something just heard (a gap in the sound, say) can be traced.
+            // Export right after it happens: the system only keeps the last minute or so.
+            val live = readOwnLogcat(2000, 600_000)
+            if (live.isNotBlank()) {
+                out.putNextEntry(ZipEntry("live_log_${SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.US).format(Date())}.txt"))
+                out.write(live.toByteArray())
                 out.closeEntry()
             }
         }
