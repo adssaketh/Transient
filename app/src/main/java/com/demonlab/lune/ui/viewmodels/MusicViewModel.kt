@@ -39,8 +39,13 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     var isLoading by mutableStateOf(false)
         private set
 
+    private var loadJob: kotlinx.coroutines.Job? = null
+
     fun loadSongs() {
-        viewModelScope.launch {
+        // Startup and every resume ask for a load, sometimes several times within a second (the logs showed three scans
+        // back to back). One running scan is enough; the next resume starts another.
+        if (loadJob?.isActive == true) return
+        loadJob = viewModelScope.launch {
             val cached = withContext(Dispatchers.IO) {
                 musicProvider.getCachedSongs()
             }

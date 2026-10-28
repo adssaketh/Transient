@@ -417,20 +417,8 @@ class Lune : AppCompatActivity() {
             LaunchedEffect(currentSong?.id, settingsManager.albumArtColorsEnabled) {
                 val song = currentSong ?: return@LaunchedEffect
                 if (!settingsManager.albumArtColorsEnabled) return@LaunchedEffect
-                val color = withContext(Dispatchers.IO) {
-                    try {
-                        val request = ImageRequest.Builder(context)
-                            .data(song.coverUrl ?: song.albumArtUri ?: song.uri)
-                            .size(128, 128)
-                            .allowHardware(false)
-                            .build()
-                        val result = context.imageLoader.execute(request)
-                        val bitmap = (result as? coil.request.SuccessResult)?.drawable?.toBitmap()
-                        bitmap?.let { ImageAnalyzer.dominantColor(it) }
-                    } catch (e: Exception) {
-                        null
-                    }
-                }
+                // Remembered per song and read through the image cache, see AlbumArtColors.
+                val color = AlbumArtColors.seedFor(context, song)
                 if (color != null) settingsManager.albumArtSeedColor = color
             }
 
@@ -845,14 +833,23 @@ fun MainScreen(
             context.contentResolver, android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f
         ) > 0f
         val coverChanges = currentSong != null && currentSong.albumId != song.albumId
+        // The colour theme comes from the cover. Work it out now (while the disc rolls in) and apply it as the song starts.
+        val colorsOn = settingsManager.albumArtColorsEnabled
+        val applyTheme = {
+            if (colorsOn) AlbumArtColors.cached(song.id)?.let { settingsManager.albumArtSeedColor = it }
+        }
         if (fx.USE_SLIDE_IN && animationsOn && coverChanges) {
             albumTapJob[0] = coroutineScope.launch {
+                val prefetch = if (colorsOn) launch { AlbumArtColors.seedFor(context, song) } else null
                 val sliding = fx.slideIn(context, coroutineScope, song.coverUrl ?: song.uri, flyHoleColor)
                 if (sliding) delay(fx.SLIDE_MS)
+                kotlinx.coroutines.withTimeoutOrNull(600L) { prefetch?.join() } // normally long finished
                 startPlayback()
+                applyTheme()
                 fx.notifyPlaybackStarted()
             }
         } else {
+            if (colorsOn) coroutineScope.launch { AlbumArtColors.seedFor(context, song); applyTheme() }
             startPlayback()
         }
     }
