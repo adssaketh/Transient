@@ -28,7 +28,7 @@ android {
         minSdk = 24
         targetSdk = 37
         versionCode = 15
-        versionName = "1.0.14"
+        versionName = "1.0.0 Alpha"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         // APK size: only these CPU types are built and packaged. arm64-v8a runs on every phone made since about 2019
