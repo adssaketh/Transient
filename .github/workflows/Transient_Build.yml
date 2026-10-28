@@ -42,6 +42,8 @@ jobs:
         run: |
           VERSION=$(grep versionName app/build.gradle.kts | head -1 | sed 's/.*"\(.*\)".*/\1/')
           echo "version=$VERSION" >> $GITHUB_OUTPUT
+          TAG=v$(echo "$VERSION" | tr "A-Z " "a-z-")
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
 
       - name: Make gradlew executable
         run: chmod +x gradlew
@@ -52,6 +54,6 @@ jobs:
       - name: Create Github Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.version.outputs.version }}
+          tag_name: ${{ steps.version.outputs.tag }}
           name: Transient ${{ steps.version.outputs.version }}
           files: app/build/outputs/apk/release/*apk
