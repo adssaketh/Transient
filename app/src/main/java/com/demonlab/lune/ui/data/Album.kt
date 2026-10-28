@@ -2,6 +2,7 @@ package com.demonlab.lune.ui.data
 
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.boundsInWindow
 import com.demonlab.lune.ui.components.FastScrollbarGrid
 import com.demonlab.lune.ui.utils.pinchToChangeColumns
 import android.net.Uri
@@ -178,7 +179,7 @@ fun AlbumCard(
                         // Remember where this cover is on screen, for the flying-CD animation.
                         val coords = coverCoords[0]
                         if (coords != null && coords.isAttached) {
-                            com.demonlab.lune.ui.components.FlyingCd.pendingBounds = coords.boundsInRoot()
+                            com.demonlab.lune.ui.components.FlyingCd.pendingBounds = coords.boundsInWindow()
                             com.demonlab.lune.ui.components.FlyingCd.pendingCornerPx = with(flightDensity) { 10.dp.toPx() }
                             com.demonlab.lune.ui.components.FlyingCd.pendingModel = album.coverUrl ?: album.albumArtUri
                         } else {

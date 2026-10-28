@@ -86,6 +86,7 @@ import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.unit.Dp
@@ -830,6 +831,7 @@ fun MainScreen(
 
     // Tapping an album in the album grid: play it, fly a CD to the mini player, and open the album page.
     // If that album is already playing it is only opened (no restart, no flight).
+    val flyHoleColor = MaterialTheme.colorScheme.surface.toArgb()
     val onAlbumTapped: (Album) -> Unit = { album ->
         val sortKey = "album_${album.name}"
         val albumSongs = visibleSongs.filter { it.album == album.name }.ifEmpty { album.songs }
@@ -851,14 +853,14 @@ fun MainScreen(
             context.contentResolver, android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f
         ) > 0f
         val flying = !alreadyPlaying && orderedSongs.isNotEmpty() &&
-            com.demonlab.lune.ui.components.FlyingCd.start(coroutineScope, animationsOn)
+            com.demonlab.lune.ui.components.FlyingCd.start(context, coroutineScope, animationsOn, flyHoleColor)
         if (flying) {
             coroutineScope.launch {
                 delay(com.demonlab.lune.ui.components.FlyingCd.PLAY_DELAY_MS)
                 startPlayback()
             }
             coroutineScope.launch {
-                delay(com.demonlab.lune.ui.components.FlyingCd.DETAIL_DELAY_MS)
+                delay(com.demonlab.lune.ui.components.FlyingCd.detailDelayMs)
                 selectedAlbum = album
             }
         } else {

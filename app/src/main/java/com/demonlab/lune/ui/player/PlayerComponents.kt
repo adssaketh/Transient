@@ -2,6 +2,7 @@ package com.demonlab.lune.ui.player
 
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.boundsInWindow
 import com.demonlab.lune.ui.components.AuroraBackdrop
 import com.demonlab.lune.ui.components.rememberAuroraBackdrop
 import com.demonlab.lune.ui.components.glassSheen
@@ -2501,7 +2502,7 @@ fun MiniPlayer(
                 .size(70.dp)
                 // Where the flying CD should land, and hidden while it is still in the air.
                 .onGloballyPositioned { c ->
-                    val b = c.boundsInRoot()
+                    val b = c.boundsInWindow()
                     com.demonlab.lune.ui.components.FlyingCd.targetCenter = b.center
                     com.demonlab.lune.ui.components.FlyingCd.targetDiameter = b.width * coverScale
                 }
