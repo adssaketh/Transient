@@ -97,6 +97,7 @@ class MusicProvider(private val context: Context) {
 
     suspend fun syncSongs(): List<Song> = withContext(Dispatchers.IO) {
         if (!hasReadPermission()) return@withContext emptyList()
+        HiFiFileInfo.beginScan()
         val songList = mutableListOf<Song>()
 
         val collection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -243,10 +244,10 @@ class MusicProvider(private val context: Context) {
                 var isHiRes = false
                 if (isHiFiFile && file.exists()) {
                     try {
-                        val audioFile = org.jaudiotagger.audio.AudioFileIO.read(file)
-                        val header = audioFile.audioHeader
-                        sampleRate = header.sampleRateAsNumber
-                        bitDepth = header.bitsPerSample
+                        // Cached per file and read lightly (no cover picture is loaded into memory); see HiFiFileInfo.
+                        val info = HiFiFileInfo.get(context, file, extension)
+                        sampleRate = info.sampleRate
+                        bitDepth = info.bitsPerSample
                         if (bitDepth >= 24 || sampleRate > 48000 || extension == "dsf" || extension == "dff") {
                             isHiRes = true
                         }
@@ -254,40 +255,34 @@ class MusicProvider(private val context: Context) {
                         // Extract tags for formats where Android MediaStore does not parse metadata (e.g. WAV, DSF, DFF)
                         // or where MediaStore tags were missing/fallback unknown values
                         if (override == null) {
-                            val tag = audioFile.tag
-                            if (tag != null) {
-                                val tagTitle = runCatching { tag.getFirst(org.jaudiotagger.tag.FieldKey.TITLE) }.getOrNull()?.trim()
-                                val tagArtist = runCatching {
-                                    val a = tag.getFirst(org.jaudiotagger.tag.FieldKey.ARTIST)?.trim()
-                                    if (!a.isNullOrBlank()) a else tag.getFirst(org.jaudiotagger.tag.FieldKey.ALBUM_ARTIST)?.trim()
-                                }.getOrNull()
-                                val tagAlbum = runCatching { tag.getFirst(org.jaudiotagger.tag.FieldKey.ALBUM) }.getOrNull()?.trim()
-                                val tagGenre = runCatching { tag.getFirst(org.jaudiotagger.tag.FieldKey.GENRE) }.getOrNull()?.trim()
-                                val tagTrack = runCatching { tag.getFirst(org.jaudiotagger.tag.FieldKey.TRACK) }.getOrNull()?.trim()
-                                val tagAlbumArtist = runCatching { tag.getFirst(org.jaudiotagger.tag.FieldKey.ALBUM_ARTIST) }.getOrNull()?.trim()
-                                val tagComposer = runCatching { tag.getFirst(org.jaudiotagger.tag.FieldKey.COMPOSER) }.getOrNull()?.trim()
-                                if (!tagAlbumArtist.isNullOrBlank() && albumArtist.isNullOrBlank()) {
-                                    albumArtist = CharsetUtils.sanitizeText(tagAlbumArtist)
-                                }
-                                if (!tagComposer.isNullOrBlank() && composer.isNullOrBlank()) {
-                                    composer = CharsetUtils.sanitizeText(tagComposer)
-                                }
+                            val tagTitle = info.title
+                            val tagArtist = info.artist
+                            val tagAlbum = info.album
+                            val tagGenre = info.genre
+                            val tagTrack = info.track
+                            val tagAlbumArtist = info.albumArtist
+                            val tagComposer = info.composer
+                            if (!tagAlbumArtist.isNullOrBlank() && albumArtist.isNullOrBlank()) {
+                                albumArtist = CharsetUtils.sanitizeText(tagAlbumArtist)
+                            }
+                            if (!tagComposer.isNullOrBlank() && composer.isNullOrBlank()) {
+                                composer = CharsetUtils.sanitizeText(tagComposer)
+                            }
 
-                                if (!tagTitle.isNullOrBlank()) {
-                                    title = CharsetUtils.sanitizeText(tagTitle)
-                                }
-                                if (!tagArtist.isNullOrBlank() && (artist.isBlank() || artist.equals("<unknown>", ignoreCase = true) || extension == "wav")) {
-                                    artist = CharsetUtils.sanitizeText(tagArtist)
-                                }
-                                if (!tagAlbum.isNullOrBlank() && (album.isBlank() || album.equals("<unknown>", ignoreCase = true) || extension == "wav")) {
-                                    album = CharsetUtils.sanitizeText(tagAlbum)
-                                }
-                                if (!tagGenre.isNullOrBlank() && (genre.isNullOrBlank() || extension == "wav")) {
-                                    genre = CharsetUtils.sanitizeText(tagGenre)
-                                }
-                                if (!tagTrack.isNullOrBlank() && (trackNumber == 0 || extension == "wav")) {
-                                    trackNumber = tagTrack.substringBefore("/").toIntOrNull() ?: trackNumber
-                                }
+                            if (!tagTitle.isNullOrBlank()) {
+                                title = CharsetUtils.sanitizeText(tagTitle)
+                            }
+                            if (!tagArtist.isNullOrBlank() && (artist.isBlank() || artist.equals("<unknown>", ignoreCase = true) || extension == "wav")) {
+                                artist = CharsetUtils.sanitizeText(tagArtist)
+                            }
+                            if (!tagAlbum.isNullOrBlank() && (album.isBlank() || album.equals("<unknown>", ignoreCase = true) || extension == "wav")) {
+                                album = CharsetUtils.sanitizeText(tagAlbum)
+                            }
+                            if (!tagGenre.isNullOrBlank() && (genre.isNullOrBlank() || extension == "wav")) {
+                                genre = CharsetUtils.sanitizeText(tagGenre)
+                            }
+                            if (!tagTrack.isNullOrBlank() && (trackNumber == 0 || extension == "wav")) {
+                                trackNumber = tagTrack.substringBefore("/").toIntOrNull() ?: trackNumber
                             }
                         }
                     } catch (_: Exception) {
@@ -313,6 +308,7 @@ class MusicProvider(private val context: Context) {
                 )
             }
         }
+        HiFiFileInfo.flush(context)
         saveToCache(songList)
         songList
     }

@@ -71,6 +71,18 @@ object FlyingCd {
 
     private const val HANDOFF_START = 0.86f
 
+    /** Turning speed of the mini-player CD (rememberCdRotation: one turn in 8 s). */
+    private const val DEGREES_PER_SECOND = 45f
+
+    /** Set at the hand-off: the mini-player CD continues from this angle (degrees), then the value is cleared. */
+    @Volatile var angleOverride: Float = Float.NaN
+
+    fun takeAngleOverride(): Float {
+        val a = angleOverride
+        if (!a.isNaN()) angleOverride = Float.NaN
+        return a
+    }
+
     /**
      * true  = album page opens first, then a disc rolls into the mini player from the side, then the song starts.
      * false = the older style: the CD flies from the tapped cover to the mini player.
@@ -261,7 +273,8 @@ object FlyingCd {
                 val d = endD.toInt().coerceAtLeast(8)
                 val cd = makeCd(loadBitmap(activity, model, d), d, holeColor)
                 val vX = FrameLayout(activity)
-                vX.addView(ImageView(activity).apply { setImageBitmap(cd) }, FrameLayout.LayoutParams(d, d))
+                val disc = ImageView(activity).apply { setImageBitmap(cd) }
+                vX.addView(disc, FrameLayout.LayoutParams(d, d))
                 val left = (target.x - d / 2f).toInt()
                 val top = (target.y - d / 2f).toInt()
                 decor.addView(vX, FrameLayout.LayoutParams(d, d).apply { leftMargin = left; topMargin = top })
@@ -275,10 +288,15 @@ object FlyingCd {
                     .setDuration(SLIDE_MS).setInterpolator(DecelerateInterpolator(1.8f)).start()
                 DiagnosticLogger.note("FLYCD slide-in started (render-thread view)")
 
-                // Parked in the slot until the player shows the new cover, then hand over to the real CD.
+                // Parked in the slot until the song starts. From that moment the disc turns, starting from the angle
+                // it landed at, at the same speed as the mini-player CD.
                 delay(SLIDE_MS)
                 kotlinx.coroutines.withTimeoutOrNull(3500L) { playbackStarted.await() }
-                delay(380)
+                val spinStart = android.os.SystemClock.uptimeMillis()
+                disc.animate().rotation(3600f).setDuration(80_000L).setInterpolator(LinearInterpolator()).start()
+                delay(380) // the mini player cross-fades its cover for ~300 ms
+                // The real CD carries on from exactly the angle the flying one has reached, so nothing jumps.
+                angleOverride = ((android.os.SystemClock.uptimeMillis() - spinStart) / 1000f * DEGREES_PER_SECOND) % 360f
                 vX.animate().alpha(0f).setDuration(160).setInterpolator(LinearInterpolator()).start()
                 miniFade.snapTo(0f)
                 miniFade.animateTo(

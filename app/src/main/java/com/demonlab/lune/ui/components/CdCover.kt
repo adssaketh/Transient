@@ -31,6 +31,9 @@ fun rememberCdRotation(active: Boolean, secondsPerTurn: Float = 8f): State<Float
         var last = withFrameNanos { it }
         while (true) {
             val now = withFrameNanos { it }
+            // The flying CD hands over the angle it has reached, so this CD carries on turning from the same place.
+            val handedOver = FlyingCd.takeAngleOverride()
+            if (!handedOver.isNaN()) angle.floatValue = handedOver
             angle.floatValue = (angle.floatValue + (now - last) / 1_000_000_000f * (360f / secondsPerTurn)) % 360f
             last = now
         }

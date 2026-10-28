@@ -155,7 +155,15 @@ class AudioThumbnailFetcher(
             if (!filePath.isNullOrBlank()) {
                 val file = java.io.File(filePath)
                 if (file.exists() && file.canRead()) {
-                    val audioFile = org.jaudiotagger.audio.AudioFileIO.read(file)
+                    if (filePath!!.endsWith(".wav", ignoreCase = true)) {
+                        // The light reader finds the picture inside the WAV and decodes it straight from the file.
+                        val lookup = WavTags.findPicture(file)
+                        if (lookup.handled) {
+                            val pic = lookup.picture ?: return null
+                            return decodeRegion(file, pic.offset, pic.length)
+                        }
+                    }
+                    val audioFile = TagReader.read(file)
                     val artwork = audioFile.tag?.firstArtwork?.binaryData
                     if (artwork != null && artwork.isNotEmpty()) return decode(artwork)
                 }
@@ -166,6 +174,27 @@ class AudioThumbnailFetcher(
             // a huge tag: skip it
         }
         return null
+    }
+
+    /** Decodes a picture stored inside [file], shrinking it while reading, without loading it into memory first. */
+    private fun decodeRegion(file: java.io.File, offset: Long, length: Long): FetchResult? {
+        val reqW = options.size.width.pxOrElse { 1024 }
+        val reqH = options.size.height.pxOrElse { 1024 }
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        FileRegionInputStream(file, offset, length).use { BitmapFactory.decodeStream(it, null, bounds) }
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+        var sample = 1
+        while (bounds.outWidth / (sample * 2) >= reqW && bounds.outHeight / (sample * 2) >= reqH) sample *= 2
+        val bitmap = runCatching {
+            FileRegionInputStream(file, offset, length).use {
+                BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = sample })
+            }
+        }.getOrNull() ?: return null
+        return DrawableResult(
+            drawable = bitmap.toDrawable(context.resources),
+            isSampled = sample > 1,
+            dataSource = DataSource.DISK
+        )
     }
 
     /** Decodes [bytes], shrinking to roughly the requested size so album grids stay light on memory. */
