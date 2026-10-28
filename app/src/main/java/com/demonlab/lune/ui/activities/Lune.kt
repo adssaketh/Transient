@@ -829,6 +829,9 @@ fun MainScreen(
         playbackManager.getSortedList(filteredSongs, activeSortOption, activeIsSortAscending, activeIsCaseSensitive)
     }
 
+    val flyHoleColor = MaterialTheme.colorScheme.surface.toArgb()
+    val albumTapJob = remember { arrayOfNulls<kotlinx.coroutines.Job>(1) }
+
     // Tapping an album only opens its page; nothing starts playing until a song is tapped.
     val onAlbumTapped: (Album) -> Unit = { album -> selectedAlbum = album }
 
