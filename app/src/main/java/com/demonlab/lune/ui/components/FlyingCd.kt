@@ -14,6 +14,7 @@ import android.graphics.drawable.BitmapDrawable
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewOutlineProvider
+import android.view.animation.DecelerateInterpolator
 import android.view.animation.LinearInterpolator
 import android.widget.FrameLayout
 import android.widget.ImageView
@@ -63,13 +64,26 @@ object FlyingCd {
     val miniAlpha = mutableFloatStateOf(1f)
 
     /** Delays (ms after the tap). The album page waits until the CD has cleared the cover. */
-    const val PLAY_DELAY_MS = 150L // the flight runs on the render thread, so playback can start early
+    /** Order of events: the CD flies, then the album page opens, then playback starts. */
+    const val DETAIL_OPEN_MS = 350L // time the album page needs to slide in before playback starts
     @Volatile var detailDelayMs = 260L // set by start(): when the CD has cleared the cover
     const val DURATION_MS = 820L
 
     private const val HANDOFF_START = 0.86f
+
+    /**
+     * true  = album page opens first, then a disc rolls into the mini player from the side, then the song starts.
+     * false = the older style: the CD flies from the tapped cover to the mini player.
+     */
+    const val USE_SLIDE_IN = true
+    const val SLIDE_MS = 480L
+    const val SLIDE_FROM_RIGHT = true // false = the disc rolls in from the left
     private val easing = CubicBezierEasing(0.4f, 0f, 0.2f, 1f)
     private val miniFade = Animatable(1f)
+    @Volatile private var playbackStarted = kotlinx.coroutines.CompletableDeferred<Unit>()
+
+    /** Called by the tap handler right after playback has been started, so the CD knows the player shows the new cover. */
+    fun notifyPlaybackStarted() { playbackStarted.complete(Unit) }
     private var job: Job? = null
 
     private fun Context.asActivity(): Activity? {
@@ -122,6 +136,7 @@ object FlyingCd {
         detailDelayMs = (tClear * DURATION_MS).toLong() + 40L
 
         job?.cancel()
+        playbackStarted = kotlinx.coroutines.CompletableDeferred()
         miniAlpha.floatValue = 0f
         job = scope.launch {
             var container: View? = null
@@ -195,24 +210,24 @@ object FlyingCd {
                 vY.animate().translationY(dy).setDuration(d).setInterpolator(iy).start()
                 vS.animate().scaleX(endScale).scaleY(endScale).setDuration(d).setInterpolator(iScale).start()
                 vR.animate().rotation(540f).setDuration(d).setInterpolator(iSpin).start()
-                img.animate().alpha(0f)
-                    .setStartDelay((HANDOFF_START * d).toLong())
-                    .setDuration(((1f - HANDOFF_START) * d).toLong())
-                    .setInterpolator(LinearInterpolator()).start()
                 coverView?.animate()?.alpha(0f)
                     ?.setStartDelay((tClear * d).toLong())?.setDuration(90)
                     ?.setInterpolator(LinearInterpolator())?.start()
                 DiagnosticLogger.note("FLYCD started (distance=${dist.toInt()}px, render-thread views)")
 
-                // Cross-fade into the real mini-player CD while the flying one fades out.
-                delay((HANDOFF_START * d).toLong())
+                // The CD lands and stays parked on the mini player while the album page opens and playback
+                // starts. Once the player shows the new cover, cross-fade into the real mini-player CD.
+                delay(d)
+                kotlinx.coroutines.withTimeoutOrNull(3500L) { playbackStarted.await() }
+                delay(380) // the mini player cross-fades its cover for ~300 ms
+                img.animate().alpha(0f).setDuration(160).setInterpolator(LinearInterpolator()).start()
                 miniFade.snapTo(0f)
                 miniFade.animateTo(
                     1f,
-                    tween(((1f - HANDOFF_START) * d).toInt(), easing = LinearEasing),
+                    tween(160, easing = LinearEasing),
                     block = { miniAlpha.floatValue = value }
                 )
-                delay(60)
+                delay(40)
             } catch (t: kotlinx.coroutines.CancellationException) {
                 throw t
             } catch (t: Throwable) {
@@ -220,6 +235,64 @@ object FlyingCd {
             } finally {
                 container?.let { decor.removeView(it) }
                 coverView?.let { decor.removeView(it) }
+                miniAlpha.floatValue = 1f
+            }
+        }
+        return true
+    }
+
+    /**
+     * Rolls a disc with the album's cover into the mini-player's CD slot from the side of the screen. The real
+     * mini-player CD is hidden meanwhile. Returns false (and does nothing) when the mini player is not on screen.
+     * The caller starts playback when the disc lands and then calls [notifyPlaybackStarted].
+     */
+    fun slideIn(context: Context, scope: CoroutineScope, model: Any?, holeColor: Int): Boolean {
+        val activity = context.asActivity() ?: return false
+        val target = targetCenter
+        val endD = targetDiameter
+        if (target == null || endD <= 0f) { DiagnosticLogger.note("FLYCD slide-in skipped: mini player not on screen"); return false }
+        job?.cancel()
+        playbackStarted = kotlinx.coroutines.CompletableDeferred()
+        miniAlpha.floatValue = 0f
+        job = scope.launch {
+            var container: View? = null
+            val decor = activity.window.decorView as ViewGroup
+            try {
+                val d = endD.toInt().coerceAtLeast(8)
+                val cd = makeCd(loadBitmap(activity, model, d), d, holeColor)
+                val vX = FrameLayout(activity)
+                vX.addView(ImageView(activity).apply { setImageBitmap(cd) }, FrameLayout.LayoutParams(d, d))
+                val left = (target.x - d / 2f).toInt()
+                val top = (target.y - d / 2f).toInt()
+                decor.addView(vX, FrameLayout.LayoutParams(d, d).apply { leftMargin = left; topMargin = top })
+                container = vX
+
+                // Start fully outside the screen; roll (translate and turn together) to the slot.
+                val offset = if (SLIDE_FROM_RIGHT) (decor.width - left).toFloat() else -(left + d).toFloat()
+                vX.translationX = offset
+                vX.rotation = offset / (d / 2f) * (180f / Math.PI.toFloat())
+                vX.animate().translationX(0f).rotation(0f)
+                    .setDuration(SLIDE_MS).setInterpolator(DecelerateInterpolator(1.8f)).start()
+                DiagnosticLogger.note("FLYCD slide-in started (render-thread view)")
+
+                // Parked in the slot until the player shows the new cover, then hand over to the real CD.
+                delay(SLIDE_MS)
+                kotlinx.coroutines.withTimeoutOrNull(3500L) { playbackStarted.await() }
+                delay(380)
+                vX.animate().alpha(0f).setDuration(160).setInterpolator(LinearInterpolator()).start()
+                miniFade.snapTo(0f)
+                miniFade.animateTo(
+                    1f,
+                    tween(160, easing = LinearEasing),
+                    block = { miniAlpha.floatValue = value }
+                )
+                delay(40)
+            } catch (t: kotlinx.coroutines.CancellationException) {
+                throw t
+            } catch (t: Throwable) {
+                DiagnosticLogger.note("FLYCD slide-in failed: ${t.javaClass.simpleName}: ${t.message}")
+            } finally {
+                container?.let { decor.removeView(it) }
                 miniAlpha.floatValue = 1f
             }
         }

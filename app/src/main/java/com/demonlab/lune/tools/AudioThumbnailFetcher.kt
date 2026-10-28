@@ -16,6 +16,10 @@ import coil.fetch.FetchResult
 import coil.fetch.Fetcher
 import coil.request.Options
 import coil.size.pxOrElse
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.sync.withPermit
 
 class AudioThumbnailFetcher(
     private val uri: Uri,
@@ -23,7 +27,9 @@ class AudioThumbnailFetcher(
     private val context: Context
 ) : Fetcher {
 
-    override suspend fun fetch(): FetchResult? {
+    override suspend fun fetch(): FetchResult? = artGate.withPermit { fetchLimited() }
+
+    private suspend fun fetchLimited(): FetchResult? {
         // "Prefer embedded art" (default): the picture stored inside THIS song's file always wins.
         // Android's own thumbnail comes second because it can be an album-level or folder-level image
         // (e.g. a cover.jpg shared by everything in a folder), which made different songs and albums
@@ -41,7 +47,7 @@ class AudioThumbnailFetcher(
      * Finds another track with the same album name that has embedded art and uses that picture.
      * The donor track is remembered per album so the other tracks of the album resolve instantly.
      */
-    private fun albumSiblingArt(): FetchResult? {
+    private suspend fun albumSiblingArt(): FetchResult? {
         if (uri.scheme != "content") return null
         val id = runCatching { android.content.ContentUris.parseId(uri) }.getOrNull() ?: return null
         val collection = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
@@ -55,7 +61,11 @@ class AudioThumbnailFetcher(
         val album = albumName?.trim()
         if (album.isNullOrEmpty() || album.equals("<unknown>", ignoreCase = true) || album.equals("unknown", ignoreCase = true)) return null
         val key = album.lowercase()
+        // Only one track per album searches its siblings; the others wait here and then use the remembered answer.
+        return albumLocks.computeIfAbsent(key) { Mutex() }.withLock { siblingArtLocked(key, albumName!!, id, collection) }
+    }
 
+    private fun siblingArtLocked(key: String, albumName: String, id: Long, collection: Uri): FetchResult? {
         donorCache[key]?.let { donor ->
             return if (donor == Uri.EMPTY) null else (embeddedViaRetriever(donor) ?: embeddedViaTagger(donor))
         }
@@ -66,7 +76,7 @@ class AudioThumbnailFetcher(
                 collection,
                 arrayOf(MediaStore.Audio.Media._ID),
                 "${MediaStore.Audio.Media.ALBUM} = ? AND ${MediaStore.Audio.Media._ID} != ?",
-                arrayOf(albumName!!, id.toString()),
+                arrayOf(albumName, id.toString()),
                 "${MediaStore.Audio.Media.TRACK} ASC"
             )?.use { c ->
                 while (c.moveToNext() && siblings.size < 15) {
@@ -123,6 +133,8 @@ class AudioThumbnailFetcher(
             if (picture != null && picture.isNotEmpty()) return decode(picture)
         } catch (_: Exception) {
             // fall through to the tag reader
+        } catch (_: OutOfMemoryError) {
+            // a huge file: skip its picture instead of freezing the app
         } finally {
             runCatching { retriever.release() }
         }
@@ -150,6 +162,8 @@ class AudioThumbnailFetcher(
             }
         } catch (_: Exception) {
             // no usable embedded art
+        } catch (_: OutOfMemoryError) {
+            // a huge tag: skip it
         }
         return null
     }
@@ -178,6 +192,10 @@ class AudioThumbnailFetcher(
     private companion object {
         /** album name (lower-case) -> a track of that album known to carry artwork, or [Uri.EMPTY] if none does. */
         val donorCache = java.util.concurrent.ConcurrentHashMap<String, Uri>()
+        val albumLocks = java.util.concurrent.ConcurrentHashMap<String, Mutex>()
+
+        /** At most two embedded-art lookups run at the same time. */
+        val artGate = Semaphore(2)
     }
 
     class Factory(private val context: Context) : Fetcher.Factory<Uri> {

@@ -832,6 +832,7 @@ fun MainScreen(
     // Tapping an album in the album grid: play it, fly a CD to the mini player, and open the album page.
     // If that album is already playing it is only opened (no restart, no flight).
     val flyHoleColor = MaterialTheme.colorScheme.surface.toArgb()
+    val albumTapJob = remember { arrayOfNulls<kotlinx.coroutines.Job>(1) }
     val onAlbumTapped: (Album) -> Unit = { album ->
         val sortKey = "album_${album.name}"
         val albumSongs = visibleSongs.filter { it.album == album.name }.ifEmpty { album.songs }
@@ -852,16 +853,31 @@ fun MainScreen(
         val animationsOn = android.provider.Settings.Global.getFloat(
             context.contentResolver, android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f
         ) > 0f
-        val flying = !alreadyPlaying && orderedSongs.isNotEmpty() &&
-            com.demonlab.lune.ui.components.FlyingCd.start(context, coroutineScope, animationsOn, flyHoleColor)
-        if (flying) {
-            coroutineScope.launch {
-                delay(com.demonlab.lune.ui.components.FlyingCd.PLAY_DELAY_MS)
-                startPlayback()
+        albumTapJob[0]?.cancel() // a newer tap replaces any sequence still waiting
+        val fx = com.demonlab.lune.ui.components.FlyingCd
+        if (fx.USE_SLIDE_IN) {
+            // 1) the album page opens, 2) a disc rolls into the mini player, 3) the song starts when it lands.
+            selectedAlbum = album
+            if (!alreadyPlaying && orderedSongs.isNotEmpty()) {
+                albumTapJob[0] = coroutineScope.launch {
+                    delay(fx.DETAIL_OPEN_MS) // let the page slide in before anything else moves
+                    val sliding = animationsOn &&
+                        fx.slideIn(context, coroutineScope, album.coverUrl ?: album.albumArtUri, flyHoleColor)
+                    if (sliding) delay(fx.SLIDE_MS)
+                    startPlayback()
+                    fx.notifyPlaybackStarted()
+                }
             }
-            coroutineScope.launch {
-                delay(com.demonlab.lune.ui.components.FlyingCd.detailDelayMs)
+        } else if (!alreadyPlaying && orderedSongs.isNotEmpty() &&
+            fx.start(context, coroutineScope, animationsOn, flyHoleColor)
+        ) {
+            // 1) the CD flies, 2) the album page opens, 3) playback starts.
+            albumTapJob[0] = coroutineScope.launch {
+                delay(com.demonlab.lune.ui.components.FlyingCd.DURATION_MS)
                 selectedAlbum = album
+                delay(com.demonlab.lune.ui.components.FlyingCd.DETAIL_OPEN_MS)
+                startPlayback()
+                com.demonlab.lune.ui.components.FlyingCd.notifyPlaybackStarted()
             }
         } else {
             selectedAlbum = album
