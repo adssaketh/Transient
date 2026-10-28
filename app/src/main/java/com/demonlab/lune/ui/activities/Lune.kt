@@ -829,58 +829,27 @@ fun MainScreen(
         playbackManager.getSortedList(filteredSongs, activeSortOption, activeIsSortAscending, activeIsCaseSensitive)
     }
 
-    // Tapping an album in the album grid: play it, fly a CD to the mini player, and open the album page.
-    // If that album is already playing it is only opened (no restart, no flight).
-    val flyHoleColor = MaterialTheme.colorScheme.surface.toArgb()
-    val albumTapJob = remember { arrayOfNulls<kotlinx.coroutines.Job>(1) }
-    val onAlbumTapped: (Album) -> Unit = { album ->
-        val sortKey = "album_${album.name}"
-        val albumSongs = visibleSongs.filter { it.album == album.name }.ifEmpty { album.songs }
-        val orderedSongs = playbackManager.getSortedList(
-            albumSongs,
-            settingsManager.getSortOption(sortKey),
-            settingsManager.getIsSortAscending(sortKey)
-        )
-        val alreadyPlaying = currentSong != null && albumSongs.any { it.id == currentSong.id }
-        val startPlayback = {
-            if (orderedSongs.isNotEmpty() && !alreadyPlaying) {
-                val first = if (playbackManager.isShuffle) orderedSongs.random() else orderedSongs[0]
-                playbackManager.play(first, orderedSongs, album.id, category = "ALBUMS")
-                onCurrentSongChange(first)
-                onIsPlayingChange(true)
-            }
-        }
+    // Tapping an album only opens its page; nothing starts playing until a song is tapped.
+    val onAlbumTapped: (Album) -> Unit = { album -> selectedAlbum = album }
+
+    // Playing a song from an album page: when that song comes from a different album than the current one, a disc with
+    // its cover first rolls into the mini player and the song starts when the disc lands. Same album (or the mini
+    // player is not on screen): the song simply starts.
+    val playSongWithDisc: (Song, () -> Unit) -> Unit = { song, startPlayback ->
+        albumTapJob[0]?.cancel() // a newer tap replaces any sequence still waiting
+        val fx = com.demonlab.lune.ui.components.FlyingCd
         val animationsOn = android.provider.Settings.Global.getFloat(
             context.contentResolver, android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f
         ) > 0f
-        albumTapJob[0]?.cancel() // a newer tap replaces any sequence still waiting
-        val fx = com.demonlab.lune.ui.components.FlyingCd
-        if (fx.USE_SLIDE_IN) {
-            // 1) the album page opens, 2) a disc rolls into the mini player, 3) the song starts when it lands.
-            selectedAlbum = album
-            if (!alreadyPlaying && orderedSongs.isNotEmpty()) {
-                albumTapJob[0] = coroutineScope.launch {
-                    delay(fx.DETAIL_OPEN_MS) // let the page slide in before anything else moves
-                    val sliding = animationsOn &&
-                        fx.slideIn(context, coroutineScope, album.coverUrl ?: album.albumArtUri, flyHoleColor)
-                    if (sliding) delay(fx.SLIDE_MS)
-                    startPlayback()
-                    fx.notifyPlaybackStarted()
-                }
-            }
-        } else if (!alreadyPlaying && orderedSongs.isNotEmpty() &&
-            fx.start(context, coroutineScope, animationsOn, flyHoleColor)
-        ) {
-            // 1) the CD flies, 2) the album page opens, 3) playback starts.
+        val coverChanges = currentSong != null && currentSong.albumId != song.albumId
+        if (fx.USE_SLIDE_IN && animationsOn && coverChanges) {
             albumTapJob[0] = coroutineScope.launch {
-                delay(com.demonlab.lune.ui.components.FlyingCd.DURATION_MS)
-                selectedAlbum = album
-                delay(com.demonlab.lune.ui.components.FlyingCd.DETAIL_OPEN_MS)
+                val sliding = fx.slideIn(context, coroutineScope, song.coverUrl ?: song.uri, flyHoleColor)
+                if (sliding) delay(fx.SLIDE_MS)
                 startPlayback()
-                com.demonlab.lune.ui.components.FlyingCd.notifyPlaybackStarted()
+                fx.notifyPlaybackStarted()
             }
         } else {
-            selectedAlbum = album
             startPlayback()
         }
     }
@@ -2501,9 +2470,11 @@ fun MainScreen(
                     onBack = { selectedAlbum = null },
                     onSongClick = { song, sortedList ->
                         val cat = if (selectedFolder == "GENRES") "GENRES" else if (selectedFolder == "ARTISTS") "ARTISTS" else "ALBUMS"
-                        playbackManager.play(song, sortedList, albumRender.id, category = cat)
-                        onCurrentSongChange(song)
-                        onIsPlayingChange(true)
+                        playSongWithDisc(song) {
+                            playbackManager.play(song, sortedList, albumRender.id, category = cat)
+                            onCurrentSongChange(song)
+                            onIsPlayingChange(true)
+                        }
                     },
                     onOptionsClick = { song ->
                         optionsSong = song

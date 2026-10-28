@@ -32,6 +32,9 @@ object HiFiFileInfo {
     private var cache: HashMap<String, HiFiInfo>? = null
     private val seen = HashSet<String>()
     private var dirty = false
+    private var hits = 0
+    private var misses = 0
+    private var scanStartMs = 0L
 
     private fun loadLocked(context: Context): HashMap<String, HiFiInfo> {
         cache?.let { return it }
@@ -62,14 +65,20 @@ object HiFiFileInfo {
 
     /** Call at the start of a full scan. */
     fun beginScan() {
-        synchronized(lock) { seen.clear() }
+        synchronized(lock) {
+            seen.clear()
+            hits = 0
+            misses = 0
+            scanStartMs = android.os.SystemClock.elapsedRealtime()
+        }
     }
 
     fun get(context: Context, file: File, extension: String): HiFiInfo {
         val key = "${file.absolutePath}|${file.length()}|${file.lastModified()}"
         synchronized(lock) {
             seen.add(key)
-            loadLocked(context)[key]?.let { return it }
+            loadLocked(context)[key]?.let { hits++; return it }
+            misses++
         }
         val info = read(file, extension)
         synchronized(lock) {
@@ -82,6 +91,12 @@ object HiFiFileInfo {
     /** Call at the end of a full scan: saves new entries and forgets files that are gone. */
     fun flush(context: Context) {
         synchronized(lock) {
+            val rt = Runtime.getRuntime()
+            DiagnosticLogger.note(
+                "SCAN tags: $hits from the saved cache, $misses read from files, " +
+                    "${android.os.SystemClock.elapsedRealtime() - scanStartMs} ms | heap " +
+                    "${(rt.totalMemory() - rt.freeMemory()) / 1_048_576} of ${rt.maxMemory() / 1_048_576} MB"
+            )
             val map = loadLocked(context)
             if (map.keys.retainAll(seen)) dirty = true
             if (!dirty) return

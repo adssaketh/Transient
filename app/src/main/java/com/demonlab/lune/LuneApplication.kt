@@ -28,7 +28,8 @@ class LuneApplication : Application(), ImageLoaderFactory {
             }
             .memoryCache {
                 coil.memory.MemoryCache.Builder(this)
-                    .maxSizePercent(0.25)
+                    // A fixed cap: a percentage of the (now larger) heap let the cover cache grow to ~128 MB.
+                    .maxSizeBytes(64 * 1024 * 1024)
                     .build()
             }
             .crossfade(true)

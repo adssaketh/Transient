@@ -27,7 +27,7 @@ android {
         applicationId = "com.transientplayer.app"
         minSdk = 24
         targetSdk = 37
-        versionCode = 17
+        versionCode = 18
         versionName = "1.0.0 Alpha"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
