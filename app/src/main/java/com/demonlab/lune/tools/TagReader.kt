@@ -14,5 +14,14 @@ import org.jaudiotagger.audio.AudioFileIO
 object TagReader {
     private val lock = Any()
 
-    fun read(file: File): AudioFile = synchronized(lock) { AudioFileIO.read(file) }
+    fun read(file: File): AudioFile = synchronized(lock) {
+        try {
+            AudioFileIO.read(file)
+        } catch (e: OutOfMemoryError) {
+            // Out of memory is an Error, which the callers' "catch Exception" would not stop: it would end the whole scan
+            // (and the app). Turn it into an ordinary failure for this one file.
+            DiagnosticLogger.note("TAGREAD out of memory on ${file.name}")
+            throw java.io.IOException("Out of memory while reading the tags of ${file.name}", e)
+        }
+    }
 }
