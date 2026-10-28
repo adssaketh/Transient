@@ -226,10 +226,13 @@ class MusicService : MediaLibraryService() {
                 pause()
             }
             AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
-                // Transient loss (incoming call, etc): pause, try to resume later
+                // Transient loss (incoming call, video in another app, ...): pause but keep the notification, and
+                // resume when focus returns.
+                if (isPlaying()) {
+                    wasPlayingBeforeLoss = true // a repeated loss event must not forget this
+                }
                 hasAudioFocus = false
-                wasPlayingBeforeLoss = isPlaying()
-                pause()
+                if (wasPlayingBeforeLoss) pauseForTransientFocusLoss() else pause()
             }
             AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
                 if (usbEngine != null && usbEngine?.plainOutput != true) {
@@ -258,9 +261,38 @@ class MusicService : MediaLibraryService() {
         }
     }
 
+    /** Like pause(), but for a short interruption: no stop timer, and the notification stays as a foreground one. */
+    private fun pauseForTransientFocusLoss() {
+        DiagnosticLogger.note("PAUSE (transient focus loss)")
+        pauseTimeoutJob?.cancel()
+        try {
+            mediaPlayer?.pause()
+            secondaryPlayer?.pause()
+            usbEngine?.pause()
+        } catch (e: Throwable) {
+            Log.e("MusicService", "Error pausing player on transient focus loss", e)
+        }
+        releaseWakeLock()
+        PlaybackManager.getInstance(applicationContext).updatePlayingState(false)
+        updatePlaybackState()
+        stopWidgetUpdateTimer()
+        updateWidget()
+        serviceScope.launch {
+            val song = currentSong() ?: return@launch
+            val art = fetchAlbumArt(song)
+            showNotification(song, false, art, keepForeground = true)
+        }
+    }
+
+    /** The audio output changed (Bluetooth connected or lost, DAC plugged...): forget the cached focus so the next play asks again. */
+    fun onAudioOutputDeviceChanged() {
+        hasAudioFocus = false
+    }
+
     companion object {
         const val ACTION_PLAY = "com.demonlab.lune.ACTION_PLAY"
         const val ACTION_PAUSE = "com.demonlab.lune.ACTION_PAUSE"
+        const val ACTION_PLAY_PAUSE = "com.demonlab.lune.ACTION_PLAY_PAUSE"
         const val ACTION_PREVIOUS = "com.demonlab.lune.ACTION_PREVIOUS"
         const val ACTION_NEXT = "com.demonlab.lune.ACTION_NEXT"
         const val ACTION_SHUFFLE = "com.demonlab.lune.ACTION_SHUFFLE"
@@ -320,8 +352,8 @@ class MusicService : MediaLibraryService() {
         }
     }
 
-    private fun requestAudioFocus(): Boolean {
-        if (hasAudioFocus) return true
+    private fun requestAudioFocus(force: Boolean = false): Boolean {
+        if (hasAudioFocus && !force) return true
 
         val result = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val request = audioFocusRequest ?: AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
@@ -394,13 +426,13 @@ class MusicService : MediaLibraryService() {
                     for (i in 0 until numberOfBands) {
                         try {
                             setBandLevel(i.toShort(), storedBands[i].toShort())
-                        } catch (e: Exception) { e.printStackTrace() }
+                        } catch (e: Throwable) { e.printStackTrace() }
                     }
                 }
                 enabled = settingsManager.isEqEnabled
             }
             if (isSecondary) secondaryEqualizer = eq else equalizer = eq
-        } catch (e: Exception) { e.printStackTrace() }
+        } catch (e: Throwable) { e.printStackTrace() }
 
         try {
             val bb = BassBoost(0, sessionId).apply {
@@ -408,7 +440,7 @@ class MusicService : MediaLibraryService() {
                 enabled = settingsManager.isBassBoostEnabled
             }
             if (isSecondary) secondaryBassBoost = bb else bassBoost = bb
-        } catch (e: Exception) { e.printStackTrace() }
+        } catch (e: Throwable) { e.printStackTrace() }
 
         try {
             val virt = Virtualizer(0, sessionId).apply {
@@ -419,7 +451,7 @@ class MusicService : MediaLibraryService() {
                 }
             }
             if (isSecondary) secondaryVirtualizer = virt else virtualizer = virt
-        } catch (e: Exception) { e.printStackTrace() }
+        } catch (e: Throwable) { e.printStackTrace() }
 
         try {
             if (isSecondary) {
@@ -440,7 +472,7 @@ class MusicService : MediaLibraryService() {
                 }
                 dynamicsEffect = dyn
             }
-        } catch (e: Exception) { e.printStackTrace() }
+        } catch (e: Throwable) { e.printStackTrace() }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -451,6 +483,7 @@ class MusicService : MediaLibraryService() {
         when (action) {
             ACTION_PLAY -> resume()
             ACTION_PAUSE -> pause()
+            ACTION_PLAY_PAUSE -> if (isPlaying()) pause() else resume()
             ACTION_PREVIOUS -> pm.playPreviousFromService()
             ACTION_NEXT -> pm.playNextFromService()
             ACTION_SHUFFLE -> {
@@ -515,7 +548,7 @@ class MusicService : MediaLibraryService() {
         val shouldStopOnClose = settingsManager.stopOnTaskRemoved
         val playing = isPlaying()
         Log.i("MusicService", "onTaskRemoved triggered: shouldStopOnClose=$shouldStopOnClose, isPlaying=$playing")
-        if (shouldStopOnClose) {
+        if (shouldStopOnClose || !playing) {
             isNotificationDismissed = true
             pauseTimeoutJob?.cancel()
             try {
@@ -562,13 +595,13 @@ class MusicService : MediaLibraryService() {
     }
 
     override fun onUpdateNotification(session: MediaSession, startInForegroundRequired: Boolean) {
-        if (!isPlaying() && isNotificationDismissed) {
+        if (!isPlaying() && !wasPlayingBeforeLoss && isNotificationDismissed) {
             return
         }
         val pm = PlaybackManager.getInstance(this)
         val song = pm.currentSong
         if (song != null) {
-            showNotification(song, isPlaying())
+            showNotification(song, isPlaying(), keepForeground = wasPlayingBeforeLoss)
         }
     }
 
@@ -787,6 +820,23 @@ class MusicService : MediaLibraryService() {
             return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
         }
 
+        override fun onMediaButtonEvent(
+            session: MediaSession,
+            controllerInfo: MediaSession.ControllerInfo,
+            intent: Intent
+        ): Boolean {
+            val keyEvent: android.view.KeyEvent? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                intent.getParcelableExtra(Intent.EXTRA_KEY_EVENT, android.view.KeyEvent::class.java)
+            } else {
+                @Suppress("DEPRECATION")
+                intent.getParcelableExtra(Intent.EXTRA_KEY_EVENT)
+            }
+            if (keyEvent != null && handleMediaKeyEvent(keyEvent)) {
+                return true
+            }
+            return super.onMediaButtonEvent(session, controllerInfo, intent)
+        }
+
         override fun onConnect(
             session: MediaSession,
             controller: MediaSession.ControllerInfo
@@ -796,12 +846,52 @@ class MusicService : MediaLibraryService() {
                 .add(SessionCommand(ACTION_FAVORITE, Bundle.EMPTY))
                 .build()
             val customLayout = buildCustomLayout()
+            val playerCommands = MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS.buildUpon()
+                .addAll(
+                    androidx.media3.common.Player.COMMAND_PLAY_PAUSE,
+                    androidx.media3.common.Player.COMMAND_PREPARE,
+                    androidx.media3.common.Player.COMMAND_STOP,
+                    androidx.media3.common.Player.COMMAND_SEEK_TO_DEFAULT_POSITION,
+                    androidx.media3.common.Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM,
+                    androidx.media3.common.Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM,
+                    androidx.media3.common.Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM,
+                    androidx.media3.common.Player.COMMAND_SEEK_TO_PREVIOUS,
+                    androidx.media3.common.Player.COMMAND_SEEK_TO_NEXT,
+                    androidx.media3.common.Player.COMMAND_SEEK_BACK,
+                    androidx.media3.common.Player.COMMAND_SEEK_FORWARD
+                )
+                .build()
             return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
                 .setAvailableSessionCommands(sessionCommands)
-                .setAvailablePlayerCommands(MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS)
+                .setAvailablePlayerCommands(playerCommands)
                 .setCustomLayout(customLayout)
                 .setMediaButtonPreferences(customLayout)
                 .build()
+        }
+    }
+
+    /** Headset and earbud keys (play/pause, next, previous, stop, fast-forward, rewind). */
+    fun handleMediaKeyEvent(keyEvent: android.view.KeyEvent): Boolean {
+        val pm = PlaybackManager.getInstance(applicationContext)
+        val isDown = keyEvent.action == android.view.KeyEvent.ACTION_DOWN && keyEvent.repeatCount == 0
+        return when (keyEvent.keyCode) {
+            android.view.KeyEvent.KEYCODE_MEDIA_PLAY -> { if (isDown) resume(); true }
+            android.view.KeyEvent.KEYCODE_MEDIA_PAUSE, android.view.KeyEvent.KEYCODE_MEDIA_STOP -> { if (isDown) pause(); true }
+            android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, android.view.KeyEvent.KEYCODE_HEADSETHOOK -> {
+                if (isDown) { if (isPlaying()) pause() else resume() }
+                true
+            }
+            android.view.KeyEvent.KEYCODE_MEDIA_NEXT -> { if (isDown) pm.playNextFromService(); true }
+            android.view.KeyEvent.KEYCODE_MEDIA_PREVIOUS -> { if (isDown) pm.playPreviousFromService(); true }
+            android.view.KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> {
+                if (isDown) seekTo((currentPosition() + 10000).coerceAtMost(duration()))
+                true
+            }
+            android.view.KeyEvent.KEYCODE_MEDIA_REWIND -> {
+                if (isDown) seekTo((currentPosition() - 10000).coerceAtLeast(0))
+                true
+            }
+            else -> false
         }
     }
 
@@ -890,7 +980,7 @@ class MusicService : MediaLibraryService() {
                     player.setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
                     return true
                 }
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 Log.w("MusicService", "openAssetFileDescriptor fallback failed for ${song.title}: ${e.message}")
             }
         }
@@ -902,7 +992,7 @@ class MusicService : MediaLibraryService() {
                     player.setDataSource(song.path)
                     return true
                 }
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 Log.w("MusicService", "song.path fallback failed for ${song.title}: ${e.message}")
             }
         }
@@ -915,7 +1005,7 @@ class MusicService : MediaLibraryService() {
                     player.setDataSource(uriPath)
                     return true
                 }
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 Log.w("MusicService", "uri.path fallback failed for ${song.title}: ${e.message}")
             }
         }
@@ -990,7 +1080,7 @@ class MusicService : MediaLibraryService() {
                                     params.pitch = pitch
                                     playbackParams = params
                                 }
-                            } catch (e: Exception) {}
+                            } catch (e: Throwable) {}
                         }
                         updatePlaybackState()
 
@@ -1003,7 +1093,7 @@ class MusicService : MediaLibraryService() {
                             PlaybackManager.getInstance(applicationContext).clearLyrics()
                             extractLyrics(song)
                         }
-                    } catch (e: Exception) {
+                    } catch (e: Throwable) {
                         Log.e("MusicService", "Error during onPrepared in playSong", e)
                     }
                 }
@@ -1182,7 +1272,7 @@ class MusicService : MediaLibraryService() {
                                 it.playbackParams = params
                             }
                         }
-                    } catch (e: Exception) {}
+                    } catch (e: Throwable) {}
                 }
 
                 secondaryPlayer?.start()
@@ -1385,7 +1475,7 @@ class MusicService : MediaLibraryService() {
 
     fun resume() {
         DiagnosticLogger.note("RESUME <- ${DiagnosticLogger.callers()}")
-        if (!requestAudioFocus()) {
+        if (!requestAudioFocus(force = true)) {
             if (resumeOnFocusGain) {
                 Log.d("MusicService", "Audio focus delayed; playback will resume when granted")
             } else {
@@ -1639,7 +1729,7 @@ class MusicService : MediaLibraryService() {
                                     params.pitch = pitch
                                     playbackParams = params
                                 }
-                            } catch (e: Exception) {}
+                            } catch (e: Throwable) {}
                         }
                         updatePlaybackState()
                         serviceScope.launch {
@@ -1650,7 +1740,7 @@ class MusicService : MediaLibraryService() {
                             extractLyrics(song)
                             updateWidget()
                         }
-                    } catch (e: Exception) {
+                    } catch (e: Throwable) {
                         Log.e("MusicService", "Error during onPrepared in restorePlayback", e)
                     }
                 }
@@ -1994,8 +2084,8 @@ class MusicService : MediaLibraryService() {
         return PlaybackManager.getInstance(this).currentSong
     }
 
-    private fun showNotification(song: Song, isPlaying: Boolean, art: android.graphics.Bitmap? = null) {
-        if (!isPlaying && isNotificationDismissed) {
+    private fun showNotification(song: Song, isPlaying: Boolean, art: android.graphics.Bitmap? = null, keepForeground: Boolean = false) {
+        if (!isPlaying && !keepForeground && isNotificationDismissed) {
             return
         }
 
@@ -2072,7 +2162,7 @@ class MusicService : MediaLibraryService() {
             .setLargeIcon(effectiveArt)
             .setContentTitle(song.title)
             .setContentText(song.artist)
-            .setOngoing(isPlaying)
+            .setOngoing(isPlaying || keepForeground)
             .setContentIntent(pendingIntent)
             .setDeleteIntent(getServicePendingIntent(ACTION_DISMISS))
             .setSilent(true)
@@ -2499,14 +2589,14 @@ class MusicService : MediaLibraryService() {
         try {
             equalizer?.setBandLevel(band, level)
             secondaryEqualizer?.setBandLevel(band, level)
-        } catch (e: Exception) { e.printStackTrace() }
+        } catch (e: Throwable) { e.printStackTrace() }
     }
 
     fun useEqPreset(presetIndex: Short) {
         try {
             equalizer?.usePreset(presetIndex)
             secondaryEqualizer?.usePreset(presetIndex)
-        } catch (e: Exception) { e.printStackTrace() }
+        } catch (e: Throwable) { e.printStackTrace() }
     }
 
     fun setBassBoostEnabled(enabled: Boolean, onBeforeDisable: (() -> Unit)? = null) {

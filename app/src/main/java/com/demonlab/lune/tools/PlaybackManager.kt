@@ -283,9 +283,11 @@ class PlaybackManager private constructor(private val context: Context) {
     private val audioDeviceCallback = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
         object : android.media.AudioDeviceCallback() {
             override fun onAudioDevicesAdded(addedDevices: Array<out AudioDeviceInfo>?) {
+                musicService?.onAudioOutputDeviceChanged()
                 updateAudioOutput()
             }
             override fun onAudioDevicesRemoved(removedDevices: Array<out AudioDeviceInfo>?) {
+                musicService?.onAudioOutputDeviceChanged()
                 updateAudioOutput()
             }
         }
