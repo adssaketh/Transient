@@ -301,6 +301,7 @@ class MusicService : MediaLibraryService() {
         }
         registerReceiver(becomingNoisyReceiver, IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY))
         registerUsbDetachReceiver()
+        startDacWatch()
 
         setShowNotificationForIdlePlayer(SHOW_NOTIFICATION_FOR_IDLE_PLAYER_NEVER)
         ensureMediaSession()
@@ -2320,6 +2321,32 @@ class MusicService : MediaLibraryService() {
         override fun onFailure(song: Song, reason: String) = fallBackToStandard(song, reason)
     }
 
+    private var dacWatchJob: Job? = null
+
+    /**
+     * A DAC plugged in while a song is already playing on the standard player: Transient claims the DAC, which silences
+     * Android's own USB route, so the song would stay silent until the next one. Once the DAC is ready (permission given),
+     * move the playing song to it at the same position. Checked every 1.5 s, and only does any work while a song plays.
+     */
+    private fun startDacWatch() {
+        if (dacWatchJob?.isActive == true) return
+        dacWatchJob = serviceScope.launch {
+            var readyTicks = 0
+            while (true) {
+                delay(1500)
+                val onStandard = usbEngine == null || usbEngine?.plainOutput == true
+                if (!isPlaying() || isCrossfading || !onStandard) { readyTicks = 0; continue }
+                val song = currentSong()
+                if (song == null || !shouldUseUsbEngine(song)) { readyTicks = 0; continue }
+                // Ready on two checks in a row, so the claim of the DAC has finished.
+                if (++readyTicks < 2) continue
+                readyTicks = 0
+                DiagnosticLogger.note("DAC ready while playing: moving '${song.title}' to the DAC")
+                restorePlayback(song, currentPosition().toLong(), true)
+            }
+        }
+    }
+
     private fun registerUsbDetachReceiver() {
         if (!UsbDacSupport.isSupported(this)) return
         val receiver = object : BroadcastReceiver() {
@@ -2357,6 +2384,7 @@ class MusicService : MediaLibraryService() {
         becomingNoisyReceiver?.let { unregisterReceiver(it) }
         usbDetachReceiver?.let { try { unregisterReceiver(it) } catch (_: Exception) {} }
         usbDetachReceiver = null
+        dacWatchJob?.cancel()
         effectTransitionJob?.cancel()
         spatialRampJob?.cancel()
         pauseTimeoutJob?.cancel()

@@ -197,6 +197,42 @@ fun SongOptionsBottomSheet(
                             Text(stringResource(R.string.play_next), color = blurColors.textColor)
                         }
                     }
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 1.dp)
+                            .bounceClick(),
+                        shape = RoundedCornerShape(4.dp),
+                        color = blurColors.itemContainerColor,
+                        border = blurColors.itemBorderColor?.let { BorderStroke(1.dp, it) }
+                    ) {
+                        ListItem(
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                            leadingContent = {
+                                Surface(
+                                    shape = CircleShape,
+                                    color = if (blurColors.hasBlur) blurColors.primaryTint.copy(alpha = 0.2f) else MaterialTheme.colorScheme.primaryContainer,
+                                    modifier = Modifier.size(40.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            Icons.AutoMirrored.Filled.PlaylistAdd,
+                                            contentDescription = null,
+                                            tint = if (blurColors.hasBlur) blurColors.primaryTint else MaterialTheme.colorScheme.onPrimaryContainer,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                }
+                            },
+                            modifier = Modifier.clickable {
+                                onDismiss()
+                                playbackManager.addToEndOfQueue(song)
+                                Toast.makeText(context, context.getString(R.string.add_to_queue) + ": ${song.title}", Toast.LENGTH_SHORT).show()
+                            }
+                        ) {
+                            Text(stringResource(R.string.add_to_queue), color = blurColors.textColor)
+                        }
+                    }
                 }
 
                 Surface(

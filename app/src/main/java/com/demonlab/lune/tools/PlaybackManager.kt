@@ -1472,6 +1472,24 @@ class PlaybackManager private constructor(private val context: Context) {
         }
     }
 
+    /** Adds [song] to the very end of the queue. A song that is already queued is left where it is. */
+    fun addToEndOfQueue(song: Song) {
+        val current = currentSong
+        if (current == null || activePlaylist.isEmpty()) {
+            play(song)
+            return
+        }
+        if (activePlaylist.any { it.id == song.id }) return
+        val mutable = activePlaylist.toMutableList()
+        mutable.add(song)
+        activePlaylist = mutable
+        if (isShuffle && shuffledIndices.isNotEmpty()) {
+            val mutableShuffle = shuffledIndices.toMutableList()
+            mutableShuffle.add(activePlaylist.size - 1) // the new song's index: it goes last in the shuffled order too
+            shuffledIndices = mutableShuffle
+        }
+    }
+
     fun reorderQueueForSong(song: Song, moveToFront: Boolean) {
         val current = currentSong ?: return
         if (moveToFront) {
