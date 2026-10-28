@@ -1,5 +1,7 @@
 package com.demonlab.lune.ui.player
 
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.boundsInRoot
 import com.demonlab.lune.ui.components.AuroraBackdrop
 import com.demonlab.lune.ui.components.rememberAuroraBackdrop
 import com.demonlab.lune.ui.components.glassSheen
@@ -2303,6 +2305,11 @@ fun MiniPlayer(
     // A round cover turns like an audio CD while the song plays and stops in place on pause.
     val cdAngle = com.demonlab.lune.ui.components.rememberCdRotation(coverSpin && isPlaying)
 
+    // The flying CD only lands while this mini player is on screen.
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        onDispose { com.demonlab.lune.ui.components.FlyingCd.targetCenter = null }
+    }
+
     val miniContext = LocalContext.current
     val blurContainerColorMini = if (isDarkTheme) Color.Black.copy(alpha = 0.25f) else Color.White.copy(alpha = 0.4f)
     val activePrimary = getControlsPrimaryColor(useCustomControlsColor, controlsColorPalette)
@@ -2492,6 +2499,13 @@ fun MiniPlayer(
         Box(
             modifier = Modifier
                 .size(70.dp)
+                // Where the flying CD should land, and hidden while it is still in the air.
+                .onGloballyPositioned { c ->
+                    val b = c.boundsInRoot()
+                    com.demonlab.lune.ui.components.FlyingCd.targetCenter = b.center
+                    com.demonlab.lune.ui.components.FlyingCd.targetDiameter = b.width * coverScale
+                }
+                .graphicsLayer { alpha = com.demonlab.lune.ui.components.FlyingCd.miniAlpha.floatValue }
                 .bounceClick(),
             contentAlignment = Alignment.Center
         ) {

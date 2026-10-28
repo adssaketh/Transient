@@ -262,6 +262,8 @@
     <string name="categories">Categories</string>
     <string name="edit_information">Edit Information</string>
     <string name="diagnostics">Diagnostics</string>
+    <string name="blur_smooth_mode">Smooth blur</string>
+    <string name="blur_smooth_mode_desc">Uses a light background blur that keeps scrolling and song changes smooth. Turn off for the full-strength blur.</string>
     <string name="crash_logs">Crash &amp; lag logs</string>
     <string name="crash_logs_desc">Saves reports when the app crashes, freezes or runs low on memory, plus a playback event trace. Reports stay on your phone until you share them. Turn this off to stop all logging.</string>
     <string name="logs_share">Share logs</string>

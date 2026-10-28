@@ -402,6 +402,15 @@ class SettingsManager(context: Context) {
             prefs.edit().putBoolean("is_blur_cinematic_mode", value).apply()
         }
 
+    /** Smooth blur: the full-screen background uses a tiny scaled-up cover instead of a heavy live blur. ON by default. */
+    private val _isBlurSmoothMode = mutableStateOf(prefs.getBoolean("is_blur_smooth_mode", true))
+    var isBlurSmoothMode: Boolean
+        get() = _isBlurSmoothMode.value
+        set(value) {
+            _isBlurSmoothMode.value = value
+            prefs.edit().putBoolean("is_blur_smooth_mode", value).apply()
+        }
+
     private val _isBlurControlsEnabled = mutableStateOf(prefs.getBoolean("is_blur_controls_enabled", false))
     var isBlurControlsEnabled: Boolean
         get() = _isBlurControlsEnabled.value

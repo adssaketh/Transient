@@ -1,5 +1,7 @@
 package com.demonlab.lune.ui.data
 
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.boundsInRoot
 import com.demonlab.lune.ui.components.FastScrollbarGrid
 import com.demonlab.lune.ui.utils.pinchToChangeColumns
 import android.net.Uri
@@ -56,7 +58,8 @@ fun AlbumGrid(
     isDarkTheme: Boolean = false,
     customActiveColor: Color? = null,
     activePlaylistId: Long? = null,
-    indexLetter: (Album) -> String = { it.name }
+    indexLetter: (Album) -> String = { it.name },
+    flyingCdSource: Boolean = false
 ) {
     val initialIndex = remember(activePlaylistId, albums) {
         if (activePlaylistId != null) {
@@ -104,7 +107,8 @@ fun AlbumGrid(
                         album = album,
                         onClick = { onAlbumClick(album) },
                         hasBlurBackground = hasBlurBackground,
-                        isPlaying = isPlaying
+                        isPlaying = isPlaying,
+                        recordFlightSource = flyingCdSource
                     )
                 }
             }
@@ -145,12 +149,15 @@ fun AlbumCard(
     album: Album,
     onClick: () -> Unit,
     hasBlurBackground: Boolean = false,
-    isPlaying: Boolean = false
+    isPlaying: Boolean = false,
+    recordFlightSource: Boolean = false
 ) {
     // Corner radius is a share of the tile width so a small tile looks like a scaled-down player cover
     // (a fixed 24dp turned 4-column tiles into blobby squircles).
     val cardShape = RoundedCornerShape(topStartPercent = 8, topEndPercent = 8, bottomStartPercent = 3, bottomEndPercent = 3)
     val coverShape = RoundedCornerShape(10.dp)
+    val flightDensity = androidx.compose.ui.platform.LocalDensity.current
+    val coverCoords = remember { arrayOfNulls<androidx.compose.ui.layout.LayoutCoordinates>(1) }
     val showYear = SettingsManager.getInstance(LocalContext.current).showAlbumYear
     val albumSubtitle = remember(album, showYear) { albumSubtitleWithYear(album, showYear) }
     androidx.compose.foundation.layout.BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
@@ -166,9 +173,22 @@ fun AlbumCard(
                 .fillMaxWidth()
                 .bounceClick()
                 .clip(cardShape)
-                .clickable(onClick = onClick)
+                .clickable(onClick = {
+                    if (recordFlightSource) {
+                        // Remember where this cover is on screen, for the flying-CD animation.
+                        val coords = coverCoords[0]
+                        if (coords != null && coords.isAttached) {
+                            com.demonlab.lune.ui.components.FlyingCd.pendingBounds = coords.boundsInRoot()
+                            com.demonlab.lune.ui.components.FlyingCd.pendingCornerPx = with(flightDensity) { 10.dp.toPx() }
+                            com.demonlab.lune.ui.components.FlyingCd.pendingModel = album.coverUrl ?: album.albumArtUri
+                        } else {
+                            com.demonlab.lune.ui.components.FlyingCd.pendingBounds = null
+                        }
+                    }
+                    onClick()
+                })
         ) {
-            Box {
+            Box(modifier = Modifier.onGloballyPositioned { coverCoords[0] = it }) {
                 Surface(
                     modifier = Modifier
                         .aspectRatio(1f)

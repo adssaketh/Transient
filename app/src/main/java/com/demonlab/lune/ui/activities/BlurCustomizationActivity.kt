@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ColorLens
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.*
 import com.demonlab.lune.ui.components.BouncySwitch
 import androidx.compose.runtime.*
@@ -85,6 +86,7 @@ fun BlurCustomizationScreen(
     val isBlurEnabled = settingsManager.isBlurEnabled
     val isBlurDarkMode = settingsManager.isBlurDarkMode
     val isBlurCinematicMode = settingsManager.isBlurCinematicMode
+    val isBlurSmoothMode = settingsManager.isBlurSmoothMode
     val isBlurLightMode = settingsManager.isBlurLightMode
     val isBlurControlsEnabled = settingsManager.isBlurControlsEnabled
     val hasBlurBackground = isBlurEnabled && ((isDarkTheme && isBlurDarkMode) || (!isDarkTheme && isBlurLightMode))
@@ -261,7 +263,7 @@ fun BlurCustomizationScreen(
                         headlineText = stringResource(R.string.blur_cinematic_mode),
                         supportingText = stringResource(R.string.blur_cinematic_mode_desc),
                         icon = Icons.Default.AutoAwesome,
-                        position = SectionPosition.LAST,
+                        position = SectionPosition.MIDDLE,
                         trailingContent = {
                             BouncySwitch(
                                 checked = isBlurCinematicMode,
@@ -272,6 +274,29 @@ fun BlurCustomizationScreen(
                                 thumbContent = {
                                     Icon(
                                         imageVector = if (isBlurCinematicMode) Icons.Default.Check else Icons.Default.Close,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(SwitchDefaults.IconSize)
+                                    )
+                                }
+                            )
+                        }
+                    )
+
+                    SettingsPreferenceItem(
+                        headlineText = stringResource(R.string.blur_smooth_mode),
+                        supportingText = stringResource(R.string.blur_smooth_mode_desc),
+                        icon = Icons.Default.Speed,
+                        position = SectionPosition.LAST,
+                        trailingContent = {
+                            BouncySwitch(
+                                checked = isBlurSmoothMode,
+                                enabled = isBlurEnabled,
+                                onCheckedChange = {
+                                    settingsManager.isBlurSmoothMode = it
+                                },
+                                thumbContent = {
+                                    Icon(
+                                        imageVector = if (isBlurSmoothMode) Icons.Default.Check else Icons.Default.Close,
                                         contentDescription = null,
                                         modifier = Modifier.size(SwitchDefaults.IconSize)
                                     )

@@ -587,6 +587,7 @@ class Lune : AppCompatActivity() {
                 customColorPalette = customColorPalette,
                 useAmoledPitchBlack = useAmoledPitchBlack
             ) {
+                Box(modifier = Modifier.fillMaxSize()) {
                 MainScreen(
                     themeMode = themeMode,
                     onThemeModeChange = { 
@@ -632,6 +633,9 @@ class Lune : AppCompatActivity() {
                     useCustomControlsColor = useCustomControlsColor,
                     controlsColorPalette = controlsColorPalette
                 )
+                // The flying CD is drawn last so it is above the album page and the mini player.
+                com.demonlab.lune.ui.components.FlyingCdOverlay()
+                }
 
             }
         }
@@ -822,6 +826,45 @@ fun MainScreen(
     }
     val sortedSongs = remember(filteredSongs, activeSortOption, activeIsSortAscending, activeIsCaseSensitive) {
         playbackManager.getSortedList(filteredSongs, activeSortOption, activeIsSortAscending, activeIsCaseSensitive)
+    }
+
+    // Tapping an album in the album grid: play it, fly a CD to the mini player, and open the album page.
+    // If that album is already playing it is only opened (no restart, no flight).
+    val onAlbumTapped: (Album) -> Unit = { album ->
+        val sortKey = "album_${album.name}"
+        val albumSongs = visibleSongs.filter { it.album == album.name }.ifEmpty { album.songs }
+        val orderedSongs = playbackManager.getSortedList(
+            albumSongs,
+            settingsManager.getSortOption(sortKey),
+            settingsManager.getIsSortAscending(sortKey)
+        )
+        val alreadyPlaying = currentSong != null && albumSongs.any { it.id == currentSong.id }
+        val startPlayback = {
+            if (orderedSongs.isNotEmpty() && !alreadyPlaying) {
+                val first = if (playbackManager.isShuffle) orderedSongs.random() else orderedSongs[0]
+                playbackManager.play(first, orderedSongs, album.id, category = "ALBUMS")
+                onCurrentSongChange(first)
+                onIsPlayingChange(true)
+            }
+        }
+        val animationsOn = android.provider.Settings.Global.getFloat(
+            context.contentResolver, android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f
+        ) > 0f
+        val flying = !alreadyPlaying && orderedSongs.isNotEmpty() &&
+            com.demonlab.lune.ui.components.FlyingCd.start(coroutineScope, animationsOn)
+        if (flying) {
+            coroutineScope.launch {
+                delay(com.demonlab.lune.ui.components.FlyingCd.PLAY_DELAY_MS)
+                startPlayback()
+            }
+            coroutineScope.launch {
+                delay(com.demonlab.lune.ui.components.FlyingCd.DETAIL_DELAY_MS)
+                selectedAlbum = album
+            }
+        } else {
+            selectedAlbum = album
+            startPlayback()
+        }
     }
 
     data class FolderEntry(val name: String, val depth: Int, val isVirtual: Boolean)
@@ -1068,23 +1111,27 @@ fun MainScreen(
                 label = "GlobalBlurCrossfade"
             ) { targetSong ->
                 Box(modifier = Modifier.fillMaxSize()) {
+                    // "Smooth blur": a tiny copy of the cover scaled up looks like a heavy blur but costs almost nothing,
+                    // instead of re-blurring a full-screen layer on every frame (the cause of the hitches at song changes).
+                    val smoothBlur = settingsManager.isBlurSmoothMode
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .blur(40.dp)
+                            .then(if (smoothBlur) Modifier else Modifier.blur(40.dp))
                             .alpha(if (isDarkThemeMini) 0.35f else 0.45f)
                     ) {
-                        val sharedBlurReq = remember(targetSong.id, targetSong.coverUrl) {
+                        val sharedBlurReq = remember(targetSong.id, targetSong.coverUrl, smoothBlur) {
                             ImageRequest.Builder(context)
                                 .data(targetSong.coverUrl ?: targetSong.uri)
-                                .size(200, 200)
+                                .size(if (smoothBlur) 48 else 200, if (smoothBlur) 48 else 200)
                                 .build()
                         }
                         AsyncImage(
                             model = sharedBlurReq,
                             contentDescription = null,
                             modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop
+                            contentScale = ContentScale.Crop,
+                            filterQuality = if (smoothBlur) androidx.compose.ui.graphics.FilterQuality.High else androidx.compose.ui.graphics.FilterQuality.Low
                         )
                     }
                     Box(
@@ -1553,7 +1600,8 @@ fun MainScreen(
                                         AlbumGrid(
                                             albums = albumsList,
                                             indexLetter = { if (albumSortOption == "ARTIST") it.artist else it.name },
-                                            onAlbumClick = { selectedAlbum = it },
+                                            flyingCdSource = true,
+                                            onAlbumClick = onAlbumTapped,
                                             bottomPadding = bottomPadding,
                                             hasBlurBackground = hasBlurBackgroundMini && currentSong != null,
                                             isDarkTheme = isDarkThemeMini,
