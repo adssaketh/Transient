@@ -110,7 +110,7 @@ class MusicService : MediaLibraryService() {
     private var audioFocusRequest: AudioFocusRequest? = null
     private var hasAudioFocus = false
     private var resumeOnFocusGain = false
-    private var wasPlayingBeforeLoss = false
+    internal var wasPlayingBeforeLoss = false
     private var isDucked = false
     private var wakeLock: PowerManager.WakeLock? = null
 
@@ -938,16 +938,23 @@ class MusicService : MediaLibraryService() {
                 this, 0, sessionIntent, PendingIntent.FLAG_IMMUTABLE
             )
             val initialLayout = buildCustomLayout()
-            mediaSession = MediaLibrarySession.Builder(this, lunePlayerAdapter!!, librarySessionCallback)
+            val newSession = MediaLibrarySession.Builder(this, lunePlayerAdapter!!, librarySessionCallback)
                 .setSessionActivity(sessionPendingIntent)
                 .setCustomLayout(initialLayout)
                 .setMediaButtonPreferences(initialLayout)
                 .build()
+            mediaSession = newSession
+            try {
+                // Registered up front so a media-button press can reach the session before any controller connects.
+                addSession(newSession)
+            } catch (e: Exception) {
+                Log.w("MusicService", "addSession failed: ${e.message}")
+            }
 
             val notificationHints = Bundle().apply {
                 putBoolean("androidx.media3.session.MediaNotificationManager", true)
             }
-            MediaController.Builder(this, mediaSession!!.token)
+            MediaController.Builder(this, newSession.token)
                 .setConnectionHints(notificationHints)
                 .buildAsync()
         }
@@ -1522,10 +1529,11 @@ class MusicService : MediaLibraryService() {
         }
 
         if (mediaPlayer == null) {
-            if (pm.currentSong == null && !pm.stateRestored) {
+            if (pm.currentSong == null) {
                 pm.restorePlaybackState()
             }
-            val song = pm.currentSong
+            // A headset or car button can start the service before the app has a song loaded: use the saved one.
+            val song = pm.currentSong ?: pm.playbackStateSaver.restore()?.savedSong
             if (song != null) {
                 val savedPos = pm.playbackStateSaver.restore()?.playbackPositionMs ?: 0L
                 restorePlayback(song, savedPos, andPlay = true)
@@ -2070,6 +2078,7 @@ class MusicService : MediaLibraryService() {
         val customLayout = buildCustomLayout()
         mediaSession?.setCustomLayout(customLayout)
         mediaSession?.setMediaButtonPreferences(customLayout)
+        broadcastMediaMetadata(song, isPlaying())
     }
 
     private fun updatePlaybackState() {
@@ -2078,6 +2087,44 @@ class MusicService : MediaLibraryService() {
         val customLayout = buildCustomLayout()
         mediaSession?.setCustomLayout(customLayout)
         mediaSession?.setMediaButtonPreferences(customLayout)
+        currentSong()?.let { broadcastMediaMetadata(it, isPlaying()) }
+    }
+
+    private fun broadcastMediaMetadata(song: Song?, isPlaying: Boolean) {
+        if (song == null) return
+        try {
+            val dur = if (song.duration > 0) song.duration else duration().toLong().coerceAtLeast(0L)
+            val pos = currentPosition().toLong().coerceAtLeast(0L)
+            val metaIntent = Intent("com.android.music.metachanged").apply {
+                putExtra("id", song.id)
+                putExtra("artist", song.artist)
+                putExtra("album", song.album)
+                putExtra("track", song.title)
+                putExtra("song", song.title)
+                putExtra("playing", isPlaying)
+                putExtra("isPlaying", isPlaying)
+                putExtra("duration", dur)
+                putExtra("position", pos)
+                putExtra("package", packageName)
+                putExtra("scrobbling_source", packageName)
+            }
+            sendBroadcast(metaIntent)
+
+            val stateIntent = Intent("com.android.music.playstatechanged").apply {
+                putExtra("id", song.id)
+                putExtra("artist", song.artist)
+                putExtra("album", song.album)
+                putExtra("track", song.title)
+                putExtra("song", song.title)
+                putExtra("playing", isPlaying)
+                putExtra("isPlaying", isPlaying)
+                putExtra("duration", dur)
+                putExtra("position", pos)
+                putExtra("package", packageName)
+                putExtra("scrobbling_source", packageName)
+            }
+            sendBroadcast(stateIntent)
+        } catch (_: Exception) {}
     }
 
     private fun currentSong(): Song? {
@@ -2497,7 +2544,13 @@ class MusicService : MediaLibraryService() {
         mediaPlayer?.release()
         secondaryPlayer?.release()
         releaseUsbEngine()
-        mediaSession?.release()
+        mediaSession?.let {
+            try {
+                removeSession(it)
+            } catch (_: Exception) {
+            }
+            it.release()
+        }
         mediaSession = null
         lunePlayerAdapter?.release()
         lunePlayerAdapter = null

@@ -39,14 +39,29 @@ class LuneAudioPlayerAdapter(
         )
         .build()
 
+    /** The song saved on disk, read once: shown while nothing is loaded yet (a car or headset may ask before playback starts). */
+    private val savedSongFallback: Song? by lazy {
+        try {
+            PlaybackManager.getInstance(service).playbackStateSaver.restore()?.savedSong
+        } catch (_: Throwable) {
+            null
+        }
+    }
+
     override fun getState(): State {
         val pm = PlaybackManager.getInstance(service)
-        val currentSong = pm.currentSong
+        val currentSong = pm.currentSong ?: savedSongFallback
         val isPlaying = service.isPlaying()
+
+        val playWhenReadyReason = if (service.wasPlayingBeforeLoss) {
+            Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS
+        } else {
+            Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST
+        }
 
         val stateBuilder = State.Builder()
             .setAvailableCommands(availableCommands)
-            .setPlayWhenReady(isPlaying, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
+            .setPlayWhenReady(isPlaying, playWhenReadyReason)
             .setPlaybackState(if (currentSong != null) Player.STATE_READY else Player.STATE_IDLE)
             .setRepeatMode(pm.repeatMode)
             .setShuffleModeEnabled(pm.isShuffle)
@@ -67,8 +82,12 @@ class LuneAudioPlayerAdapter(
 
             val metadataBuilder = MediaMetadata.Builder()
                 .setTitle(currentSong.title)
+                .setDisplayTitle(currentSong.title)
                 .setArtist(currentSong.artist)
+                .setAlbumArtist(currentSong.artist)
+                .setSubtitle(currentSong.artist)
                 .setAlbumTitle(currentSong.album)
+                .setDescription(currentSong.album)
                 .setArtworkUri(artUri)
                 .setIsPlayable(true)
 
@@ -94,6 +113,7 @@ class LuneAudioPlayerAdapter(
                 .build()
 
             stateBuilder.setPlaylist(listOf(itemData))
+            stateBuilder.setPlaylistMetadata(mediaMetadata)
             stateBuilder.setCurrentMediaItemIndex(0)
             stateBuilder.setContentPositionMs(PositionSupplier {
                 service.currentPosition().toLong().coerceAtLeast(0L)

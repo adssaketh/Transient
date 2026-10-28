@@ -973,7 +973,7 @@ fun FullPlayer(
                         if (runtimeBitDepth == null) runtimeBitDepth = header.bitsPerSample
                         if (runtimeBitrate == null) runtimeBitrate = (header.bitRateAsNumber * 1000).toInt()
                     }
-                } catch (_: Exception) {
+                } catch (_: Throwable) {
                     try {
                         val extractor = android.media.MediaExtractor()
                         extractor.setDataSource(song.path)
@@ -991,7 +991,7 @@ fun FullPlayer(
                             }
                         }
                         extractor.release()
-                    } catch (_: Exception) {}
+                    } catch (_: Throwable) {}
                 }
             }
         }
@@ -2059,7 +2059,7 @@ fun FullPlayer(
                                                         }
                                                         context.startActivity(Intent.createChooser(shareIntent, context.getString(R.string.option_share)))
                                                     }
-                                                } catch (_: Exception) {}
+                                                } catch (_: Throwable) {}
                                             }
                                         }
                                     }

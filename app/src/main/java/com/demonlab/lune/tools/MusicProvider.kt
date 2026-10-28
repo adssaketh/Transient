@@ -311,7 +311,7 @@ class MusicProvider(private val context: Context) {
                                 trackNumber = tagTrack.substringBefore("/").toIntOrNull() ?: trackNumber
                             }
                         }
-                    } catch (_: Exception) {
+                    } catch (_: Throwable) {
                         if (bitrate != null && bitrate >= 2304000) {
                             isHiRes = true
                         }

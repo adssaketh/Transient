@@ -40,6 +40,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -1364,8 +1365,7 @@ fun EditSongBottomSheet(
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
         containerColor = blurColors.containerColor,
         dragHandle = null,
-        contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
-        modifier = Modifier.imePadding() // Fix keyboard compression
+        contentWindowInsets = { WindowInsets(0, 0, 0, 0) }
     ) {
         AppBlurBackdrop(
             hasBlurBackground = blurColors.hasBlur,
@@ -1374,13 +1374,18 @@ fun EditSongBottomSheet(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
         ) {
+            val screenHeight = LocalConfiguration.current.screenHeightDp.dp
+            val isSmallHeight = screenHeight < 680.dp
+            val coverSize = if (isSmallHeight) 110.dp else 160.dp
+
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .imePadding()
                     .navigationBarsPadding()
                     .padding(horizontal = 24.dp)
-                    .padding(bottom = 32.dp)
-                    .verticalScroll(rememberScrollState()), // Fix keyboard compression
+                    .padding(bottom = 24.dp)
+                    .verticalScroll(rememberScrollState()),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Box(
@@ -1420,7 +1425,7 @@ fun EditSongBottomSheet(
                 // Cover with Circular Edit Button
                 Box(
                     modifier = Modifier
-                        .size(160.dp)
+                        .size(coverSize)
                         .clip(RoundedCornerShape(24.dp))
                         .background(blurColors.itemContainerColor),
                     contentAlignment = Alignment.Center
