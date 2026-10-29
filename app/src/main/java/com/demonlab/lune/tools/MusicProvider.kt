@@ -384,7 +384,8 @@ class MusicProvider(private val context: Context) {
 
     @Volatile private var lastDiskScanAt = 0L
     private val durationProbeFailed: MutableSet<Long> = java.util.Collections.synchronizedSet(HashSet())
-    private val DISK_SCAN_INTERVAL_MS = 10 * 60 * 1000L
+    // The folder walk costs 4+ seconds of storage reads and, in the logs, never found anything new: do it rarely.
+    private val DISK_SCAN_INTERVAL_MS = 6 * 60 * 60 * 1000L
     private val diskScanExtensions = setOf(
         "mp3", "flac", "wav", "aac", "m4a", "ogg", "opus", "wma", "alac", "dsf", "dff", "aiff", "aif"
     )

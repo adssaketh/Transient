@@ -431,6 +431,32 @@ fun SettingsScreen(
                             )
                         }
                     )
+                    val batteryExempt = remember(keepAliveOn, crashLogsOn) {
+                        try {
+                            (context.getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager)
+                                .isIgnoringBatteryOptimizations(context.packageName)
+                        } catch (_: Throwable) { false }
+                    }
+                    SettingsPreferenceItem(
+                        headlineText = stringResource(R.string.battery_bg),
+                        supportingText = stringResource(if (batteryExempt) R.string.battery_bg_allowed else R.string.battery_bg_restricted),
+                        icon = if (batteryExempt) Icons.Default.Check else Icons.Default.Close,
+                        position = SectionPosition.MIDDLE,
+                        onClick = {
+                            val direct = android.content.Intent(
+                                android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                                android.net.Uri.parse("package:" + context.packageName)
+                            )
+                            try {
+                                context.startActivity(direct)
+                            } catch (_: Throwable) {
+                                try {
+                                    context.startActivity(android.content.Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+                                } catch (_: Throwable) {
+                                }
+                            }
+                        }
+                    )
                     SettingsPreferenceItem(
                         headlineText = stringResource(R.string.logs_share),
                         supportingText = if (logCount > 0) stringResource(R.string.logs_share_desc, logCount) else stringResource(R.string.logs_none),

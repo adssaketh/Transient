@@ -268,6 +268,9 @@
     <string name="crash_logs_desc">Saves reports when the app crashes, freezes or runs low on memory, plus a playback event trace. Reports stay on your phone until you share them. Turn this off to stop all logging.</string>
     <string name="usb_keepalive">Silent keep-alive stream</string>
     <string name="usb_keepalive_desc">While a DAC plays directly, a silent stream also runs on the phone speaker so Android sees audio playing. Turn it off to test whether it helps or hurts; it takes effect from the next song.</string>
+    <string name="battery_bg">Unrestricted background playback</string>
+    <string name="battery_bg_allowed">Allowed. Android does not limit Transient in the background.</string>
+    <string name="battery_bg_restricted">Not allowed yet. Tap to let Transient run without battery limits; USB Audio Player PRO asks for the same. It can stop short pauses when other apps open.</string>
     <string name="logs_share">Share logs</string>
     <string name="logs_share_desc">%1$d report(s) saved. Send them as one zip file.</string>
     <string name="logs_none">No reports yet</string>

@@ -82,7 +82,10 @@ object SilentAudioKeepAlive {
                     } catch (_: Throwable) {
                     }
                 }, "transient-keepalive").apply { isDaemon = true; start() }
-                DiagnosticLogger.note("KEEPALIVE started (silent 48 kHz stereo music stream, normal output path, on built-in speaker)")
+                val pm = context.applicationContext.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+                val exempt = runCatching { pm.isIgnoringBatteryOptimizations(context.packageName) }.getOrNull()
+                val saver = runCatching { pm.isPowerSaveMode }.getOrNull()
+                DiagnosticLogger.note("KEEPALIVE started (silent 48 kHz stereo music stream, normal output path, on built-in speaker) | battery optimisation ignored=$exempt power saver=$saver")
             } catch (e: Throwable) {
                 running = false
                 DiagnosticLogger.note("KEEPALIVE start failed: ${e.message}")
