@@ -196,20 +196,27 @@ class MusicProvider(private val context: Context) {
                 var albumArtist: String? = if (albumArtistColumn != -1) cursor.getString(albumArtistColumn) else null
                 var composer: String? = if (composerColumn != -1) cursor.getString(composerColumn) else null
 
-                if (duration <= 0L && !data.isNullOrBlank() && File(data).exists()) {
+                // A missing duration is read from the file itself, but never for AIFF (its own header reader handles it
+                // below; Android's retriever fails on AIFF and used to make every scan several seconds slower), and a file
+                // that already failed once is not tried again until the app restarts.
+                val looksLikeAiff = !data.isNullOrBlank() && data.substringAfterLast('.', "").lowercase() in setOf("aif", "aiff", "aifc")
+                if (duration <= 0L && !looksLikeAiff && !data.isNullOrBlank() && id !in durationProbeFailed && File(data).exists()) {
                     try {
                         val retriever = MediaMetadataRetriever()
                         try {
-                            retriever.setDataSource(data)
-                            duration = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
+                            java.io.FileInputStream(data).use { input ->
+                                retriever.setDataSource(input.fd)
+                                duration = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
+                            }
                         } finally {
                             retriever.release()
                         }
                     } catch (_: Throwable) {
                     }
+                    if (duration <= 0L) durationProbeFailed.add(id)
                 }
 
-                if (duration <= 0L) {
+                if (duration <= 0L && !looksLikeAiff) {
                     noDuration++
                     if (noDurationSamples.size < 3) noDurationSamples.add(data ?: "?")
                 }
@@ -376,6 +383,7 @@ class MusicProvider(private val context: Context) {
     }
 
     @Volatile private var lastDiskScanAt = 0L
+    private val durationProbeFailed: MutableSet<Long> = java.util.Collections.synchronizedSet(HashSet())
     private val DISK_SCAN_INTERVAL_MS = 10 * 60 * 1000L
     private val diskScanExtensions = setOf(
         "mp3", "flac", "wav", "aac", "m4a", "ogg", "opus", "wma", "alac", "dsf", "dff", "aiff", "aif"
