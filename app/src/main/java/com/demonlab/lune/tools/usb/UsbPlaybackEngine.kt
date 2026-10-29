@@ -114,6 +114,10 @@ class UsbPlaybackEngine(
 
         override fun onPlayerError(error: PlaybackException) {
             Log.e(TAG, "ExoPlayer error: ${error.errorCodeName}", error)
+            com.demonlab.lune.tools.DiagnosticLogger.note(
+                "EXO ERROR ${error.errorCodeName}: ${error.message} | cause=${error.cause?.javaClass?.simpleName}: ${error.cause?.message} | " +
+                    "song=${song?.id} path=${song?.path} plain=$plainOutput"
+            )
             val current = song ?: return
             NativeCrashGuard.end(appContext, current.id)
             callbacks.onFailure(current, error.errorCodeName)
@@ -133,6 +137,7 @@ class UsbPlaybackEngine(
         }
 
         override fun onTracksChanged(tracks: Tracks) {
+            logAudioTracks(tracks)
             if (plainOutput) return
             for (group in tracks.groups) {
                 if (group.type == C.TRACK_TYPE_AUDIO && group.isSelected && group.length > 0) {
@@ -148,6 +153,23 @@ class UsbPlaybackEngine(
                     return
                 }
             }
+        }
+    }
+
+    /** Diagnostics: what kind of audio the player found in the file, and whether this phone can decode it. */
+    private fun logAudioTracks(tracks: Tracks) {
+        try {
+            for (g in tracks.groups) {
+                if (g.type != C.TRACK_TYPE_AUDIO) continue
+                for (i in 0 until g.length) {
+                    val f = g.getTrackFormat(i)
+                    com.demonlab.lune.tools.DiagnosticLogger.note(
+                        "EXO audio track: mime=${f.sampleMimeType} codecs=${f.codecs} channels=${f.channelCount} " +
+                            "rate=${f.sampleRate} bitrate=${f.bitrate} selected=${g.isTrackSelected(i)} supported=${g.isTrackSupported(i)}"
+                    )
+                }
+            }
+        } catch (_: Throwable) {
         }
     }
 
@@ -261,9 +283,11 @@ class UsbPlaybackEngine(
             // bit-depth reduction is done by the app. The system mixer still applies for speaker/Bluetooth.
             // Float output keeps 24/32-bit PCM intact (float32 holds 24 bits exactly). Extension mode ON: FFmpeg picks
             // up formats Android's MediaCodec cannot decode (WMA, APE, ...).
+            // PREFER: FFmpeg decodes first (AAC, ALAC, MP3, ...), so a broken or missing Android AAC decoder cannot stop a song
+            // that the normal player already failed on. This engine is only the fallback for such songs and for AIFF.
             val plainRenderers = DefaultRenderersFactory(appContext)
                 .setEnableAudioFloatOutput(true)
-                .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
+                .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
             val plain = ExoPlayer.Builder(appContext, plainRenderers)
                 .setAudioAttributes(
                     AudioAttributes.Builder()
@@ -275,6 +299,16 @@ class UsbPlaybackEngine(
                 .setHandleAudioBecomingNoisy(false)
                 .build()
             plain.addListener(listener)
+            plain.addAnalyticsListener(object : androidx.media3.exoplayer.analytics.AnalyticsListener {
+                override fun onAudioDecoderInitialized(
+                    eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime,
+                    decoderName: String,
+                    initializedTimestampMs: Long,
+                    initializationDurationMs: Long
+                ) {
+                    com.demonlab.lune.tools.DiagnosticLogger.note("EXO audio decoder: $decoderName (started in $initializationDurationMs ms)")
+                }
+            })
             return plain
         }
         val renderers = object : DefaultRenderersFactory(appContext) {

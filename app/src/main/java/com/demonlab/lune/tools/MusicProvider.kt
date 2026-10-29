@@ -100,6 +100,9 @@ class MusicProvider(private val context: Context) {
     suspend fun syncSongs(): List<Song> = withContext(Dispatchers.IO) {
         if (!hasReadPermission()) return@withContext emptyList()
         HiFiFileInfo.beginScan()
+        val scanStartMs = android.os.SystemClock.elapsedRealtime()
+        var noDuration = 0
+        val noDurationSamples = mutableListOf<String>()
         val songList = mutableListOf<Song>()
 
         val collection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -204,6 +207,11 @@ class MusicProvider(private val context: Context) {
                         }
                     } catch (_: Throwable) {
                     }
+                }
+
+                if (duration <= 0L) {
+                    noDuration++
+                    if (noDurationSamples.size < 3) noDurationSamples.add(data ?: "?")
                 }
 
                 val override = overrides[id]
@@ -347,13 +355,21 @@ class MusicProvider(private val context: Context) {
         // Audio files in the Music folder (and the folder picked in settings) that Android has not indexed yet.
         // Walking folders costs I/O, so this runs at most every 10 minutes.
         val nowMs = android.os.SystemClock.elapsedRealtime()
+        val fromMediaStore = songList.size
+        var diskRan = false
         if (lastDiskScanAt == 0L || nowMs - lastDiskScanAt > DISK_SCAN_INTERVAL_MS) {
             lastDiskScanAt = nowMs
+            diskRan = true
             try {
                 if (addUnindexedFiles(songList)) songList.sortBy { it.title.lowercase() }
             } catch (_: Throwable) {
             }
         }
+        DiagnosticLogger.note(
+            "SCAN phases: ${android.os.SystemClock.elapsedRealtime() - scanStartMs} ms so far | from MediaStore $fromMediaStore | " +
+                "without duration $noDuration $noDurationSamples | disk fallback ran=$diskRan, added ${songList.size - fromMediaStore} " +
+                "(${android.os.SystemClock.elapsedRealtime() - nowMs} ms)"
+        )
         HiFiFileInfo.flush(context)
         saveToCache(songList)
         songList

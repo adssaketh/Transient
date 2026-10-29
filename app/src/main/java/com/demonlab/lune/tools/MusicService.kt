@@ -1055,6 +1055,7 @@ class MusicService : MediaLibraryService() {
         val loaded = setPlayerDataSource(player, song)
         if (!loaded) {
             Log.e("MusicService", "Failed to load data source for song: ${song.title} (${song.uri})")
+            DiagnosticLogger.note("DATASOURCE failed (playSong) ${songInfo(song)}")
             try {
                 player.release()
             } catch (_: Exception) {}
@@ -1106,6 +1107,7 @@ class MusicService : MediaLibraryService() {
                 }
                 setOnErrorListener { _, what, extra ->
                     Log.e("MusicService", "MediaPlayer error in playSong: what=$what, extra=$extra")
+                    DiagnosticLogger.note("MEDIAPLAYER error (playSong) what=$what extra=$extra ${songInfo(song)}")
                     if (what == MediaPlayer.MEDIA_ERROR_SERVER_DIED) {
                         try {
                             player.release()
@@ -1754,6 +1756,7 @@ class MusicService : MediaLibraryService() {
                 }
                 setOnErrorListener { _, what, extra ->
                     Log.e("MusicService", "MediaPlayer error in restorePlayback: what=$what, extra=$extra")
+                    DiagnosticLogger.note("MEDIAPLAYER error (restorePlayback) what=$what extra=$extra ${songInfo(song)}")
                     if (what == MediaPlayer.MEDIA_ERROR_SERVER_DIED) {
                         try {
                             player.release()
@@ -2336,6 +2339,12 @@ class MusicService : MediaLibraryService() {
     // ───────────────────────────── AIFF through ExoPlayer (native bit depth) ─────────────────────────────
 
     /** AIFF on the normal output plays through ExoPlayer, which handles 24/32-bit PCM that MediaPlayer may reject. */
+    /** One line that says which file a diagnostics entry is about. */
+    private fun songInfo(song: Song): String {
+        val size = try { java.io.File(song.path).length() } catch (_: Throwable) { -1L }
+        return "song=${song.id} path=${song.path} size=$size uri=${song.uri}"
+    }
+
     private fun shouldUsePlainAiffEngine(song: Song): Boolean =
         (AiffSupport.isAiff(song) || song.id == exoFallbackSongId) && song.id != aiffPlainFailedId &&
             !NativeCrashGuard.isQuarantined(applicationContext, song.id)
