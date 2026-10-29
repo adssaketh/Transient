@@ -549,7 +549,17 @@ class PlaybackManager private constructor(private val context: Context) {
     }
 
 
+    private var lastManualSkipTime = 0L
+
     fun playNextFromService(isNaturalEnd: Boolean = false, startPlayback: Boolean = true) {
+        if (!isNaturalEnd) {
+            val now = android.os.SystemClock.elapsedRealtime()
+            if (now - lastManualSkipTime < 350L) {
+                Log.d("PlaybackManager", "playNextFromService debounced (${now - lastManualSkipTime}ms)")
+                return
+            }
+            lastManualSkipTime = now
+        }
         if (activePlaylist.isEmpty() && !stateRestored) {
             restorePlaybackState()
         }
@@ -565,7 +575,7 @@ class PlaybackManager private constructor(private val context: Context) {
             return
         }
 
-        val advance = if (isTransitioning && !isNaturalEnd) 2 else 1
+        val advance = 1
 
         val nextSong = if (isShuffle) {
             if (shuffledIndices.size != activePlaylist.size) {
@@ -621,6 +631,12 @@ class PlaybackManager private constructor(private val context: Context) {
     }
 
     fun playPreviousFromService() {
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (now - lastManualSkipTime < 350L) {
+            Log.d("PlaybackManager", "playPreviousFromService debounced (${now - lastManualSkipTime}ms)")
+            return
+        }
+        lastManualSkipTime = now
         if (activePlaylist.isEmpty() && !stateRestored) {
             restorePlaybackState()
         }
