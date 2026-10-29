@@ -34,11 +34,32 @@ object ProcessHeartbeat {
 
     private fun cgroup(): String = read("/proc/self/cgroup").take(220)
 
+    /** Page-fault counters of this process: [minor, major]. Major faults mean memory had to be read back from storage or swap. */
+    private fun faults(): LongArray {
+        return try {
+            val line = File("/proc/self/stat").readText()
+            val f = line.substring(line.lastIndexOf(')') + 2).trim().split(' ')
+            longArrayOf(f[7].toLong(), f[9].toLong())
+        } catch (_: Throwable) { longArrayOf(-1, -1) }
+    }
+
+    /** Memory facts worth having next to a stall: how much of this app sits in swap, and how tight memory and storage are. */
+    private fun memoryFacts(): String {
+        val status = read("/proc/self/status")
+        fun field(name: String) = Regex("$name:\\s*(\\d+) kB").find(status)?.groupValues?.get(1) ?: "?"
+        val meminfo = read("/proc/meminfo")
+        fun mem(name: String) = Regex("$name:\\s*(\\d+) kB").find(meminfo)?.groupValues?.get(1) ?: "?"
+        val psiMem = read("/proc/pressure/memory").take(110)
+        val psiIo = read("/proc/pressure/io").take(110)
+        return "VmRSS=${field("VmRSS")}kB VmSwap=${field("VmSwap")}kB | MemAvailable=${mem("MemAvailable")}kB SwapFree=${mem("SwapFree")}kB | psi memory=[$psiMem] io=[$psiIo]"
+    }
+
     private fun loop() {
         runCatching { Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_AUDIO) }
         var lastCgroup = cgroup()
         var lastAdj = read("/proc/self/oom_score_adj")
         var lastSched = read("/proc/thread-self/schedstat")
+        var lastFaults = faults()
         DiagnosticLogger.note("HEARTBEAT started | cgroup=$lastCgroup oom_adj=$lastAdj schedstat=[$lastSched]")
         var ticks = 0
         try {
@@ -50,9 +71,14 @@ object ProcessHeartbeat {
                 val sched = read("/proc/thread-self/schedstat")
                 val cg = cgroup()
                 val adj = read("/proc/self/oom_score_adj")
+                val nowFaults = faults()
                 if (late > 400) {
                     DiagnosticLogger.note("HEARTBEAT late by $late ms | schedstat before=[$lastSched] after=[$sched] | cgroup=$cg oom_adj=$adj")
+                    DiagnosticLogger.note(
+                        "  at that moment: page faults +${nowFaults[0] - lastFaults[0]} minor, +${nowFaults[1] - lastFaults[1]} major | " + memoryFacts()
+                    )
                 }
+                lastFaults = nowFaults
                 if (cg != lastCgroup || adj != lastAdj) {
                     DiagnosticLogger.note("PROCESS state changed | cgroup=$cg oom_adj=$adj (was cgroup=$lastCgroup oom_adj=$lastAdj)")
                     lastCgroup = cg

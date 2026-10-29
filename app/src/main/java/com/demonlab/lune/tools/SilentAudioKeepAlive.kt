@@ -38,8 +38,12 @@ object SilentAudioKeepAlive {
                     DiagnosticLogger.note("KEEPALIVE not started: no built-in speaker output found")
                     return
                 }
-                val rate = 8000
-                val minBuf = AudioTrack.getMinBufferSize(rate, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT)
+                // A normal music stream, like USB Audio Player PRO's "Play silence on Android audio": 48 kHz stereo through the
+                // regular mixer. The earlier 8 kHz mono low-power stream went to the phone's power-saving output path, which
+                // (like UAPP's "bypass system EQ" mode, which it warns "will cause pauses when switching apps") did not stop the
+                // pauses.
+                val rate = 48000
+                val minBuf = AudioTrack.getMinBufferSize(rate, AudioFormat.CHANNEL_OUT_STEREO, AudioFormat.ENCODING_PCM_16BIT)
                 if (minBuf <= 0) {
                     DiagnosticLogger.note("KEEPALIVE not started: bad buffer size $minBuf")
                     return
@@ -54,15 +58,12 @@ object SilentAudioKeepAlive {
                     .setAudioFormat(
                         AudioFormat.Builder()
                             .setSampleRate(rate)
-                            .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+                            .setChannelMask(AudioFormat.CHANNEL_OUT_STEREO)
                             .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
                             .build()
                     )
-                    .setBufferSizeInBytes(minBuf * 2)
+                    .setBufferSizeInBytes(maxOf(minBuf * 2, rate / 5 * 4))
                     .setTransferMode(AudioTrack.MODE_STREAM)
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    builder.setPerformanceMode(AudioTrack.PERFORMANCE_MODE_POWER_SAVING)
-                }
                 val t = builder.build()
                 if (!t.setPreferredDevice(speaker)) {
                     t.release()
@@ -72,7 +73,7 @@ object SilentAudioKeepAlive {
                 t.play()
                 track = t
                 running = true
-                val silence = ByteArray(rate / 5 * 2) // 200 ms of zeros (16-bit mono)
+                val silence = ByteArray(rate / 5 * 4) // 200 ms of zeros, 16-bit stereo
                 thread = Thread({
                     try {
                         while (running) {
@@ -81,7 +82,7 @@ object SilentAudioKeepAlive {
                     } catch (_: Throwable) {
                     }
                 }, "transient-keepalive").apply { isDaemon = true; start() }
-                DiagnosticLogger.note("KEEPALIVE started (silent stream on built-in speaker)")
+                DiagnosticLogger.note("KEEPALIVE started (silent 48 kHz stereo music stream, normal output path, on built-in speaker)")
             } catch (e: Throwable) {
                 running = false
                 DiagnosticLogger.note("KEEPALIVE start failed: ${e.message}")
