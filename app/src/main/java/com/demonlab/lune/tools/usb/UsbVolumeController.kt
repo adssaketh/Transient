@@ -70,10 +70,8 @@ class UsbVolumeController(
     fun refresh() {
         if (!started) return
         val gain = if (settings.isUsbSoftwareVolumeEnabled) {
-            gainFor(
-                audioManager.getStreamVolume(AudioManager.STREAM_MUSIC),
-                audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-            )
+            val max = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+            gainFor(trackLevel(audioManager.getStreamVolume(AudioManager.STREAM_MUSIC), max), max)
         } else {
             1f
         }
@@ -94,12 +92,68 @@ class UsbVolumeController(
                     "$it=" + Settings.System.getInt(appContext.contentResolver, it, -1)
                 }
             }.getOrNull()
-            com.demonlab.lune.tools.DiagnosticLogger.note("VOLUME index=$index gain=$gain outputDeviceTypes=$outputs (2=speaker 22=usb headset 11=usb device) | music routed to types=$routed | stored: $stored")
+            com.demonlab.lune.tools.DiagnosticLogger.note("VOLUME index=$index level=$effectiveIndex gain=$gain outputDeviceTypes=$outputs (2=speaker 22=usb headset 11=usb device) | music routed to types=$routed | stored: $stored")
         }
         onGainChanged(gain)
     }
 
+    /**
+     * Android keeps a separate media volume for each output device (phone speaker, USB headset...) and reports the one of
+     * whichever device it considers active. While a DAC plays directly, that choice flips between the speaker and the USB
+     * device whenever another app starts (seen in the logs: 100 <-> 110 at every stall), which changed the loudness by 3-6 dB.
+     * So the level is not taken from the reported number itself: it follows the CHANGES of the number on each device. A flip
+     * from one device to the other changes nothing; a volume key press moves the level by exactly the steps pressed.
+     */
+    private fun routeType(): Int? = try {
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            val types = audioManager.getAudioDevicesForAttributes(
+                android.media.AudioAttributes.Builder().setUsage(android.media.AudioAttributes.USAGE_MEDIA).build()
+            ).map { it.type }
+            when {
+                android.media.AudioDeviceInfo.TYPE_USB_HEADSET in types -> android.media.AudioDeviceInfo.TYPE_USB_HEADSET
+                android.media.AudioDeviceInfo.TYPE_USB_DEVICE in types -> android.media.AudioDeviceInfo.TYPE_USB_DEVICE
+                else -> types.firstOrNull()
+            }
+        } else null
+    } catch (_: Throwable) { null }
+
+    /** The volume the phone has stored for one device (settings keep it with a flag bit on top, hence the mask). */
+    private fun storedIndex(type: Int?): Int? = try {
+        val key = when (type) {
+            android.media.AudioDeviceInfo.TYPE_BUILTIN_SPEAKER -> "volume_music_speaker"
+            android.media.AudioDeviceInfo.TYPE_USB_HEADSET -> "volume_music_usb_headset"
+            else -> null
+        }
+        val v = if (key == null) -1 else Settings.System.getInt(appContext.contentResolver, key, -1)
+        if (v < 0) null else (v and 0xFFF)
+    } catch (_: Throwable) { null }
+
+    private fun trackLevel(raw: Int, max: Int): Int {
+        return synchronized(stateLock) {
+        val route = routeType()
+        val stored = storedIndex(route)
+        // A reading that disagrees with what the phone has stored for that device is a half-updated snapshot: skip it.
+        if (effectiveIndex >= 0 && stored != null && stored != raw) return@synchronized effectiveIndex
+        if (effectiveIndex < 0) {
+            storedIndex(android.media.AudioDeviceInfo.TYPE_BUILTIN_SPEAKER)?.let { lastIndexByRoute[android.media.AudioDeviceInfo.TYPE_BUILTIN_SPEAKER] = it }
+            storedIndex(android.media.AudioDeviceInfo.TYPE_USB_HEADSET)?.let { lastIndexByRoute[android.media.AudioDeviceInfo.TYPE_USB_HEADSET] = it }
+            effectiveIndex = lastIndexByRoute[android.media.AudioDeviceInfo.TYPE_USB_HEADSET] ?: raw
+        }
+        val key = route ?: -1
+        val prev = lastIndexByRoute[key]
+        lastIndexByRoute[key] = raw
+        if (prev != null && prev != raw) effectiveIndex = (effectiveIndex + (raw - prev)).coerceIn(0, max)
+        if (raw >= max) effectiveIndex = max     // the top step stays exactly bit-perfect
+        if (raw <= 0) effectiveIndex = 0
+        effectiveIndex
+        }
+    }
+
     companion object {
+        private val stateLock = Any()
+        private var effectiveIndex = -1
+        private val lastIndexByRoute = HashMap<Int, Int>()
+
         private const val ACTION_VOLUME_CHANGED = "android.media.VOLUME_CHANGED_ACTION"
         private const val EXTRA_STREAM_TYPE = "android.media.EXTRA_VOLUME_STREAM_TYPE"
 
