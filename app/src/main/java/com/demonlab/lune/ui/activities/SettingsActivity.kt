@@ -130,6 +130,7 @@ fun SettingsScreen(
     var autoSyncBackupUri by remember { mutableStateOf(settingsManager.autoSyncBackupUri) }
     var isAutoSyncEnabled by remember { mutableStateOf(settingsManager.isAutoSyncBackupEnabled) }
     var crashLogsOn by remember { mutableStateOf(settingsManager.crashLogsEnabled) }
+    var keepAliveOn by remember { mutableStateOf(settingsManager.usbKeepAliveEnabled) }
     var logCount by remember { mutableIntStateOf(DiagnosticLogger.logFiles(context).size) }
 
     val exportLauncher = rememberLauncherForActivityResult(
@@ -401,6 +402,28 @@ fun SettingsScreen(
                                 thumbContent = {
                                     Icon(
                                         imageVector = if (crashLogsOn) Icons.Default.Check else Icons.Default.Close,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(SwitchDefaults.IconSize)
+                                    )
+                                }
+                            )
+                        }
+                    )
+                    SettingsPreferenceItem(
+                        headlineText = stringResource(R.string.usb_keepalive),
+                        supportingText = stringResource(R.string.usb_keepalive_desc),
+                        icon = Icons.Default.Check,
+                        position = SectionPosition.MIDDLE,
+                        trailingContent = {
+                            BouncySwitch(
+                                checked = keepAliveOn,
+                                onCheckedChange = {
+                                    keepAliveOn = it
+                                    settingsManager.usbKeepAliveEnabled = it
+                                },
+                                thumbContent = {
+                                    Icon(
+                                        imageVector = if (keepAliveOn) Icons.Default.Check else Icons.Default.Close,
                                         contentDescription = null,
                                         modifier = Modifier.size(SwitchDefaults.IconSize)
                                     )

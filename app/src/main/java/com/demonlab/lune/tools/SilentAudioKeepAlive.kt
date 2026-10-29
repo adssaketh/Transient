@@ -26,6 +26,10 @@ object SilentAudioKeepAlive {
     fun start(context: Context) {
         synchronized(lock) {
             if (running) return
+            if (!SettingsManager.getInstance(context.applicationContext).usbKeepAliveEnabled) {
+                DiagnosticLogger.note("KEEPALIVE off (switched off in Settings > Diagnostics)")
+                return
+            }
             try {
                 val am = context.applicationContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
                 val speaker = am.getDevices(AudioManager.GET_DEVICES_OUTPUTS)

@@ -266,6 +266,8 @@
     <string name="blur_smooth_mode_desc">Uses a light background blur that keeps scrolling and song changes smooth. Turn off for the full-strength blur.</string>
     <string name="crash_logs">Crash &amp; lag logs</string>
     <string name="crash_logs_desc">Saves reports when the app crashes, freezes or runs low on memory, plus a playback event trace. Reports stay on your phone until you share them. Turn this off to stop all logging.</string>
+    <string name="usb_keepalive">Silent keep-alive stream</string>
+    <string name="usb_keepalive_desc">While a DAC plays directly, a silent stream also runs on the phone speaker so Android sees audio playing. Turn it off to test whether it helps or hurts; it takes effect from the next song.</string>
     <string name="logs_share">Share logs</string>
     <string name="logs_share_desc">%1$d report(s) saved. Send them as one zip file.</string>
     <string name="logs_none">No reports yet</string>

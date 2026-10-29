@@ -571,6 +571,16 @@ class SettingsManager(context: Context) {
             prefs.edit().putBoolean("crash_logs_enabled", value).apply()
         }
 
+    // Silent stream on the phone speaker that runs next to direct USB output (see SilentAudioKeepAlive). ON by default;
+    // a switch in Settings > Diagnostics lets us test whether it helps or hurts. Takes effect from the next song.
+    private val _usbKeepAliveEnabled = mutableStateOf(prefs.getBoolean("usb_keepalive_enabled", true))
+    var usbKeepAliveEnabled: Boolean
+        get() = _usbKeepAliveEnabled.value
+        set(value) {
+            _usbKeepAliveEnabled.value = value
+            prefs.edit().putBoolean("usb_keepalive_enabled", value).apply()
+        }
+
     var showBackupWarning: Boolean
         get() = prefs.getBoolean("show_backup_warning", true)
         set(value) = prefs.edit().putBoolean("show_backup_warning", value).apply()

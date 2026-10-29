@@ -82,7 +82,19 @@ class UsbVolumeController(
             Log.i("TransientTrace", "media volume refresh: gain=$gain")
             val index = runCatching { audioManager.getStreamVolume(AudioManager.STREAM_MUSIC) }.getOrNull()
             val outputs = runCatching { audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS).joinToString(",") { it.type.toString() } }.getOrNull()
-            com.demonlab.lune.tools.DiagnosticLogger.note("VOLUME index=$index gain=$gain outputDeviceTypes=$outputs (2=speaker 22=usb headset 11=usb device)")
+            val routed = runCatching {
+                if (android.os.Build.VERSION.SDK_INT >= 33) {
+                    audioManager.getAudioDevicesForAttributes(
+                        android.media.AudioAttributes.Builder().setUsage(android.media.AudioAttributes.USAGE_MEDIA).build()
+                    ).joinToString(",") { it.type.toString() }
+                } else "n/a"
+            }.getOrNull()
+            val stored = runCatching {
+                listOf("volume_music_speaker", "volume_music_usb_headset", "volume_music_headset", "volume_music").joinToString(" ") {
+                    "$it=" + Settings.System.getInt(appContext.contentResolver, it, -1)
+                }
+            }.getOrNull()
+            com.demonlab.lune.tools.DiagnosticLogger.note("VOLUME index=$index gain=$gain outputDeviceTypes=$outputs (2=speaker 22=usb headset 11=usb device) | music routed to types=$routed | stored: $stored")
         }
         onGainChanged(gain)
     }
