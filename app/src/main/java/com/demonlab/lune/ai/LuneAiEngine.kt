@@ -460,7 +460,9 @@ class LuneAiEngine private constructor(private val context: Context) {
      * ~1000 song library takes a fraction of a second (the first version compared every pair on the UI thread, which
      * froze the app when "Start Smart Shuffle" was tapped).
      */
-    fun generateSmartShuffle(songs: List<Song>, startingSong: Song? = null): List<Song> {
+    fun generateSmartShuffle(allSongs: List<Song>, startingSong: Song? = null): List<Song> {
+        // A song listed twice would appear twice in the mix and crash the list that shows it.
+        val songs = allSongs.distinctBy { it.id }
         if (songs.size <= 2) return songs
 
         val tasteProfile = tasteFor(songs)
@@ -533,22 +535,26 @@ class LuneAiEngine private constructor(private val context: Context) {
     // ─────────────────────────────────────────────────────────────
 
     fun generateDiscoveryQueue(allSongs: List<Song>, seedSong: Song? = null): List<Song> {
-        if (allSongs.isEmpty()) return emptyList()
+        val uniqueSongs = allSongs.distinctBy { it.id }
+        if (uniqueSongs.isEmpty()) return emptyList()
 
-        val tasteProfile = tasteFor(allSongs)
+        val tasteProfile = tasteFor(uniqueSongs)
 
         // Partition songs into favorites/familiar vs unexplored
-        val familiar = allSongs.filter { getSongAffinity(it.id) >= 12f }
-        val unexplored = allSongs.filter { 
+        val familiar = uniqueSongs.filter { getSongAffinity(it.id) >= 12f }
+        val unexplored = uniqueSongs.filter { 
             val interaction = storage.getInteraction(it.id)
             interaction.playCount <= 1 && !interaction.isFavorite
         }
 
         if (unexplored.isEmpty()) {
-            return generateSmartShuffle(allSongs, seedSong)
+            return generateSmartShuffle(uniqueSongs, seedSong)
         }
 
-        val seed = seedSong ?: familiar.maxByOrNull { rank(it) } ?: allSongs.first()
+        val seed = seedSong?.let { s -> uniqueSongs.find { it.id == s.id } }
+            ?: familiar.maxByOrNull { rank(it) }
+            ?: uniqueSongs.first()
+        val addedIds = mutableSetOf(seed.id)   // every song goes into the result once
         val result = mutableListOf<Song>(seed)
 
         // Find unexplored tracks that have high similarity to user's favorite tracks
@@ -561,22 +567,24 @@ class LuneAiEngine private constructor(private val context: Context) {
             candidate to (maxSimToFavorites * 0.65f + fit * 0.35f)
         }.sortedByDescending { it.second }
 
-        val familiarPool = (familiar - seed).toMutableList()
-        val unexploredPool = rankedUnexplored.map { it.first }.toMutableList()
+        val familiarPool = familiar.filter { it.id !in addedIds }.toMutableList()
+        val unexploredPool = rankedUnexplored.map { it.first }
+            .filter { it.id !in addedIds && familiarPool.none { f -> f.id == it.id } }.toMutableList()
 
         // Interleave: 2 familiar tracks -> 1 high-confidence discovery track
         var flip = 0
         while (familiarPool.isNotEmpty() || unexploredPool.isNotEmpty()) {
             if (flip % 3 == 2 && unexploredPool.isNotEmpty()) {
                 val nextDisc = unexploredPool.removeAt(0)
-                result.add(nextDisc)
+                if (addedIds.add(nextDisc.id)) result.add(nextDisc)
             } else if (familiarPool.isNotEmpty()) {
                 val last = result.last()
                 val nextFam = familiarPool.maxByOrNull { computeSongSimilarity(last, it) } ?: familiarPool.first()
                 familiarPool.remove(nextFam)
-                result.add(nextFam)
+                if (addedIds.add(nextFam.id)) result.add(nextFam)
             } else if (unexploredPool.isNotEmpty()) {
-                result.add(unexploredPool.removeAt(0))
+                val nextDisc = unexploredPool.removeAt(0)
+                if (addedIds.add(nextDisc.id)) result.add(nextDisc)
             }
             flip++
         }

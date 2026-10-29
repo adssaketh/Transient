@@ -453,7 +453,8 @@ fun PlaylistDetailView(
                 } else {
                     itemsIndexed(
                         currentPlaylistSongs,
-                        key = { _, it -> it.id },
+                        // The same song can be in a playlist twice; two items with one key crash the list.
+                        key = { index, it -> "playlist_${it.id}_$index" },
                         contentType = { _, _ -> "song_item" }
                     ) { index, song ->
                         val isFirst = index == 0

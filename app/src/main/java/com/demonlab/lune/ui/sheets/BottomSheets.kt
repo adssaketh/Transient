@@ -796,7 +796,7 @@ fun QueueBottomSheet(
                             }
                         }
                         if (isRecentlyPlayedExpanded) {
-                            itemsIndexed(playbackManager.recentlyPlayed, key = { _, s -> "history_${s.id}" }) { index, song ->
+                            itemsIndexed(playbackManager.recentlyPlayed, key = { index, s -> "history_${s.id}_$index" }) { index, song ->
                                 SongItem(
                                     isFirst = index == 0,
                                     isLast = index == playbackManager.recentlyPlayed.lastIndex,
@@ -870,7 +870,7 @@ fun QueueBottomSheet(
                         )
                     }
 
-                    itemsIndexed(upNextSongs, key = { _, s -> "song_${s.id}" }) { index, song ->
+                    itemsIndexed(upNextSongs, key = { index, s -> "song_${s.id}_$index" }) { index, song ->
                         val isFirst = index == 0
                         val isLast = index == upNextSongs.lastIndex
                         
