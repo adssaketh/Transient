@@ -114,7 +114,8 @@ class SettingsActivity : AppCompatActivity() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    embedded: Boolean = false
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val settingsManager = remember { SettingsManager.getInstance(context) }
@@ -188,61 +189,12 @@ fun SettingsScreen(
 
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
-    com.demonlab.lune.ui.components.AppBlurBackdrop(
-        hasBlurBackground = hasBlurBackground,
-        isDarkTheme = isDarkTheme,
-        currentSong = currentSong
-    ) {
-        Scaffold(
-            modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
-            containerColor = if (hasBlurBackground && currentSong != null) Color.Transparent else MaterialTheme.colorScheme.surface,
-            topBar = {
-                LargeTopAppBar(
-                    title = { 
-                        Text(
-                            stringResource(R.string.settings),
-                            fontWeight = FontWeight.Bold,
-                            style = MaterialTheme.typography.headlineLarge,
-                            color = if (hasBlurBackground && currentSong != null) Color.White else MaterialTheme.colorScheme.primary
-                        ) 
-                    },
-                    navigationIcon = {
-                        IconButton(
-                            onClick = onBack,
-                            modifier = Modifier.bounceClick()
-                        ) {
-                            Surface(
-                                shape = CircleShape,
-                                color = if (hasBlurBackground && currentSong != null) Color.White.copy(alpha = 0.15f) else MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
-                                modifier = Modifier.size(40.dp)
-                            ) {
-                                Box(contentAlignment = androidx.compose.ui.Alignment.Center) {
-                                    Icon(
-                                        Icons.AutoMirrored.Filled.ArrowBack, 
-                                        contentDescription = stringResource(R.string.cd_back),
-                                        tint = if (hasBlurBackground && currentSong != null) Color.White else MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                }
-                            }
-                        }
-                    },
-                    scrollBehavior = scrollBehavior,
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.Transparent,
-                        scrolledContainerColor = if (hasBlurBackground && currentSong != null) Color.Transparent else MaterialTheme.colorScheme.surface,
-                        titleContentColor = if (hasBlurBackground && currentSong != null) Color.White else MaterialTheme.colorScheme.onSurface
-                    )
-                )
-            }
-        ) { innerPadding ->
-            Column(
-                modifier = Modifier
-                    .padding(innerPadding)
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-            ) {
+    val settingsBody: @Composable (Modifier) -> Unit = { bodyModifier ->
+        Column(
+            modifier = bodyModifier
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+        ) {
                 // General Section
                 SettingsSection(title = stringResource(R.string.general)) {
                     SettingsPreferenceItem(
@@ -523,8 +475,64 @@ fun SettingsScreen(
                 }
                 
                 Spacer(modifier = Modifier.height(32.dp))
-            }
         }
+    }
+
+    if (embedded) {
+        // Inside the Settings bottom sheet: the sheet draws the background, the handle and the title.
+        settingsBody(Modifier.fillMaxWidth())
+    } else {
+    com.demonlab.lune.ui.components.AppBlurBackdrop(
+        hasBlurBackground = hasBlurBackground,
+        isDarkTheme = isDarkTheme,
+        currentSong = currentSong
+    ) {
+        Scaffold(
+            modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+            containerColor = if (hasBlurBackground && currentSong != null) Color.Transparent else MaterialTheme.colorScheme.surface,
+            topBar = {
+                LargeTopAppBar(
+                    title = { 
+                        Text(
+                            stringResource(R.string.settings),
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.headlineLarge,
+                            color = if (hasBlurBackground && currentSong != null) Color.White else MaterialTheme.colorScheme.primary
+                        ) 
+                    },
+                    navigationIcon = {
+                        IconButton(
+                            onClick = onBack,
+                            modifier = Modifier.bounceClick()
+                        ) {
+                            Surface(
+                                shape = CircleShape,
+                                color = if (hasBlurBackground && currentSong != null) Color.White.copy(alpha = 0.15f) else MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                                modifier = Modifier.size(40.dp)
+                            ) {
+                                Box(contentAlignment = androidx.compose.ui.Alignment.Center) {
+                                    Icon(
+                                        Icons.AutoMirrored.Filled.ArrowBack, 
+                                        contentDescription = stringResource(R.string.cd_back),
+                                        tint = if (hasBlurBackground && currentSong != null) Color.White else MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                            }
+                        }
+                    },
+                    scrollBehavior = scrollBehavior,
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.Transparent,
+                        scrolledContainerColor = if (hasBlurBackground && currentSong != null) Color.Transparent else MaterialTheme.colorScheme.surface,
+                        titleContentColor = if (hasBlurBackground && currentSong != null) Color.White else MaterialTheme.colorScheme.onSurface
+                    )
+                )
+            }
+        ) { innerPadding ->
+            settingsBody(Modifier.padding(innerPadding).fillMaxSize())
+        }
+    }
     }
 }
 

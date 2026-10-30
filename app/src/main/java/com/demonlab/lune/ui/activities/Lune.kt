@@ -715,6 +715,7 @@ fun MainScreen(
     var showOptionsSheet by remember { mutableStateOf(false) }
     var showSortSheet by remember { mutableStateOf(false) }
     var showSectionMenuSheet by remember { mutableStateOf(false) }
+    var showSettingsSheet by remember { mutableStateOf(false) }
     var showMainAddToPlaylistDialog by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
@@ -1082,13 +1083,11 @@ fun MainScreen(
 
     var showSearchScreen by remember { mutableStateOf(false) }
 
-    val auroraBackdrop = rememberAuroraBackdrop()
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.surface)
     ) {
-        if (auroraBackdrop) AuroraBackdrop()
         val scrollToCurrentTrigger = remember { mutableStateOf(0) }
 
         if (hasBlurBackgroundMini && currentSong != null && !isPlayerExpanded) {
@@ -1209,7 +1208,7 @@ fun MainScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .nestedScroll(scrollBehavior.nestedScrollConnection),
-            containerColor = if (auroraBackdrop || (hasBlurBackgroundMini && currentSong != null)) Color.Transparent else MaterialTheme.colorScheme.surface,
+            containerColor = if (hasBlurBackgroundMini && currentSong != null) Color.Transparent else MaterialTheme.colorScheme.surface,
             topBar = {
                 val activePrimary = getControlsPrimaryColor(useCustomControlsColor, controlsColorPalette)
                 val titleColor = if (useCustomControlsColor) {
@@ -1310,7 +1309,6 @@ fun MainScreen(
                             Surface(
                                 shape = CircleShape,
                                 color = actionBtnBg,
-                                border = if (!hasBlurBackgroundMini && rememberGlassUi()) glassBorder() else null,
                                 modifier = Modifier
                                     .size(40.dp)
                                     .bounceClick()
@@ -1333,7 +1331,6 @@ fun MainScreen(
                             Surface(
                                 shape = CircleShape,
                                 color = actionBtnBg,
-                                border = if (!hasBlurBackgroundMini && rememberGlassUi()) glassBorder() else null,
                                 modifier = Modifier
                                     .size(40.dp)
                                     .bounceClick()
@@ -1356,29 +1353,6 @@ fun MainScreen(
                                 }
                             }
                         }
-                        IconButton(
-                            onClick = { 
-                                context.startActivity(Intent(context, SettingsActivity::class.java))
-                            },
-                        ) {
-                            Surface(
-                                shape = CircleShape,
-                                color = actionBtnBg,
-                                border = if (!hasBlurBackgroundMini && rememberGlassUi()) glassBorder() else null,
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .bounceClick()
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.Settings,
-                                        contentDescription = stringResource(R.string.settings),
-                                        tint = actionBtnTint,
-                                        modifier = Modifier.size(22.dp)
-                                    )
-                                }
-                            }
-                        }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = Color.Transparent,
@@ -1389,40 +1363,6 @@ fun MainScreen(
             }
         ) { innerPadding ->
             Column(modifier = Modifier.padding(top = innerPadding.calculateTopPadding())) {
-
-                if (auroraBackdrop) {
-                    AuroraStatsRow(
-                        songCount = visibleSongs.size,
-                        onSortClick = {
-                            val newAscending = if (activeSortOption == "ALPHABETICAL") !activeIsSortAscending else true
-                            settingsManager.setSortOption(currentSortKey, "ALPHABETICAL")
-                            settingsManager.setIsSortAscending(currentSortKey, newAscending)
-                            activeSortOption = "ALPHABETICAL"
-                            activeIsSortAscending = newAscending
-                        },
-                        modifier = Modifier.padding(bottom = 10.dp)
-                    )
-                    SectionChips(
-                        folders = folders,
-                        selected = currentActiveFolder,
-                        labelFor = { f ->
-                            when (f) {
-                                "RESUME" -> sTabResume
-                                "MIXES" -> sTabMixes
-                                "ALL" -> sTabAll
-                                "FAVORITES" -> sTabFavorites
-                                "ALBUMS" -> sTabAlbums
-                                "ARTISTS" -> sTabArtists
-                                "GENRES" -> sTabGenres
-                                "PLAYLISTS" -> sTabPlaylists
-                                "FOLDERS" -> sTabFolders
-                                else -> f
-                            }
-                        },
-                        onSelect = onSelectedFolderChange,
-                        modifier = Modifier.padding(bottom = 10.dp)
-                    )
-                }
 
                 HorizontalPager(
                     state = pagerState,
@@ -2632,6 +2572,7 @@ fun MainScreen(
                                         folders = folders,
                                         onSelectedFolderChange = onSelectedFolderChange,
                                         showSectionMenuSheet = { showSectionMenuSheet = true },
+                                        showSettingsSheet = { showSettingsSheet = true },
                                         showSearchScreen = { showSearchScreen = true },
                                         playbackManager = playbackManager,
                                         song = song,
@@ -2753,6 +2694,7 @@ fun MainScreen(
                                         folders = folders,
                                         onSelectedFolderChange = onSelectedFolderChange,
                                         showSectionMenuSheet = { showSectionMenuSheet = true },
+                                        showSettingsSheet = { showSettingsSheet = true },
                                         showSearchScreen = { showSearchScreen = true },
                                         playbackManager = playbackManager,
                                         song = song,
@@ -2786,6 +2728,7 @@ fun MainScreen(
                             folders = folders,
                             onSelectedFolderChange = onSelectedFolderChange,
                             showSectionMenuSheet = { showSectionMenuSheet = true },
+                                        showSettingsSheet = { showSettingsSheet = true },
                             showSearchScreen = { showSearchScreen = true },
                             playbackManager = playbackManager,
                             song = null,
@@ -3199,6 +3142,56 @@ fun MainScreen(
         )
     }
 
+    if (showSettingsSheet) {
+        val blurColors = rememberBlurSheetColors(currentSong)
+        val settingsSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
+        ModalBottomSheet(
+            onDismissRequest = { showSettingsSheet = false },
+            sheetState = settingsSheetState,
+            containerColor = blurColors.containerColor,
+            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+            dragHandle = null,
+            contentWindowInsets = { WindowInsets(0, 0, 0, 0) }
+        ) {
+            AppBlurBackdrop(
+                hasBlurBackground = blurColors.hasBlur,
+                isDarkTheme = blurColors.isDark,
+                currentSong = currentSong,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .navigationBarsPadding()
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        BottomSheetDefaults.DragHandle(
+                            color = if (blurColors.hasBlur) Color.White.copy(alpha = 0.5f) else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Text(
+                        text = stringResource(R.string.settings),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = blurColors.textColor,
+                        modifier = Modifier.padding(start = 28.dp, top = 4.dp, bottom = 8.dp)
+                    )
+                    // The same settings as the Settings screen. Drag the sheet up to open it fully.
+                    SettingsScreen(
+                        onBack = { showSettingsSheet = false },
+                        embedded = true
+                    )
+                }
+            }
+        }
+    }
+
     if (showSectionMenuSheet) {
         val blurColors = rememberBlurSheetColors(currentSong)
         ModalBottomSheet(
@@ -3355,6 +3348,7 @@ fun UnifiedHeaderPill(
     useCustomControlsColor: Boolean = false,
     controlsColorPalette: Int = 0,
     showSearchText: Boolean = true,
+    showSettingsSheet: () -> Unit = {},
     sTabResume: String,
     sTabMixes: String,
     sTabAll: String,
@@ -3367,17 +3361,6 @@ fun UnifiedHeaderPill(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    if (!hasBlurBackground && rememberAuroraBackdrop()) {
-        AuroraNavPill(
-            homeSelected = selectedFolder == "RESUME",
-            onHome = { onSelectedFolderChange(if (folders.contains("RESUME")) "RESUME" else selectedFolder) },
-            onSearch = { showSearchScreen() },
-            onLibrary = { showSectionMenuSheet() },
-            onEqualizer = { context.startActivity(Intent(context, EqualizerActivity::class.java)) },
-            modifier = modifier
-        )
-        return
-    }
     val activePrimary = getControlsPrimaryColor(useCustomControlsColor, controlsColorPalette)
     val surfaceColor = MaterialTheme.colorScheme.surface
     val luma = surfaceColor.red * 0.299f + surfaceColor.green * 0.587f + surfaceColor.blue * 0.114f
@@ -3454,12 +3437,10 @@ fun UnifiedHeaderPill(
         )
     }
 
-    val glassPill = !hasBlurBackground && rememberGlassUi()
     Surface(
         shape = RoundedCornerShape(35.dp),
-        color = if (glassPill) outerPillColor.copy(alpha = 0.55f) else outerPillColor,
-        tonalElevation = if (hasBlurBackground || glassPill) 0.dp else 6.dp,
-        border = if (glassPill) glassBorder() else null,
+        color = outerPillColor,
+        tonalElevation = if (hasBlurBackground) 0.dp else 6.dp,
         modifier = modifier
             .fillMaxWidth()
             .height(70.dp)
@@ -3467,7 +3448,6 @@ fun UnifiedHeaderPill(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .then(if (glassPill) Modifier.glassSheen(RoundedCornerShape(35.dp)) else Modifier)
         ) {
             if (hasBlurBackground) {
                 if (song != null) {
@@ -3526,6 +3506,9 @@ fun UnifiedHeaderPill(
                     else -> selectedFolder
                 }
 
+                // Room for the settings button: with a long section name only the search icon is shown.
+                val searchTextVisible = showSearchText && activeLabel.length <= 8
+
                 val isCurrentContext = playbackManager.activeCategory == selectedFolder && playbackManager.currentSong != null && playbackManager.activePlaylistId != -300L
 
                 Surface(
@@ -3582,7 +3565,7 @@ fun UnifiedHeaderPill(
                         }
                         Spacer(modifier = Modifier.width(4.dp))
                         Icon(
-                            imageVector = Icons.Default.KeyboardArrowDown,
+                            imageVector = Icons.Default.KeyboardArrowUp,
                             contentDescription = null,
                             tint = onSelected.copy(alpha = 0.8f),
                             modifier = Modifier.size(20.dp)
@@ -3607,15 +3590,15 @@ fun UnifiedHeaderPill(
                         .clip(RoundedCornerShape(26.dp))
                         .clickable { showSearchScreen() }
                         .padding(
-                            start = if (showSearchText) 12.dp else 6.dp,
-                            end = if (showSearchText) 10.dp else 6.dp,
+                            start = if (searchTextVisible) 12.dp else 6.dp,
+                            end = if (searchTextVisible) 10.dp else 6.dp,
                             top = 6.dp,
                             bottom = 6.dp
                         ),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     AnimatedVisibility(
-                        visible = showSearchText,
+                        visible = searchTextVisible,
                         enter = fadeIn(tween(200)) + expandHorizontally(),
                         exit = fadeOut(tween(150)) + shrinkHorizontally()
                     ) {
@@ -3643,6 +3626,26 @@ fun UnifiedHeaderPill(
                                 modifier = Modifier.size(20.dp)
                             )
                         }
+                    }
+                }
+
+                // Settings button, right next to search.
+                Spacer(modifier = Modifier.width(4.dp))
+                Surface(
+                    onClick = { showSettingsSheet() },
+                    shape = CircleShape,
+                    color = searchIconBg,
+                    modifier = Modifier
+                        .size(40.dp)
+                        .bounceClick()
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Outlined.Settings,
+                            contentDescription = stringResource(R.string.settings),
+                            tint = searchIconTint,
+                            modifier = Modifier.size(20.dp)
+                        )
                     }
                 }
             }

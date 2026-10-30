@@ -3,11 +3,6 @@ package com.demonlab.lune.ui.player
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.boundsInWindow
-import com.demonlab.lune.ui.components.AuroraBackdrop
-import com.demonlab.lune.ui.components.rememberAuroraBackdrop
-import com.demonlab.lune.ui.components.glassSheen
-import com.demonlab.lune.ui.components.glassBorder
-import com.demonlab.lune.ui.components.rememberGlassUi
 import coil.size.Precision
 import coil.imageLoader
 import android.Manifest
@@ -997,13 +992,11 @@ fun FullPlayer(
         }
     }
 
-    val auroraBackdrop = rememberAuroraBackdrop()
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.surface)
     ) {
-        if (auroraBackdrop && !hasBlurBackground) AuroraBackdrop()
         if (!isCinematic && hasBlurBackground) {
             Crossfade(
                 targetState = song.toArtwork(),
@@ -1536,7 +1529,7 @@ fun FullPlayer(
                     )
                 }
 
-                val pillBg = if (useBlurControls) blurContainerColor else if (isAmoled) Color(0xFF222222) else if (isDarkTheme) (if (rememberGlassUi()) Color.White.copy(alpha = 0.10f) else Color.Black.copy(alpha = 0.40f)) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.85f)
+                val pillBg = if (useBlurControls) blurContainerColor else if (isAmoled) Color(0xFF222222) else if (isDarkTheme) Color.Black.copy(alpha = 0.40f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.85f)
                 val hasLyrics = playbackManager.currentLyrics != null
                 val lyricsIconColor = if (hasLyrics) {
                     if (useBlurControls) Color.White else MaterialTheme.colorScheme.primary
@@ -1743,7 +1736,7 @@ fun FullPlayer(
             } else if (isAmoled) {
                 Color(0xFF222222)
             } else {
-                if (isDarkTheme) (if (rememberGlassUi()) Color.White.copy(alpha = 0.10f) else Color.Black.copy(alpha = 0.40f)) else MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
+                if (isDarkTheme) Color.Black.copy(alpha = 0.40f) else MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
             }
             val activeIconTint = if (useBlurControls) {
                 Color.White
@@ -1792,9 +1785,8 @@ fun FullPlayer(
                 label = "PlayWidthAnim"
             )
 
-            val glassControls = rememberGlassUi()
-            val playShape = if (glassControls) RoundedCornerShape(34.dp) else RoundedCornerShape(30.dp)
-            val skipShape = if (glassControls) CircleShape else RoundedCornerShape(26.dp)
+            val playShape = RoundedCornerShape(30.dp)
+            val skipShape = RoundedCornerShape(26.dp)
 
             Box(
                 modifier = Modifier
@@ -2339,7 +2331,6 @@ fun MiniPlayer(
     ) {
         // 1. Cápsula / Píldora principal interactiva (A la izquierda)
         val pillShape = CircleShape
-        val glassMini = !hasBlurBackground && rememberGlassUi()
         Surface(
             modifier = Modifier
                 .weight(1f)
@@ -2352,14 +2343,12 @@ fun MiniPlayer(
                 )
                 .clickable { onExpand() },
             shape = pillShape,
-            color = if (hasBlurBackground) MaterialTheme.colorScheme.surface else if (glassMini) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f) else MaterialTheme.colorScheme.primaryContainer,
-            tonalElevation = if (hasBlurBackground || glassMini) 0.dp else 6.dp,
-            border = if (glassMini) glassBorder() else null
+            color = if (hasBlurBackground) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.primaryContainer,
+            tonalElevation = if (hasBlurBackground) 0.dp else 6.dp
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .then(if (glassMini) Modifier.glassSheen(pillShape) else Modifier)
             ) {
                 if (hasBlurBackground) {
                     Crossfade(

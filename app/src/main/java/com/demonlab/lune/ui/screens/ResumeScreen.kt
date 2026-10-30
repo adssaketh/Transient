@@ -193,20 +193,6 @@ fun ResumeScreen(
         viewModel.topSongStats.sumOf { it.playCount }
     }
 
-    if (!hasBlurBackground && com.demonlab.lune.ui.components.rememberAuroraBackdrop()) {
-        com.demonlab.lune.ui.screens.resume.AuroraResumeContent(
-            recentlyAdded = recentlyAdded,
-            currentSong = currentSong,
-            isPlaying = isPlaying,
-            bottomPadding = bottomPadding,
-            onSongClick = { song -> onSongClick(song, allSongs) },
-            onExpandPlayer = onExpandPlayer,
-            onPlayToggle = onPlayToggle,
-            onSeeAll = onSeeAll
-        )
-        return
-    }
-
     Column(
         modifier = Modifier
             .fillMaxSize()

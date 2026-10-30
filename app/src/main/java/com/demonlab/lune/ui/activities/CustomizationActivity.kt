@@ -437,8 +437,7 @@ fun CustomizationScreen(
                                     com.demonlab.lune.ui.components.PaletteOption(2, "Sage", Color(0xFF386B52)),
                                     com.demonlab.lune.ui.components.PaletteOption(3, "Ocean", Color(0xFF2E6580)),
                                     com.demonlab.lune.ui.components.PaletteOption(4, "Lavender", Color(0xFF6E568F)),
-                                    com.demonlab.lune.ui.components.PaletteOption(5, "Amber", Color(0xFF7F5700)),
-                                    com.demonlab.lune.ui.components.PaletteOption(6, "Aurora", Color(0xFF8B7BFF))
+                                    com.demonlab.lune.ui.components.PaletteOption(5, "Amber", Color(0xFF7F5700))
                                 ),
                                 selectedIndex = customColorPalette,
                                 onSelect = onPaletteChanged,
@@ -460,30 +459,6 @@ fun CustomizationScreen(
                             thumbContent = {
                                 Icon(
                                     imageVector = if (useAmoledPitchBlack) Icons.Default.Check else Icons.Default.Close,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(SwitchDefaults.IconSize)
-                                )
-                            }
-                        )
-                    }
-                )
-
-                var glassUi by remember { mutableStateOf(settingsManager.glassUiEnabled) }
-                SettingsPreferenceItem(
-                    headlineText = stringResource(R.string.glass_ui),
-                    supportingText = stringResource(R.string.glass_ui_desc),
-                    icon = Icons.Default.BlurOn,
-                    position = SectionPosition.MIDDLE,
-                    trailingContent = {
-                        BouncySwitch(
-                            checked = glassUi,
-                            onCheckedChange = { enabled ->
-                                glassUi = enabled
-                                settingsManager.glassUiEnabled = enabled
-                            },
-                            thumbContent = {
-                                Icon(
-                                    imageVector = if (glassUi) Icons.Default.Check else Icons.Default.Close,
                                     contentDescription = null,
                                     modifier = Modifier.size(SwitchDefaults.IconSize)
                                 )

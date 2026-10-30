@@ -71,12 +71,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.demonlab.lune.tools.SettingsManager
-import com.demonlab.lune.ui.components.AuroraBackdrop
 import com.demonlab.lune.ui.components.BrandLogo
 import com.demonlab.lune.ui.components.BrandWordmark
 import com.demonlab.lune.ui.components.PaletteOption
 import com.demonlab.lune.ui.components.PaletteSwatchRow
-import com.demonlab.lune.ui.components.glassBorder
 
 private const val PAGE_LOOK = 0
 private const val PAGE_ACCESS = 1
@@ -167,7 +165,6 @@ fun OnboardingScreen(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.surface)
     ) {
-        AuroraBackdrop()
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -218,7 +215,6 @@ fun OnboardingScreen(
                             SetupCard(title = "Colours") {
                                 PaletteSwatchRow(
                                     options = listOf(
-                                        PaletteOption(6, "Aurora", Color(0xFF8B7BFF)),
                                         PaletteOption(0, "Violet", Color(0xFF6650A4)),
                                         PaletteOption(1, "Coral", Color(0xFFB04B38)),
                                         PaletteOption(2, "Sage", Color(0xFF386B52)),
@@ -433,7 +429,6 @@ private fun SetupCard(
     Surface(
         shape = RoundedCornerShape(26.dp),
         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.07f),
-        border = glassBorder(),
         modifier = modifier.fillMaxWidth()
     ) {
         Column(

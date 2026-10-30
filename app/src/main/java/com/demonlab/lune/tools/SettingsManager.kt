@@ -13,18 +13,15 @@ class SettingsManager(context: Context) {
     init {
         // Design migrations run once per version (all of it can still be changed in settings).
         val designVersion = prefs.getInt("design_version", 0)
-        if (designVersion < 4) {
+        if (designVersion < 5) {
             val editor = prefs.edit()
-            if (designVersion < 2) {
-                // Aurora redesign: Aurora Glass palette and glass look.
-                editor.putBoolean("use_custom_colors", true)
-                    .putInt("custom_color_palette", 6)
-                    .putBoolean("glass_ui_enabled", true)
-            }
             // Round covers turn like an audio CD while playing.
-            editor.putBoolean("cover_spin", true)
-            editor.putInt("design_version", 4)
-                .apply()
+            if (designVersion < 4) editor.putBoolean("cover_spin", true)
+            // Palette 6 no longer exists: anyone who had it is switched back to the default.
+            if (prefs.getInt("custom_color_palette", 0) == 6) {
+                editor.putBoolean("use_custom_colors", false).putInt("custom_color_palette", 0)
+            }
+            editor.putInt("design_version", 5).apply()
         }
     }
 
@@ -486,15 +483,6 @@ class SettingsManager(context: Context) {
         set(value) {
             _albumArtSeedColor.value = value
             prefs.edit().putInt("album_art_seed_color", value).apply()
-        }
-
-    // Glass UI (default ON): frosted-glass look for the mini player, section pill and cards.
-    private val _glassUiEnabled = mutableStateOf(prefs.getBoolean("glass_ui_enabled", true))
-    var glassUiEnabled: Boolean
-        get() = _glassUiEnabled.value
-        set(value) {
-            _glassUiEnabled.value = value
-            prefs.edit().putBoolean("glass_ui_enabled", value).apply()
         }
 
     // Now playing in the header (default ON): while music plays, the app name gives way to "Title · Artist".

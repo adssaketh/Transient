@@ -90,42 +90,6 @@ private val WarmAmberDark = darkColorScheme(
     tertiary = Color(0xFFB7CDA6)
 )
 
-// 6. Aurora Glass (indigo / violet with a pink accent)
-private val AuroraGlassLight = lightColorScheme(
-    primary = Color(0xFF5B49D6),
-    onPrimary = Color.White,
-    secondary = Color(0xFF625B8F),
-    tertiary = Color(0xFFB0407A),
-    background = Color(0xFFF7F4FF),
-    surface = Color(0xFFF7F4FF),
-    surfaceVariant = Color(0xFFE6E0FA),
-    surfaceContainerLowest = Color(0xFFFFFFFF),
-    surfaceContainerLow = Color(0xFFF1ECFF),
-    surfaceContainer = Color(0xFFEBE5FB),
-    surfaceContainerHigh = Color(0xFFE4DDF8),
-    surfaceContainerHighest = Color(0xFFDDD5F4)
-)
-private val AuroraGlassDark = darkColorScheme(
-    primary = Color(0xFF8B7BFF),
-    onPrimary = Color(0xFF120D33),
-    primaryContainer = Color(0xFF3A2FA0),
-    secondary = Color(0xFFC2BCF0),
-    secondaryContainer = Color(0xFF2A2170),
-    tertiary = Color(0xFFFF7AB6),
-    background = Color(0xFF0C0924),
-    surface = Color(0xFF110C33),
-    surfaceVariant = Color(0xFF241B55),
-    onSurface = Color(0xFFF4F2FF),
-    onSurfaceVariant = Color(0xFFC2BCF0),
-    surfaceContainerLowest = Color(0xFF0A0720),
-    surfaceContainerLow = Color(0xFF0F0B2C),
-    surfaceContainer = Color(0xFF15103C),
-    surfaceContainerHigh = Color(0xFF1C174A),
-    surfaceContainerHighest = Color(0xFF261F5C),
-    outline = Color(0xFF7A73BC),
-    outlineVariant = Color(0xFF3A3470)
-)
-
 @Composable
 fun getControlsPrimaryColor(
     useCustomControlsColor: Boolean,
@@ -219,7 +183,6 @@ fun LuneTheme(
                     3 -> OceanBreezeDark
                     4 -> LavenderMistDark
                     5 -> WarmAmberDark
-                    6 -> AuroraGlassDark
                     else -> DarkColorScheme
                 }
             } else {
@@ -229,7 +192,6 @@ fun LuneTheme(
                     3 -> OceanBreezeLight
                     4 -> LavenderMistLight
                     5 -> WarmAmberLight
-                    6 -> AuroraGlassLight
                     else -> LightColorScheme
                 }
             }
