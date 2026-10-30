@@ -293,12 +293,7 @@ private fun QuickPlayerDialogScreen(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    Icon(
-                                        painter = painterResource(R.drawable.ic_logo_diamonds),
-                                        contentDescription = null,
-                                        modifier = Modifier.size(20.dp),
-                                        tint = activePrimary
-                                    )
+                                    com.demonlab.lune.ui.components.BrandLogo(size = 28.dp, coverColor = activePrimary)
                                     Text(
                                         text = stringResource(R.string.quick_player),
                                         style = MaterialTheme.typography.labelLarge,
