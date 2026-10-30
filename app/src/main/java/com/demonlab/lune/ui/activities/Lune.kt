@@ -3489,7 +3489,7 @@ fun UnifiedHeaderPill(
             Row(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(end = 4.dp),
+                    .padding(end = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // LEFT SIDE: Active Section Pill
@@ -3581,71 +3581,81 @@ fun UnifiedHeaderPill(
                     }
                 }
 
-                Spacer(modifier = Modifier.weight(1f))
-
-                // RIGHT SIDE: Search Bar (Text + Icon)
+                // RIGHT SIDE: search and settings. This container takes the room the section pill leaves. The settings
+                // button is measured first, and the word "Search" gives way before anything else, so both round buttons
+                // are always complete circles.
                 Row(
-                    modifier = Modifier
-                        .bounceClick()
-                        .clip(RoundedCornerShape(26.dp))
-                        .clickable { showSearchScreen() }
-                        .padding(
-                            start = if (searchTextVisible) 12.dp else 6.dp,
-                            end = if (searchTextVisible) 10.dp else 6.dp,
-                            top = 6.dp,
-                            bottom = 6.dp
-                        ),
+                    modifier = Modifier.weight(1f),
+                    horizontalArrangement = Arrangement.End,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    AnimatedVisibility(
-                        visible = searchTextVisible,
-                        enter = fadeIn(tween(200)) + expandHorizontally(),
-                        exit = fadeOut(tween(150)) + shrinkHorizontally()
+                    Row(
+                        modifier = Modifier
+                            .weight(1f, fill = false)
+                            .bounceClick()
+                            .clip(RoundedCornerShape(26.dp))
+                            .clickable { showSearchScreen() }
+                            .padding(
+                                start = if (searchTextVisible) 12.dp else 4.dp,
+                                end = 2.dp,
+                                top = 6.dp,
+                                bottom = 6.dp
+                            ),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = stringResource(R.string.search),
-                                color = searchTextColor,
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.Medium,
-                                maxLines = 1
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
+                        AnimatedVisibility(
+                            visible = searchTextVisible,
+                            modifier = Modifier.weight(1f, fill = false),
+                            enter = fadeIn(tween(200)) + expandHorizontally(),
+                            exit = fadeOut(tween(150)) + shrinkHorizontally()
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = stringResource(R.string.search),
+                                    color = searchTextColor,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.Medium,
+                                    maxLines = 1,
+                                    softWrap = false,
+                                    overflow = androidx.compose.ui.text.style.TextOverflow.Clip
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                            }
+                        }
+                        Surface(
+                            shape = CircleShape,
+                            color = searchIconBg,
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.Search,
+                                    contentDescription = stringResource(R.string.search),
+                                    tint = searchIconTint,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
                         }
                     }
+
+                    // Settings button, a complete circle right next to search.
+                    Spacer(modifier = Modifier.width(2.dp))
                     Surface(
+                        onClick = { showSettingsSheet() },
                         shape = CircleShape,
                         color = searchIconBg,
-                        modifier = Modifier.size(40.dp)
+                        modifier = Modifier
+                            .size(40.dp)
+                            .bounceClick()
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
-                                imageVector = Icons.Default.Search,
-                                contentDescription = stringResource(R.string.search),
+                                imageVector = Icons.Outlined.Settings,
+                                contentDescription = stringResource(R.string.settings),
                                 tint = searchIconTint,
                                 modifier = Modifier.size(20.dp)
                             )
                         }
-                    }
-                }
-
-                // Settings button, right next to search.
-                Spacer(modifier = Modifier.width(4.dp))
-                Surface(
-                    onClick = { showSettingsSheet() },
-                    shape = CircleShape,
-                    color = searchIconBg,
-                    modifier = Modifier
-                        .size(40.dp)
-                        .bounceClick()
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.Outlined.Settings,
-                            contentDescription = stringResource(R.string.settings),
-                            tint = searchIconTint,
-                            modifier = Modifier.size(20.dp)
-                        )
                     }
                 }
             }
