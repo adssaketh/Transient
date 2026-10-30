@@ -37,6 +37,6 @@
             android:strokeWidth="2.6"
             android:strokeLineCap="round"
             android:strokeLineJoin="round"
-            android:pathData="M42,68Q47,60 52,68Q57,76 62,68Q67,60 72,68" />
+            android:pathData="M44,68Q49,60 54,68Q59,76 64,68Q69,60 74,68" />
     </group>
 </vector>

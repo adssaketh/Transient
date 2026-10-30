@@ -1,13 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
 <shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="shuffle_all"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_shuffle"
+        android:shortcutShortLabel="@string/shortcut_shuffle_short"
+        android:shortcutLongLabel="@string/shortcut_shuffle_long"
+        android:shortcutDisabledMessage="@string/shortcut_disabled">
+        <intent
+            android:action="com.demonlab.lune.ACTION_SHUFFLE_ALL"
+            android:targetPackage="com.transientplayer.app"
+            android:targetClass="com.demonlab.lune.ui.activities.Lune" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="resume"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_resume"
+        android:shortcutShortLabel="@string/shortcut_resume_short"
+        android:shortcutLongLabel="@string/shortcut_resume_long"
+        android:shortcutDisabledMessage="@string/shortcut_disabled">
+        <intent
+            android:action="com.demonlab.lune.ACTION_RESUME"
+            android:targetPackage="com.transientplayer.app"
+            android:targetClass="com.demonlab.lune.ui.activities.Lune" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="favorites"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_favorites"
+        android:shortcutShortLabel="@string/shortcut_favorites_short"
+        android:shortcutLongLabel="@string/shortcut_favorites_long"
+        android:shortcutDisabledMessage="@string/shortcut_disabled">
+        <intent
+            android:action="com.demonlab.lune.ACTION_VIEW_FAVORITES"
+            android:targetPackage="com.transientplayer.app"
+            android:targetClass="com.demonlab.lune.ui.activities.Lune" />
+    </shortcut>
     <shortcut
         android:shortcutId="playlists"
         android:enabled="true"
-        android:icon="@drawable/ic_playlist"
-        android:shortcutShortLabel="@string/shortcut_playlists">
+        android:icon="@drawable/ic_shortcut_playlists"
+        android:shortcutShortLabel="@string/shortcut_playlists"
+        android:shortcutLongLabel="@string/shortcut_playlists"
+        android:shortcutDisabledMessage="@string/shortcut_disabled">
         <intent
             android:action="com.demonlab.lune.ACTION_VIEW_PLAYLISTS"
             android:targetPackage="com.transientplayer.app"
             android:targetClass="com.demonlab.lune.ui.activities.Lune" />
-        <categories android:name="android.shortcut.conversation" />
     </shortcut>
 </shortcuts>

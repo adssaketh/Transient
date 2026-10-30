@@ -24,6 +24,13 @@
     <string name="cinematic_player">Cinematic Player</string>
     <string name="cinematic_player_desc">Enables an immersive interface with moving cover art and smooth gradients.</string>
     <string name="shortcut_playlists">Playlists</string>
+    <string name="shortcut_shuffle_short">Shuffle</string>
+    <string name="shortcut_shuffle_long">Shuffle all songs</string>
+    <string name="shortcut_resume_short">Resume</string>
+    <string name="shortcut_resume_long">Resume playing</string>
+    <string name="shortcut_favorites_short">Favorites</string>
+    <string name="shortcut_favorites_long">Favorite songs</string>
+    <string name="shortcut_disabled">This shortcut is not available any more</string>
     <string name="backup">Backup</string>
     <string name="security">Security</string>
 

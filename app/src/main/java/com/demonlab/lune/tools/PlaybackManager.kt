@@ -825,6 +825,44 @@ class PlaybackManager private constructor(private val context: Context) {
         startStatsTracking()
     }
 
+    /**
+     * Home-screen "Resume" shortcut: plays the song that was playing last, from where it stopped. It works when the app was
+     * just started (the saved song is waiting for the service), when the service holds a paused song, and when the queue
+     * had ended. Returns false when there is nothing to resume.
+     */
+    fun resumeFromShortcut(): Boolean {
+        val song = currentSong ?: return false
+        if (isPlaying) return true
+        if (isQueueFinished) {
+            resume()
+            return true
+        }
+        val savedPosition = try {
+            playbackStateSaver.restore()?.playbackPositionMs ?: 0L
+        } catch (e: Exception) {
+            0L
+        }
+        val service = musicService
+        if (service == null) {
+            // the service is not connected yet: when it is, it starts this song at the saved position
+            pendingRestoreSong = song
+            pendingRestorePosition = savedPosition
+            pendingRestorePlay = true
+            isPlaying = true
+            return true
+        }
+        val livePosition = if (service.hasPlayer()) service.currentPosition().toLong() else 0L
+        isPlaying = true
+        startStatsTracking()
+        service.restorePlayback(song, if (livePosition > 0L) livePosition else savedPosition, andPlay = true)
+        return true
+    }
+
+    /** Forgets a saved song that is still waiting for the service, so a song started in the meantime is not replaced by it. */
+    fun discardPendingRestore() {
+        pendingRestoreSong = null
+    }
+
     fun stop() {
         flushPendingStats()
         isPlaying = false

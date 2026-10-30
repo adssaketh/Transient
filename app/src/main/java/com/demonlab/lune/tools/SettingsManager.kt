@@ -570,7 +570,7 @@ class SettingsManager(context: Context) {
         }
 
     // Colour of the jewel case icon that "Launcher icon" in Customization puts on the home screen.
-    private val _launcherIconColor = mutableStateOf(prefs.getInt("launcher_icon_color", 0xFFF29B94.toInt()))
+    private val _launcherIconColor = mutableStateOf(prefs.getInt("launcher_icon_color", 0xFF5E9CF8.toInt()))
     var launcherIconColor: Int
         get() = _launcherIconColor.value
         set(value) {

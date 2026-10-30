@@ -5,9 +5,11 @@ import android.content.Intent
 import android.content.pm.ShortcutInfo
 import android.content.pm.ShortcutManager
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Paint
-import android.graphics.Path
+import android.graphics.PorterDuff
+import android.graphics.PorterDuffColorFilter
 import android.graphics.RectF
 import android.graphics.drawable.Icon
 import android.os.Build
@@ -15,7 +17,7 @@ import androidx.core.graphics.ColorUtils
 import com.demonlab.lune.R
 
 /**
- * The jewel case icon in any colour, put on the home screen as a pinned shortcut.
+ * The 3D jewel case icon in any colour, put on the home screen as a pinned shortcut.
  *
  * Android does not let an app recolour its own launcher icon, but it does let an app add a shortcut with an icon it draws
  * itself, and change that icon later. So the user picks a colour, the app draws the icon in it, and the launcher shows
@@ -26,46 +28,31 @@ object LauncherIcon {
 
     enum class Outcome { REQUESTED, UPDATED, UNSUPPORTED }
 
-    /** Draws the icon for an adaptive-icon mask: a square, with the picture kept inside the safe middle. */
-    fun render(cover: Int, sizePx: Int = 432): Bitmap {
+    /**
+     * Draws the icon for an adaptive-icon mask: a square, with the picture kept inside the safe middle. It stacks the same
+     * five pictures as the in-app logo; the cover and the disc are multiplied by [cover].
+     */
+    fun render(context: Context, cover: Int, sizePx: Int = 432): Bitmap {
         val bmp = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
         val c = Canvas(bmp)
-        c.drawColor(ColorUtils.blendARGB(cover, 0xFF000000.toInt(), 0.84f))
+        val opaque = cover or 0xFF000000.toInt()
+        c.drawColor(ColorUtils.blendARGB(opaque, 0xFF000000.toInt(), 0.84f))
         val k = sizePx / 108f
-        c.scale(k, k)
-        c.translate(22f, 22f)
-        c.scale(0.64f, 0.64f)   // from here on the drawing is laid out on a 100 x 100 grid
-
-        val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
-        val line = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            style = Paint.Style.STROKE
-            strokeCap = Paint.Cap.ROUND
-            strokeJoin = Paint.Join.ROUND
+        // same place as the real launcher icon: grid point 50,50 in the middle, 0.72 dp per grid unit, pictures cover 6..94
+        fun at(g: Float) = (54f + (g - 50f) * 0.72f) * k
+        val dst = RectF(at(6f), at(6f), at(94f), at(94f))
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG or Paint.DITHER_FLAG)
+        fun layer(id: Int, tint: Int?) {
+            val picture = BitmapFactory.decodeResource(context.resources, id) ?: return
+            paint.colorFilter = if (tint != null) PorterDuffColorFilter(tint, PorterDuff.Mode.MULTIPLY) else null
+            c.drawBitmap(picture, null, dst, paint)
+            picture.recycle()
         }
-        fun box(l: Float, t: Float, r: Float, b: Float, radius: Float, color: Int) {
-            fill.color = color
-            c.drawRoundRect(RectF(l, t, r, b), radius, radius, fill)
-        }
-
-        box(14f, 16f, 86f, 84f, 8f, 0xFF2B2B2B.toInt())
-        line.color = 0xFFD6D3D1.toInt(); line.strokeWidth = 3f
-        c.drawRoundRect(RectF(14f, 16f, 86f, 84f), 8f, 8f, line)
-        box(18f, 20f, 32f, 80f, 3f, 0xFF0B0B0B.toInt())
-        line.color = 0xFF3A3A3A.toInt(); line.strokeWidth = 1.2f
-        for (x in floatArrayOf(21f, 24f, 27f, 30f)) c.drawLine(x, 22f, x, 78f, line)
-        box(36f, 20f, 82f, 80f, 4f, cover)
-        fill.color = ColorUtils.blendARGB(cover, 0xFF000000.toInt(), 0.78f)
-        c.drawCircle(59f, 46f, 15f, fill)
-        fill.color = cover
-        c.drawCircle(59f, 46f, 4f, fill)
-        val wave = Path().apply {
-            moveTo(42f, 68f)
-            quadTo(47f, 60f, 52f, 68f)
-            quadTo(57f, 76f, 62f, 68f)
-            quadTo(67f, 60f, 72f, 68f)
-        }
-        line.color = 0xEBFFFFFF.toInt(); line.strokeWidth = 2.6f
-        c.drawPath(wave, line)
+        layer(R.drawable.logo3d_base, null)
+        layer(R.drawable.logo3d_cover, opaque)
+        layer(R.drawable.logo3d_overlay, null)
+        layer(R.drawable.logo3d_disc, opaque)
+        layer(R.drawable.logo3d_wave, null)
         return bmp
     }
 
@@ -88,7 +75,7 @@ object LauncherIcon {
                 ?.apply { action = Intent.ACTION_MAIN } ?: return Outcome.UNSUPPORTED
             val info = ShortcutInfo.Builder(context, SHORTCUT_ID)
                 .setShortLabel(context.getString(R.string.app_name))
-                .setIcon(Icon.createWithAdaptiveBitmap(render(cover)))
+                .setIcon(Icon.createWithAdaptiveBitmap(render(context, cover)))
                 .setIntent(launch)
                 .build()
             when {

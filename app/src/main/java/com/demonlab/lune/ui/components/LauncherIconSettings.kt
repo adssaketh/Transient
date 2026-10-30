@@ -71,7 +71,7 @@ fun LauncherIconSection() {
             PaletteOption(1, "Violet", Color(0xFFAFA9EC)),
             PaletteOption(2, "Mint", Color(0xFF5DCAA5)),
             PaletteOption(3, "Amber", Color(0xFFEF9F27)),
-            PaletteOption(4, "Sky", Color(0xFF85B7EB)),
+            PaletteOption(4, "Blue", Color(0xFF5E9CF8)),
             PaletteOption(5, "Rose", Color(0xFFED93B1)),
             PaletteOption(6, "Lime", Color(0xFF97C459)),
             PaletteOption(7, "Coral", Color(0xFFF0997B))

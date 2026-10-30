@@ -192,16 +192,47 @@ import coil.request.ImageRequest
 class Lune : AppCompatActivity() {
     companion object {
         const val ACTION_VIEW_PLAYLISTS = "com.demonlab.lune.ACTION_VIEW_PLAYLISTS"
+        // long-press shortcuts on the launcher icon (res/xml/shortcuts.xml)
+        const val ACTION_SHUFFLE_ALL = "com.demonlab.lune.ACTION_SHUFFLE_ALL"
+        const val ACTION_RESUME = "com.demonlab.lune.ACTION_RESUME"
+        const val ACTION_VIEW_FAVORITES = "com.demonlab.lune.ACTION_VIEW_FAVORITES"
+        private const val SHORTCUT_SHUFFLE_ALL = "shuffle_all"
+        private const val SHORTCUT_RESUME = "resume"
+        private const val SHORTCUT_PLAYBACK_TIMEOUT_MS = 30_000L
         const val EXTRA_EXPAND_PLAYER = "com.demonlab.lune.EXTRA_EXPAND_PLAYER"
     }
 
     private var shortcutFolder = mutableStateOf<String?>(null)
     private var pendingExpandPlayer = mutableStateOf(false)
+    // a shortcut that starts music waits here until the library has loaded (or 30 s have passed)
+    private var shortcutPlayback = mutableStateOf<String?>(null)
+    private var shortcutPlaybackAt = 0L
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         handleIntent(intent)
+        handleShortcutAction(intent, fresh = true)
         UsbDacSupport.handleAttachIntent(this, intent, SettingsManager.getInstance(this))
+    }
+
+    /**
+     * Launcher long-press shortcuts. [fresh] is false when the activity is only being recreated (rotation, theme change),
+     * so the action does not run a second time; the action is also cleared once it has been taken.
+     */
+    private fun handleShortcutAction(intent: Intent?, fresh: Boolean) {
+        if (!fresh || intent == null) return
+        when (intent.action) {
+            ACTION_VIEW_FAVORITES -> shortcutFolder.value = "FAVORITES"
+            ACTION_SHUFFLE_ALL -> requestShortcutPlayback(SHORTCUT_SHUFFLE_ALL)
+            ACTION_RESUME -> requestShortcutPlayback(SHORTCUT_RESUME)
+            else -> return
+        }
+        intent.action = Intent.ACTION_MAIN
+    }
+
+    private fun requestShortcutPlayback(request: String) {
+        shortcutPlaybackAt = android.os.SystemClock.elapsedRealtime()
+        shortcutPlayback.value = request
     }
 
     private fun handleIntent(intent: Intent?) {
@@ -253,6 +284,7 @@ class Lune : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         handleIntent(intent)
+        handleShortcutAction(intent, fresh = savedInstanceState == null)
         UsbDacSupport.handleAttachIntent(this, intent, SettingsManager.getInstance(this))
         val settingsManager = SettingsManager.getInstance(this)
         enableEdgeToEdge(
@@ -381,6 +413,31 @@ class Lune : AppCompatActivity() {
                     } catch (e: Exception) {
                         android.util.Log.e("Lune", "Failed to restore playback state in LaunchedEffect", e)
                     }
+                }
+            }
+
+            // Launcher shortcuts that start music ("Shuffle all", "Resume"). They wait for the library to load, and run
+            // after the saved playback state above has been restored.
+            LaunchedEffect(shortcutPlayback.value, musicViewModel.allSongs) {
+                val request = shortcutPlayback.value ?: return@LaunchedEffect
+                if (android.os.SystemClock.elapsedRealtime() - shortcutPlaybackAt > SHORTCUT_PLAYBACK_TIMEOUT_MS) {
+                    shortcutPlayback.value = null
+                    return@LaunchedEffect
+                }
+                if (musicViewModel.allSongs.isEmpty()) return@LaunchedEffect
+                shortcutPlayback.value = null
+                try {
+                    when (request) {
+                        SHORTCUT_SHUFFLE_ALL -> {
+                            val songs = musicViewModel.filteredSongs.ifEmpty { musicViewModel.allSongs }
+                            playbackManager.discardPendingRestore()
+                            playbackManager.play(songs.random(), songs, -100L, category = "ALL", shuffleMode = true)
+                            if (!playbackManager.isShuffle) playbackManager.toggleShuffle()
+                        }
+                        SHORTCUT_RESUME -> playbackManager.resumeFromShortcut()
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("Lune", "Shortcut playback failed", e)
                 }
             }
 
