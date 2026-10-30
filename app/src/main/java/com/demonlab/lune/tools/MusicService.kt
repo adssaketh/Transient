@@ -2274,7 +2274,7 @@ class MusicService : MediaLibraryService() {
         )
 
         val builder = NotificationCompat.Builder(this, channelId)
-            .setSmallIcon(R.drawable.ic_stat_transient)
+            .setSmallIcon(R.drawable.ic_jewel_stat)
             .setLargeIcon(effectiveArt)
             .setContentTitle(song.title)
             .setContentText(song.artist)
