@@ -44,7 +44,8 @@ import com.demonlab.lune.R
 fun BrandLogo(
     modifier: Modifier = Modifier,
     size: Dp = 60.dp,
-    pulsing: Boolean = false
+    pulsing: Boolean = false,
+    coverColor: Color? = null
 ) {
     val transition = rememberInfiniteTransition(label = "BrandLogoPulse")
     val pulse by transition.animateFloat(
@@ -56,7 +57,7 @@ fun BrandLogo(
         ),
         label = "BrandLogoScale"
     )
-    val cover = MaterialTheme.colorScheme.primary
+    val cover = coverColor ?: MaterialTheme.colorScheme.primary
     val disc = androidx.compose.ui.graphics.lerp(cover, Color.Black, 0.78f)
     Canvas(
         modifier = modifier

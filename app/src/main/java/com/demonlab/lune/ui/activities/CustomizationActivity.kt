@@ -656,6 +656,10 @@ fun CustomizationScreen(
             }
 
             Spacer(modifier = Modifier.height(16.dp))
+            SettingsSection(title = stringResource(R.string.launcher_icon_title)) {
+                com.demonlab.lune.ui.components.LauncherIconSection()
+            }
+            Spacer(modifier = Modifier.height(16.dp))
             val context = LocalContext.current
             SettingsSection(title = stringResource(R.string.media_player)) {
                 SettingsPreferenceItem(

@@ -569,6 +569,15 @@ class SettingsManager(context: Context) {
             prefs.edit().putBoolean("usb_keepalive_enabled", value).apply()
         }
 
+    // Colour of the jewel case icon that "Launcher icon" in Customization puts on the home screen.
+    private val _launcherIconColor = mutableStateOf(prefs.getInt("launcher_icon_color", 0xFFF29B94.toInt()))
+    var launcherIconColor: Int
+        get() = _launcherIconColor.value
+        set(value) {
+            _launcherIconColor.value = value
+            prefs.edit().putInt("launcher_icon_color", value).apply()
+        }
+
     var showBackupWarning: Boolean
         get() = prefs.getBoolean("show_backup_warning", true)
         set(value) = prefs.edit().putBoolean("show_backup_warning", value).apply()
