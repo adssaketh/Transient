@@ -6,6 +6,7 @@ import android.util.Log
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
@@ -33,7 +34,7 @@ object MusicBrainzClient {
         val releaseGroupId: String?
     )
 
-    class Result(val status: Status, val matches: List<Match> = emptyList())
+    class Result(val status: Status, val matches: List<Match> = emptyList(), val detail: String? = null)
 
     private const val TAG = "MusicBrainzClient"
     private const val API = "https://musicbrainz.org/ws/2"
@@ -61,21 +62,20 @@ object MusicBrainzClient {
         queries.add(base)
 
         var networkProblem = false
+        var problem: String? = null
         for (query in queries) {
             try {
                 val body = musicBrainzGet("$API/recording?query=${enc(query)}&fmt=json&limit=15")
-                if (body == null) {
-                    networkProblem = true
-                    continue
-                }
                 val matches = parse(JSONObject(body))
                 if (matches.isNotEmpty()) return Result(Status.FOUND, matches)
             } catch (e: Exception) {
                 Log.w(TAG, "search failed: ${e.message}")
                 networkProblem = true
+                problem = e.javaClass.simpleName + (e.message?.let { ": " + it.take(80) } ?: "")
+                DiagnosticLogger.note("MUSICBRAINZ search failed: $problem")
             }
         }
-        return Result(if (networkProblem) Status.NETWORK_ERROR else Status.NOT_FOUND)
+        return Result(if (networkProblem) Status.NETWORK_ERROR else Status.NOT_FOUND, detail = problem)
     }
 
     /** Downloads the front cover of [match] into the app's cache and returns the file, or null when there is no picture. */
@@ -182,8 +182,8 @@ object MusicBrainzClient {
     // optString() would turn a JSON null into the text "null", so nulls are checked first
     private fun text(o: JSONObject, key: String): String? = if (o.isNull(key)) null else o.optString(key).takeIf { it.isNotBlank() }
 
-    /** One MusicBrainz request, at least 1.1 s after the one before. Returns the body, or null on any problem. */
-    private fun musicBrainzGet(url: String): String? {
+    /** One MusicBrainz request, at least 1.1 s after the one before. Returns the body; any problem throws an exception. */
+    private fun musicBrainzGet(url: String): String {
         synchronized(gate) {
             val wait = lastMusicBrainzCall + 1100L - System.currentTimeMillis()
             if (wait > 0) Thread.sleep(wait)
@@ -197,7 +197,7 @@ object MusicBrainzClient {
             connection.setRequestProperty("Accept", "application/json")
             if (connection.responseCode != 200) {
                 Log.w(TAG, "MusicBrainz answered HTTP ${connection.responseCode}")
-                return null
+                throw IOException("HTTP ${connection.responseCode}")
             }
             return connection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
         } finally {

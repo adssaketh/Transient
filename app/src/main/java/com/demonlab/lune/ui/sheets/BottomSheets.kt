@@ -1360,7 +1360,12 @@ fun EditSongBottomSheet(
             onlineBusy = false
             when (result.status) {
                 MusicBrainzClient.Status.FOUND -> onlineChoices = result.matches
-                MusicBrainzClient.Status.NETWORK_ERROR -> toast(R.string.match_no_connection)
+                MusicBrainzClient.Status.NETWORK_ERROR -> Toast.makeText(
+                    context,
+                    if (result.detail != null) context.getString(R.string.match_no_connection_detail, result.detail)
+                    else context.getString(R.string.match_no_connection),
+                    Toast.LENGTH_LONG
+                ).show()
                 MusicBrainzClient.Status.NOT_FOUND -> toast(R.string.match_none)
             }
         }

@@ -20,7 +20,7 @@ import kotlin.math.abs
 object LrclibClient {
     enum class Status { FOUND_SYNCED, FOUND_PLAIN, INSTRUMENTAL, NOT_FOUND, NETWORK_ERROR }
 
-    class Result(val status: Status, val lyrics: String? = null)
+    class Result(val status: Status, val lyrics: String? = null, val detail: String? = null)
 
     private const val BASE = "https://lrclib.net/api"
     private const val TAG = "LrclibClient"
@@ -38,8 +38,16 @@ object LrclibClient {
         val seconds = if (song.duration > 0) ((song.duration + 500L) / 1000L).toInt() else 0
 
         var networkProblem = false
+        var problem: String? = null
         var instrumental = false
         var plain: String? = null
+
+        // remember why a request failed, and write it into the trace so a bug report shows it
+        fun fail(what: String, why: String) {
+            networkProblem = true
+            problem = "$what: $why"
+            DiagnosticLogger.note("LRCLIB $what failed: $why")
+        }
 
         fun consider(hit: Hit?): String? {
             if (hit == null) return null
@@ -58,11 +66,11 @@ object LrclibClient {
                 if (reply.code == 200 && reply.body != null) {
                     consider(parseHit(JSONObject(reply.body)))?.let { return Result(Status.FOUND_SYNCED, it) }
                 } else if (reply.code != 404) {
-                    networkProblem = true
+                    fail("exact lookup", "HTTP ${reply.code}")
                 }
             } catch (e: Exception) {
                 Log.w(TAG, "exact lookup failed: ${e.message}")
-                networkProblem = true
+                fail("exact lookup", describe(e))
             }
         }
 
@@ -75,7 +83,7 @@ object LrclibClient {
             try {
                 val reply = httpGet(url)
                 if (reply.code != 200 || reply.body == null) {
-                    if (reply.code != 404) networkProblem = true
+                    if (reply.code != 404) fail("search", if (reply.code == 200) "empty reply" else "HTTP ${reply.code}")
                     continue
                 }
                 val hits = parseHits(JSONArray(reply.body))
@@ -86,13 +94,13 @@ object LrclibClient {
                 hits.forEach { consider(it) }
             } catch (e: Exception) {
                 Log.w(TAG, "search failed: ${e.message}")
-                networkProblem = true
+                fail("search", describe(e))
             }
         }
 
         plain?.let { return Result(Status.FOUND_PLAIN, it) }
         if (instrumental) return Result(Status.INSTRUMENTAL)
-        return Result(if (networkProblem) Status.NETWORK_ERROR else Status.NOT_FOUND)
+        return Result(if (networkProblem) Status.NETWORK_ERROR else Status.NOT_FOUND, detail = problem)
     }
 
     private fun parseHits(array: JSONArray): List<Hit> {
@@ -111,7 +119,16 @@ object LrclibClient {
         return Hit(text("syncedLyrics"), text("plainLyrics"), o.optBoolean("instrumental", false), seconds)
     }
 
+    /** One request; a "bad gateway / unavailable / timeout" answer from the service gets one more try after a moment. */
     private fun httpGet(url: String): Reply {
+        val first = httpGetOnce(url)
+        if (first.code !in 502..504) return first
+        DiagnosticLogger.note("LRCLIB answered HTTP ${first.code}, trying once more")
+        Thread.sleep(1200)
+        return httpGetOnce(url)
+    }
+
+    private fun httpGetOnce(url: String): Reply {
         val connection = URL(url).openConnection() as HttpURLConnection
         try {
             connection.connectTimeout = 8000
@@ -133,6 +150,9 @@ object LrclibClient {
     }
 
     private fun enc(value: String): String = URLEncoder.encode(value, "UTF-8")
+
+    /** A short description of an error, e.g. "UnknownHostException: Unable to resolve host". */
+    private fun describe(e: Exception): String = e.javaClass.simpleName + (e.message?.let { ": " + it.take(80) } ?: "")
 
     /** "01. Song name" -> "Song name": track numbers copied into a title tag would stop the lookup from matching. */
     private fun cleanTitle(raw: String): String = raw.trim().replace(Regex("^\\d{1,3}\\s*[.\\-)]\\s*"), "").trim()

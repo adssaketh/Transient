@@ -497,6 +497,8 @@
     <string name="lyrics_found_online">Lyrics found and saved</string>
     <string name="lyrics_plain_only">Only lyrics without timing were found; shown now, not saved</string>
     <string name="lyrics_instrumental">This track is listed as instrumental</string>
+    <string name="lyrics_no_connection_detail">The lyrics service did not answer properly (%1$s). Try again in a while</string>
+    <string name="match_no_connection_detail">MusicBrainz did not answer properly (%1$s). Try again in a while</string>
     <string name="lyrics_not_found_online">No lyrics found online for this song</string>
     <string name="lyrics_no_connection">Could not reach the lyrics service. Check your internet connection</string>
     <string name="no_lyrics_title">No lyrics found</string>

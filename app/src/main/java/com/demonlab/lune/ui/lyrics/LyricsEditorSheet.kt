@@ -595,7 +595,10 @@ fun LyricsEditorSheet(
                                         result.status == LrclibClient.Status.NETWORK_ERROR -> R.string.lyrics_no_connection
                                         else -> R.string.lyrics_not_found_online
                                     }
-                                    Toast.makeText(context, context.getString(message), Toast.LENGTH_LONG).show()
+                                    val text = if (result.status == LrclibClient.Status.NETWORK_ERROR && result.detail != null) {
+                                        context.getString(R.string.lyrics_no_connection_detail, result.detail)
+                                    } else context.getString(message)
+                                    Toast.makeText(context, text, Toast.LENGTH_LONG).show()
                                 }
                             },
                             modifier = Modifier.fillMaxWidth(),
