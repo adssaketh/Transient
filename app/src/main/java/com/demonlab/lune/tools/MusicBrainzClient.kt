@@ -213,7 +213,7 @@ object MusicBrainzClient {
                 }
                 lastCode = code
                 Log.w(TAG, "MusicBrainz answered HTTP $code (attempt $attempt of 3)")
-                DiagnosticLogger.note("MUSICBRAINZ answered HTTP $code (attempt $attempt of 3)")
+                DiagnosticLogger.note("MUSICBRAINZ answered HTTP $code (attempt $attempt of 3) | ${describeAnswer(connection)} | $url")
                 if (code != 502 && code != 503 && code != 504) throw IOException("HTTP $code")
                 val asked = connection.getHeaderField("Retry-After")?.trim()?.toLongOrNull()
                 pauseMs = (asked ?: 2L).coerceIn(1L, 6L) * 1000L
@@ -258,6 +258,16 @@ object MusicBrainzClient {
     }
 
     private fun enc(value: String): String = URLEncoder.encode(value, "UTF-8")
+
+    /** For the trace: who answered and the start of an error answer, which usually says why the request was refused. */
+    private fun describeAnswer(connection: HttpURLConnection): String {
+        val body = try {
+            connection.errorStream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }?.replace(Regex("\\s+"), " ")?.take(300)
+        } catch (e: Exception) {
+            null
+        }
+        return "server=${connection.getHeaderField("Server")} retry-after=${connection.getHeaderField("Retry-After")} body=${body ?: "(none)"}"
+    }
 
     /** Inside a quoted Lucene phrase only the quote and the backslash need a backslash in front. */
     private fun escape(value: String): String = value.replace("\\", "\\\\").replace("\"", "\\\"")

@@ -1594,14 +1594,22 @@ class MusicService : MediaLibraryService() {
             return
         }
 
-        if (mediaPlayer == null) {
+        if (mediaPlayer == null || (usb == null && !isPlayerPrepared)) {
+            val playerExists = mediaPlayer != null
+            if (playerExists) {
+                // The player is still loading, or never finished loading: start() would be refused with -38 and nothing
+                // would play although the screen says it does. Load the song again and start it as soon as it is ready.
+                DiagnosticLogger.note("RESUME-INTERNAL player is not ready (prepared=false): loading the song again, then playing")
+            }
             if (pm.currentSong == null) {
                 pm.restorePlaybackState()
             }
             // A headset or car button can start the service before the app has a song loaded: use the saved one.
             val song = pm.currentSong ?: pm.playbackStateSaver.restore()?.savedSong
             if (song != null) {
-                val savedPos = pm.playbackStateSaver.restore()?.playbackPositionMs ?: 0L
+                val saved = pm.playbackStateSaver.restore()
+                // a player that was loading another song must not inherit that song's saved position
+                val savedPos = if (!playerExists || saved?.savedSong?.id == song.id) saved?.playbackPositionMs ?: 0L else 0L
                 restorePlayback(song, savedPos, andPlay = true)
                 return
             } else {
@@ -1785,6 +1793,7 @@ class MusicService : MediaLibraryService() {
             return
         }
 
+        val prepareStartedAt = android.os.SystemClock.elapsedRealtime()
         try {
             mediaPlayer = player.apply {
                 val pm = PlaybackManager.getInstance(applicationContext)
@@ -1792,6 +1801,7 @@ class MusicService : MediaLibraryService() {
                 setOnPreparedListener {
                     try {
                         isPlayerPrepared = true
+                        DiagnosticLogger.note("MEDIAPLAYER prepared (restorePlayback) andPlay=$andPlay after ${android.os.SystemClock.elapsedRealtime() - prepareStartedAt} ms ${songInfo(song)}")
                         consecutivePlaybackErrors = 0
                         val sessionId = audioSessionId
                         setupAudioFx(sessionId, false)

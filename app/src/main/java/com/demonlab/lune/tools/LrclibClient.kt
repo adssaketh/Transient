@@ -136,6 +136,9 @@ object LrclibClient {
             connection.setRequestProperty("User-Agent", "Transient/1.0 (Android music player; https://github.com/adssaketh/Transient)")
             connection.setRequestProperty("Accept", "application/json")
             val code = connection.responseCode
+            if (code !in 200..299 && code != 404) {
+                DiagnosticLogger.note("LRCLIB HTTP $code | ${describeAnswer(connection)} | $url")
+            }
             val body = if (code in 200..299) {
                 try {
                     connection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
@@ -150,6 +153,16 @@ object LrclibClient {
     }
 
     private fun enc(value: String): String = URLEncoder.encode(value, "UTF-8")
+
+    /** For the trace: who answered and the start of an error answer, which usually says why the request was refused. */
+    private fun describeAnswer(connection: HttpURLConnection): String {
+        val body = try {
+            connection.errorStream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }?.replace(Regex("\\s+"), " ")?.take(300)
+        } catch (e: Exception) {
+            null
+        }
+        return "server=${connection.getHeaderField("Server")} retry-after=${connection.getHeaderField("Retry-After")} body=${body ?: "(none)"}"
+    }
 
     /** A short description of an error, e.g. "UnknownHostException: Unable to resolve host". */
     private fun describe(e: Exception): String = e.javaClass.simpleName + (e.message?.let { ": " + it.take(80) } ?: "")
