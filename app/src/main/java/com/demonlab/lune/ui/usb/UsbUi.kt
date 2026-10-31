@@ -60,7 +60,9 @@ fun UsbBypassBanner(modifier: Modifier = Modifier) {
                 tint = MaterialTheme.colorScheme.onTertiaryContainer
             )
             Text(
-                text = stringResource(R.string.usb_eq_banner),
+                text = stringResource(
+                    if (com.demonlab.lune.tools.eq.AutoEqEngine.isOn) R.string.usb_eq_banner_autoeq else R.string.usb_eq_banner
+                ),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onTertiaryContainer
             )

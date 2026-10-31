@@ -101,12 +101,12 @@ class AutoEqAudioSink(delegate: AudioSink) : ForwardingAudioSink(delegate) {
         if (failed || bytesPerSample == 0 || sampleRate <= 0 || channels < 1 || channels > 8) return null
         val active = AutoEqEngine.current() ?: return null
         if (chain == null || chainVersion != active.version) {
-            val built = AutoEqChain(active.profile, active.strengthPercent, sampleRate, channels)
+            val built = AutoEqChain(active.profile, active.strengthPercent, sampleRate, channels, active.matchLoudness)
             chain = built
             chainVersion = active.version
             DiagnosticLogger.note(
                 "AUTOEQ running: '${active.profile.name}' at $sampleRate Hz, $channels ch, " +
-                    "preamp ${"%.2f".format(built.preampDb)} dB, ${if (built.isEmpty) "no active filters" else "filters on"}"
+                    "preamp ${"%.2f".format(built.preampDb)} dB (${if (active.matchLoudness) "matched" else "safe"}), ${if (built.isEmpty) "no active filters" else "filters on"}"
             )
         }
         val ready = chain ?: return null

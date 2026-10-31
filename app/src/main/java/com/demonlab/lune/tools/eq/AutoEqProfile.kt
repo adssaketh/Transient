@@ -3,11 +3,13 @@ package com.demonlab.lune.tools.eq
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
+import kotlin.math.log10
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.pow
 import kotlin.math.sin
 import kotlin.math.sqrt
+import kotlin.math.tanh
 
 /** One filter of an AutoEq "ParametricEQ.txt" profile (the EqualizerAPO text format). */
 class AutoEqFilter(val type: Type, val frequencyHz: Double, val gainDb: Double, val q: Double) {
@@ -132,7 +134,13 @@ class Biquad(val b0: Double, val b1: Double, val b2: Double, val a1: Double, val
  * A profile turned into running filters for one stream: a given sample rate and channel count. Not thread safe: one thread
  * (the playback thread) uses it. Changing the profile or the strength means building a new chain.
  */
-class AutoEqChain(profile: AutoEqProfile, strengthPercent: Int, val sampleRate: Int, val channels: Int) {
+class AutoEqChain(
+    profile: AutoEqProfile,
+    strengthPercent: Int,
+    val sampleRate: Int,
+    val channels: Int,
+    matchLoudness: Boolean
+) {
     private val stages: Array<Biquad>
     private val b0: DoubleArray
     private val b1: DoubleArray
@@ -159,17 +167,26 @@ class AutoEqChain(profile: AutoEqProfile, strengthPercent: Int, val sampleRate: 
         z1 = DoubleArray(stages.size * channels)
         z2 = DoubleArray(stages.size * channels)
 
-        // The highest point of the whole curve decides how much room the preamp must make so that the music cannot clip.
+        // Two numbers come from the shape of the curve (240 points from 20 Hz up, evenly spread in octaves):
+        //  - its highest point: a preamp of minus that much means the music can never clip ("safe"),
+        //  - its average level as the ear hears it (music-like pink spectrum, A-weighted): a preamp of minus that much keeps
+        //    the volume the same as without the EQ ("match loudness").
         var peakDb = -100.0
+        var weightedPower = 0.0
+        var weightSum = 0.0
         val top = min(20000.0, sampleRate * 0.45)
         for (i in 0 until 240) {
             val frequency = 20.0 * (top / 20.0).pow(i / 239.0)
             var level = 0.0
             for (stage in stages) level += stage.magnitudeDb(frequency, sampleRate)
             peakDb = max(peakDb, level)
+            val weight = aWeightPower(frequency)
+            weightedPower += weight * 10.0.pow(level / 10.0)
+            weightSum += weight
         }
         val safeLimit = if (peakDb > 0.0) -peakDb - 0.05 else 0.0
-        preampDb = min(profile.preampDb * scale, safeLimit)
+        val matchedDb = if (weightSum > 0.0 && weightedPower > 0.0) -10.0 * log10(weightedPower / weightSum) else 0.0
+        preampDb = if (matchLoudness) matchedDb.coerceIn(-12.0, 3.0) else min(profile.preampDb * scale, safeLimit)
         preampGain = 10.0.pow(preampDb / 20.0)
     }
 
@@ -182,7 +199,7 @@ class AutoEqChain(profile: AutoEqProfile, strengthPercent: Int, val sampleRate: 
         z2.fill(0.0)
     }
 
-    /** One sample (-1..1) of channel [channel] through the preamp and all filters. */
+    /** One sample (-1..1) of channel [channel] through the preamp, all filters and the peak softener. */
     fun process(sample: Double, channel: Int): Double {
         var x = sample * preampGain
         val n = stages.size
@@ -195,6 +212,27 @@ class AutoEqChain(profile: AutoEqProfile, strengthPercent: Int, val sampleRate: 
             x = y
             i++
         }
-        return x
+        return softLimit(x)
+    }
+
+    private companion object {
+        /** Samples up to this level (-1 dBFS) are not touched; above it they are bent smoothly so that they never pass 1.0. */
+        const val LIMIT_KNEE = 0.89
+
+        /** How loud the ear finds a frequency, as a power (the A-weighting curve, IEC 61672). */
+        fun aWeightPower(frequencyHz: Double): Double {
+            val f2 = frequencyHz * frequencyHz
+            val ra = (12194.0 * 12194.0 * f2 * f2) /
+                ((f2 + 20.6 * 20.6) * sqrt((f2 + 107.7 * 107.7) * (f2 + 737.9 * 737.9)) * (f2 + 12194.0 * 12194.0))
+            return ra * ra
+        }
+
+        /** Stateless soft clipper: no effect below the knee, a smooth tanh bend above it, and never louder than 1.0. */
+        fun softLimit(x: Double): Double {
+            val a = abs(x)
+            if (a <= LIMIT_KNEE) return x
+            val bent = LIMIT_KNEE + (1.0 - LIMIT_KNEE) * tanh((a - LIMIT_KNEE) / (1.0 - LIMIT_KNEE))
+            return if (x < 0.0) -bent else bent
+        }
     }
 }

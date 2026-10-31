@@ -18,6 +18,8 @@ import kotlinx.coroutines.withContext
 import org.jaudiotagger.audio.AudioFileIO
 import org.jaudiotagger.tag.FieldKey
 import org.jaudiotagger.tag.Tag
+import org.jaudiotagger.audio.flac.metadatablock.MetadataBlockDataPicture
+import org.jaudiotagger.tag.flac.FlacTag
 import org.jaudiotagger.tag.images.ArtworkFactory
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -127,12 +129,23 @@ object AudioTagWriter {
                 cover.toString() == NO_COVER -> tag.deleteArtworkField()
                 else -> {
                     val jpeg = readAsJpeg(context, cover) ?: return@withContext false
-                    val art = ArtworkFactory.getNew()
-                    art.binaryData = jpeg
-                    art.mimeType = "image/jpeg"
-                    art.pictureType = 3 // front cover
                     tag.deleteArtworkField()
-                    tag.setField(art)
+                    if (tag is FlacTag) {
+                        // The library's Artwork class needs javax.imageio, which Android does not have, so a FLAC picture block
+                        // is built by hand (a front cover, with its size read from the picture).
+                        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                        BitmapFactory.decodeByteArray(jpeg, 0, jpeg.size, bounds)
+                        val picture = MetadataBlockDataPicture(
+                            jpeg, 3, "image/jpeg", "", maxOf(bounds.outWidth, 0), maxOf(bounds.outHeight, 0), 24, 0
+                        )
+                        tag.setField(picture)
+                    } else {
+                        val art = ArtworkFactory.getNew()
+                        art.binaryData = jpeg
+                        art.mimeType = "image/jpeg"
+                        art.pictureType = 3 // front cover
+                        tag.setField(art)
+                    }
                 }
             }
             audio.commit()

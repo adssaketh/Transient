@@ -306,6 +306,13 @@ fun EqualizerScreen(onBack: () -> Unit) {
                 // Shown only while bit-perfect USB output owns playback (EQ/effects can't apply there).
                 UsbBypassBanner(modifier = Modifier.padding(bottom = 16.dp))
 
+                // Headphone EQ (AutoEq): works on the USB DAC output, where the equalizer below is bypassed.
+                com.demonlab.lune.ui.usb.AutoEqCard(
+                    modifier = Modifier.padding(bottom = 16.dp),
+                    textColor = textColor,
+                    textSecondaryColor = textSecondaryColor
+                )
+
                 val numBands = playbackManager.eqBandsCount
                 val bandRange = playbackManager.eqBandsRange
                 val friendlyNames = listOf(

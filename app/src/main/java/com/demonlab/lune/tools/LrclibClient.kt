@@ -119,13 +119,20 @@ object LrclibClient {
         return Hit(text("syncedLyrics"), text("plainLyrics"), o.optBoolean("instrumental", false), seconds)
     }
 
-    /** One request; a "bad gateway / unavailable / timeout" answer from the service gets one more try after a moment. */
+    /**
+     * One request. A "bad gateway / unavailable / timeout" answer (LRCLIB says "the server is busy, please retry in a moment")
+     * is tried again, up to three attempts in all, after 1.5 s and then 3 s.
+     */
     private fun httpGet(url: String): Reply {
-        val first = httpGetOnce(url)
-        if (first.code !in 502..504) return first
-        DiagnosticLogger.note("LRCLIB answered HTTP ${first.code}, trying once more")
-        Thread.sleep(1200)
-        return httpGetOnce(url)
+        var reply = httpGetOnce(url)
+        var attempt = 1
+        while (reply.code in 502..504 && attempt < 3) {
+            DiagnosticLogger.note("LRCLIB answered HTTP ${reply.code}, trying again (attempt ${attempt + 1} of 3)")
+            Thread.sleep(1500L * attempt)
+            reply = httpGetOnce(url)
+            attempt++
+        }
+        return reply
     }
 
     private fun httpGetOnce(url: String): Reply {

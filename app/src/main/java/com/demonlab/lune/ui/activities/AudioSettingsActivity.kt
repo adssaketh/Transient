@@ -131,6 +131,7 @@ fun AudioSettingsScreen(onBack: () -> Unit) {
     var autoEqEnabled by remember { mutableStateOf(settingsManager.isAutoEqEnabled) }
     var autoEqName by remember { mutableStateOf(settingsManager.autoEqProfileName) }
     var autoEqStrength by remember { mutableStateOf(settingsManager.autoEqStrength) }
+    var autoEqMatch by remember { mutableStateOf(settingsManager.isAutoEqMatchLoudness) }
     val autoEqPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             val imported = AutoEqEngine.importFromUri(context, uri)
@@ -413,6 +414,18 @@ fun AudioSettingsScreen(onBack: () -> Unit) {
                     icon = Icons.Default.FileDownload,
                     position = SectionPosition.MIDDLE,
                     onClick = { autoEqPicker.launch(arrayOf("*/*")) }
+                )
+
+                SettingsPreferenceItem(
+                    headlineText = stringResource(R.string.autoeq_level),
+                    supportingText = stringResource(if (autoEqMatch) R.string.autoeq_level_match else R.string.autoeq_level_safe),
+                    icon = Icons.AutoMirrored.Filled.VolumeUp,
+                    position = SectionPosition.MIDDLE,
+                    onClick = {
+                        autoEqMatch = !autoEqMatch
+                        settingsManager.isAutoEqMatchLoudness = autoEqMatch
+                        AutoEqEngine.reload(context)
+                    }
                 )
 
                 SettingsPreferenceItem(

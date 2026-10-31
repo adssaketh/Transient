@@ -115,9 +115,19 @@ class SettingsManager(context: Context) {
         get() = prefs.getString("autoeq_profile_text", "") ?: ""
         set(value) = prefs.edit().putString("autoeq_profile_text", value).apply()
 
+    /** Every imported AutoEq profile, as a JSON list of {"name": ..., "text": ...}. The one in use is [autoEqProfileName]. */
+    var autoEqProfilesJson: String
+        get() = prefs.getString("autoeq_profiles", "") ?: ""
+        set(value) = prefs.edit().putString("autoeq_profiles", value).apply()
+
     var autoEqProfileName: String
         get() = prefs.getString("autoeq_profile_name", "") ?: ""
         set(value) = prefs.edit().putString("autoeq_profile_name", value).apply()
+
+    /** true: the EQ keeps the volume the same as without it (peaks are softened); false: a quieter, never-clipping preamp. */
+    var isAutoEqMatchLoudness: Boolean
+        get() = prefs.getBoolean("autoeq_match_loudness", true)
+        set(value) = prefs.edit().putBoolean("autoeq_match_loudness", value).apply()
 
     /** 0-100: how much of the profile is applied (100 = exactly as AutoEq made it). */
     var autoEqStrength: Int

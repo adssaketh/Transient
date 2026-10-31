@@ -577,6 +577,17 @@
     <string name="usb_dac_detail">%1$s · %2$d ch</string>
     <string name="usb_footnote">This reflects the driver\'s configuration, not a measurement taken at the DAC.</string>
     <string name="usb_eq_banner">USB bit-perfect is active. The equalizer and effects are bypassed so the signal stays untouched.</string>
+    <string name="usb_eq_banner_autoeq">USB bit-perfect output is active. The equalizer and effects below are bypassed. Only the headphone EQ (AutoEq) is applied, so the sound is not bit-for-bit.</string>
+    <string name="autoeq_card_profile">%1$s. Works on the USB DAC output.</string>
+    <string name="autoeq_card_no_profile">Import a profile first. Works on the USB DAC output.</string>
+    <string name="autoeq_chip_import">Import profile</string>
+    <string name="autoeq_chip_remove">Remove</string>
+    <string name="autoeq_remove_title">Remove this profile?</string>
+    <string name="autoeq_remove_message">%1$s will be deleted from the app. The file you imported is not touched.</string>
+    <string name="autoeq_removed">Profile removed</string>
+    <string name="autoeq_chip_strength">Strength %1$d%%</string>
+    <string name="autoeq_chip_level_match">Same loudness</string>
+    <string name="autoeq_chip_level_safe">Safe level</string>
 
     <!-- About / branding -->
     <string name="author_name">adssaketh</string>
@@ -620,9 +631,12 @@
     <string name="autoeq_switch_desc_none">Import a profile first. It works on the USB DAC output.</string>
     <string name="autoeq_switch_desc">%1$s, on the USB DAC output. Not bit-perfect while it is on.</string>
     <string name="autoeq_import">Import AutoEq profile</string>
-    <string name="autoeq_import_desc">Choose a ParametricEQ.txt file, or the zip you downloaded from AutoEq.</string>
+    <string name="autoeq_import_desc">Choose a ParametricEQ.txt file, or the zip you downloaded from AutoEq. You can keep several and switch between them on the Equalizer screen.</string>
     <string name="autoeq_import_ok">Profile imported: %1$s</string>
     <string name="autoeq_import_bad">That file has no usable AutoEq filters</string>
+    <string name="autoeq_level">Volume level</string>
+    <string name="autoeq_level_match">Same loudness as without the EQ. Very loud peaks are softened. Tap to change.</string>
+    <string name="autoeq_level_safe">Quieter, so the music can never clip. Tap to change.</string>
     <string name="autoeq_strength">Strength</string>
     <string name="autoeq_strength_desc">%1$d%% of the profile. Tap to change.</string>
     <string name="usb_verdict_eq">Headphone EQ on</string>
