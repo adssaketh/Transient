@@ -483,6 +483,9 @@
     <string name="sync_reset">Reset sync</string>
     <string name="add_lyrics">Add Lyrics</string>
     <string name="find_lyrics_online">Find online</string>
+    <string name="find_lyrics_online_long">Find lyrics online</string>
+    <string name="lyrics_found_check_save">Lyrics found. Check them, then tap Save</string>
+    <string name="lyrics_plain_check_save">Only lyrics without timing were found. Check them, then tap Save</string>
     <string name="find_tags_online">Find tags &amp; cover online</string>
     <string name="finding_tags">Searching…</string>
     <string name="match_pick_title">Pick the right match</string>

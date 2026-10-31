@@ -266,13 +266,15 @@ fun LyricsScreen(onBack: () -> Unit, isDarkTheme: Boolean = false) {
                         song.title,
                         style = MaterialTheme.typography.titleMedium,
                         color = lyricsTextColor,
-                        maxLines = 1
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                     )
                     Text(
                         song.artist,
                         style = MaterialTheme.typography.bodySmall,
                         color = lyricsMuted2Color,
-                        maxLines = 1
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                     )
                 }
                 Row(
@@ -560,7 +562,7 @@ fun LyricsScreen(onBack: () -> Unit, isDarkTheme: Boolean = false) {
                 // If we found 0 or only 1 synced line, but we have a raw string, show it.
                 val displayLines = rawLyrics.lines()
                     .map { TIME_TAG_PATTERN.matcher(it).replaceAll("").trim() }
-                    .filter { it.isNotBlank() }
+                    .filter { it.isNotBlank() && !METADATA_TAG_PATTERN.matcher(it).matches() }
                 
                 Box(
                     modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),

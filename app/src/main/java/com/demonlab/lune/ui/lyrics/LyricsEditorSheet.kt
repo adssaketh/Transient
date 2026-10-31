@@ -55,7 +55,10 @@ import com.demonlab.lune.tools.Song
 import com.demonlab.lune.ui.utils.bounceClick
 import com.demonlab.lune.ui.utils.triggerLightVibration
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import com.demonlab.lune.tools.LrclibClient
 import java.util.regex.Pattern
 
 private data class SyncLine(
@@ -112,6 +115,7 @@ fun LyricsEditorSheet(
 
     var selectedTab by remember { mutableIntStateOf(0) }
     var textContent by remember { mutableStateOf(initialLyrics ?: "") }
+    var findingOnline by remember { mutableStateOf(false) }
     val hasCustomLyrics = remember(song.id) { lyricsStorage.hasCustomLyrics(song) }
 
     // Synchronizer state
@@ -566,6 +570,55 @@ fun LyricsEditorSheet(
                         )
 
                         Spacer(modifier = Modifier.height(12.dp))
+
+                        // Find the lyrics on LRCLIB. They only replace the text in this box; nothing is saved until Save is tapped.
+                        OutlinedButton(
+                            enabled = !findingOnline,
+                            onClick = {
+                                findingOnline = true
+                                scope.launch {
+                                    val result = withContext(Dispatchers.IO) { LrclibClient.fetch(song) }
+                                    findingOnline = false
+                                    val found = result.lyrics
+                                    val message = when {
+                                        found != null && result.status == LrclibClient.Status.FOUND_SYNCED -> {
+                                            textContent = found
+                                            parseTextToSyncLines(found)
+                                            R.string.lyrics_found_check_save
+                                        }
+                                        found != null && result.status == LrclibClient.Status.FOUND_PLAIN -> {
+                                            textContent = found
+                                            parseTextToSyncLines(found)
+                                            R.string.lyrics_plain_check_save
+                                        }
+                                        result.status == LrclibClient.Status.INSTRUMENTAL -> R.string.lyrics_instrumental
+                                        result.status == LrclibClient.Status.NETWORK_ERROR -> R.string.lyrics_no_connection
+                                        else -> R.string.lyrics_not_found_online
+                                    }
+                                    Toast.makeText(context, context.getString(message), Toast.LENGTH_LONG).show()
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, sheetBorderColor),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = sheetTextColor
+                            )
+                        ) {
+                            if (findingOnline) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(18.dp),
+                                    strokeWidth = 2.dp,
+                                    color = sheetTextColor
+                                )
+                            } else {
+                                Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp))
+                            }
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(stringResource(if (findingOnline) R.string.finding_lyrics else R.string.find_lyrics_online_long))
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
 
                         // Bottom Actions: Import & Export .lrc
                         Row(
