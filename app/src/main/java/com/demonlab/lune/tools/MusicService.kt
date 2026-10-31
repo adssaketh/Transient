@@ -1051,6 +1051,9 @@ class MusicService : MediaLibraryService() {
         isCrossfading = false
         PlaybackManager.getInstance(applicationContext).isTransitioning = false
         monitorJob?.cancel()
+        // Starting a track on purpose supersedes any interruption still waiting to auto-resume the previous one.
+        wasPlayingBeforeLoss = false
+        resumeOnFocusGain = false
         requestAudioFocus()
         acquireWakeLock()
         updateWidget()
@@ -1503,6 +1506,13 @@ class MusicService : MediaLibraryService() {
 
     fun pause() {
         DiagnosticLogger.note("PAUSE  <- ${DiagnosticLogger.callers()}")
+        // A pause that reaches here is final (user, notification, headset button, permanent loss, DAC unplug).
+        // Forget any pending automatic resume, otherwise a later AUDIOFOCUS_GAIN would restart a song the user paused.
+        if (wasPlayingBeforeLoss || resumeOnFocusGain) {
+            DiagnosticLogger.note("PAUSE cancels pending auto-resume (wasPlayingBeforeLoss=$wasPlayingBeforeLoss resumeOnFocusGain=$resumeOnFocusGain)")
+        }
+        wasPlayingBeforeLoss = false
+        resumeOnFocusGain = false
         pauseTimeoutJob?.cancel()
         // Persist playback state immediately when paused (do NOT wait for timeout)
         PlaybackManager.getInstance(applicationContext).savePlaybackState(wasPlaying = false)
