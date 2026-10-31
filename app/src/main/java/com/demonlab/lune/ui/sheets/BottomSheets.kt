@@ -69,7 +69,10 @@ import com.demonlab.lune.tools.NO_COVER
 import com.demonlab.lune.tools.AudioTagWriter
 import com.demonlab.lune.tools.FileTagEdit
 import androidx.activity.result.IntentSenderRequest
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import com.demonlab.lune.tools.MusicBrainzClient
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
 import com.demonlab.lune.ui.activities.EqualizerActivity
@@ -1345,6 +1348,43 @@ fun EditSongBottomSheet(
             }
         }
     }
+    // "Find tags & cover online": MusicBrainz + Cover Art Archive. It only fills the fields below; nothing is written until Save.
+    var onlineBusy by remember { mutableStateOf(false) }
+    var onlineChoices by remember { mutableStateOf<List<MusicBrainzClient.Match>?>(null) }
+    fun toast(message: Int) = Toast.makeText(context, context.getString(message), Toast.LENGTH_LONG).show()
+    fun findOnline() {
+        if (onlineBusy) return
+        onlineBusy = true
+        saveScope.launch {
+            val result = withContext(Dispatchers.IO) { MusicBrainzClient.search(song) }
+            onlineBusy = false
+            when (result.status) {
+                MusicBrainzClient.Status.FOUND -> onlineChoices = result.matches
+                MusicBrainzClient.Status.NETWORK_ERROR -> toast(R.string.match_no_connection)
+                MusicBrainzClient.Status.NOT_FOUND -> toast(R.string.match_none)
+            }
+        }
+    }
+    fun useMatch(match: MusicBrainzClient.Match) {
+        onlineChoices = null
+        title = match.title
+        artist = match.artist
+        match.album?.let { album = it }
+        match.albumArtist?.let { albumArtist = it }
+        match.year?.let { year = it.toString() }
+        match.trackNumber?.let { trackNumber = it.toString() }
+        onlineBusy = true
+        saveScope.launch {
+            val picture = withContext(Dispatchers.IO) { MusicBrainzClient.downloadCover(context, match) }
+            onlineBusy = false
+            if (picture != null) {
+                selectedCoverUri = Uri.fromFile(picture)
+                toast(R.string.match_filled_with_cover)
+            } else {
+                toast(R.string.match_filled_no_cover)
+            }
+        }
+    }
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia(),
         onResult = { uri -> selectedCoverUri = uri }
@@ -1358,6 +1398,52 @@ fun EditSongBottomSheet(
         focusedLabelColor = blurColors.primaryTint,
         unfocusedLabelColor = blurColors.textSecondaryColor
     )
+
+    onlineChoices?.let { choices ->
+        AlertDialog(
+            onDismissRequest = { onlineChoices = null },
+            title = { Text(stringResource(R.string.match_pick_title)) },
+            text = {
+                LazyColumn(modifier = Modifier.fillMaxWidth()) {
+                    items(choices) { match ->
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable { useMatch(match) }
+                                .padding(horizontal = 8.dp, vertical = 10.dp)
+                        ) {
+                            Text(
+                                text = match.title + " — " + match.artist,
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            val details = listOfNotNull(
+                                match.album,
+                                match.year?.toString(),
+                                match.trackNumber?.let { "#$it" }
+                            ).joinToString(" · ")
+                            if (details.isNotBlank()) {
+                                Text(
+                                    text = details,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { onlineChoices = null }) { Text(stringResource(android.R.string.cancel)) }
+            }
+        )
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -1460,6 +1546,30 @@ fun EditSongBottomSheet(
                             )
                         }
                     }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                OutlinedButton(
+                    onClick = { findOnline() },
+                    enabled = !onlineBusy && !saving,
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    if (onlineBusy) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                            color = blurColors.primaryTint
+                        )
+                    } else {
+                        Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp), tint = blurColors.primaryTint)
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = stringResource(if (onlineBusy) R.string.finding_tags else R.string.find_tags_online),
+                        fontWeight = FontWeight.SemiBold,
+                        color = blurColors.textColor
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))

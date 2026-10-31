@@ -2,6 +2,7 @@ package com.demonlab.lune.ui.activities
 
 import android.os.Bundle
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -26,6 +27,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Lyrics
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Edit
 import com.demonlab.lune.R
 import com.demonlab.lune.ui.lyrics.LyricsEditorSheet
@@ -56,12 +58,17 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.demonlab.lune.tools.LrclibClient
+import com.demonlab.lune.tools.LyricsStorageManager
 import com.demonlab.lune.tools.PlaybackManager
 import com.demonlab.lune.tools.Song
 import com.demonlab.lune.ui.theme.LuneTheme
 import androidx.compose.foundation.isSystemInDarkTheme
 import com.demonlab.lune.tools.SettingsManager
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import coil.request.ImageRequest
@@ -118,6 +125,9 @@ fun LyricsScreen(onBack: () -> Unit, isDarkTheme: Boolean = false) {
     val rawLyrics = playbackManager.currentLyrics
     
     var showLyricsEditor by remember { mutableStateOf(false) }
+    // "Find online" on the empty lyrics screen (LRCLIB)
+    var findingOnline by remember(song.id) { mutableStateOf(false) }
+    val onlineScope = rememberCoroutineScope()
     
     val isPlaying = playbackManager.isPlaying
     
@@ -627,6 +637,52 @@ fun LyricsScreen(onBack: () -> Unit, isDarkTheme: Boolean = false) {
                                 text = stringResource(R.string.add_lyrics),
                                 fontWeight = FontWeight.SemiBold,
                                 color = if (isBlurActive) Color.White else MaterialTheme.colorScheme.onPrimary
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(10.dp))
+                        OutlinedButton(
+                            enabled = !findingOnline,
+                            onClick = {
+                                findingOnline = true
+                                onlineScope.launch {
+                                    val result = withContext(Dispatchers.IO) { LrclibClient.fetch(song) }
+                                    findingOnline = false
+                                    val stillThisSong = playbackManager.currentSong?.id == song.id
+                                    val message = when (result.status) {
+                                        LrclibClient.Status.FOUND_SYNCED -> {
+                                            val text = result.lyrics.orEmpty()
+                                            LyricsStorageManager.getInstance(context).saveLyrics(song, text)
+                                            if (stillThisSong) playbackManager.updateLyrics(text)
+                                            R.string.lyrics_found_online
+                                        }
+                                        LrclibClient.Status.FOUND_PLAIN -> {
+                                            // plain text has no time tags: shown for now, not saved
+                                            if (stillThisSong) playbackManager.updateLyrics(result.lyrics)
+                                            R.string.lyrics_plain_only
+                                        }
+                                        LrclibClient.Status.INSTRUMENTAL -> R.string.lyrics_instrumental
+                                        LrclibClient.Status.NETWORK_ERROR -> R.string.lyrics_no_connection
+                                        LrclibClient.Status.NOT_FOUND -> R.string.lyrics_not_found_online
+                                    }
+                                    Toast.makeText(context, context.getString(message), Toast.LENGTH_LONG).show()
+                                }
+                            },
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            if (findingOnline) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(18.dp),
+                                    strokeWidth = 2.dp,
+                                    color = lyricsTextColor
+                                )
+                            } else {
+                                Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp), tint = lyricsTextColor)
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = stringResource(if (findingOnline) R.string.finding_lyrics else R.string.find_lyrics_online),
+                                fontWeight = FontWeight.SemiBold,
+                                color = lyricsTextColor
                             )
                         }
                     }
