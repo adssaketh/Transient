@@ -10,6 +10,7 @@ import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
+import kotlin.math.abs
 
 /**
  * Finds the correct tags for a song on MusicBrainz (https://musicbrainz.org, a free community music database) and the cover
@@ -39,7 +40,8 @@ object MusicBrainzClient {
     private const val TAG = "MusicBrainzClient"
     private const val API = "https://musicbrainz.org/ws/2"
     private const val CAA = "https://coverartarchive.org"
-    private const val USER_AGENT = "Transient/1.0 (Android music player; https://github.com/adssaketh/Transient)"
+    // the form MusicBrainz asks for: "Application/version ( contact address )"
+    private const val USER_AGENT = "Transient/1.0 ( https://github.com/adssaketh/Transient )"
     private const val MIN_SCORE = 70
     private const val MAX_MATCHES = 10
 
@@ -54,19 +56,18 @@ object MusicBrainzClient {
             append("recording:\"").append(escape(title)).append('"')
             if (artist.isNotBlank()) append(" AND artist:\"").append(escape(artist)).append('"')
         }
-        // first with the song's length (a few seconds either way), then without it
+        // title + artist first; if that finds nothing, the title alone (the first singer in the tag is not always the credited one).
+        // The song's length is used to rank the answers, not to filter them, which keeps the search simple.
         val queries = ArrayList<String>()
-        if (song.duration > 0) {
-            queries.add("$base AND dur:[${(song.duration - 4000L).coerceAtLeast(0L)} TO ${song.duration + 4000L}]")
-        }
         queries.add(base)
+        if (artist.isNotBlank()) queries.add("recording:\"${escape(title)}\"")
 
         var networkProblem = false
         var problem: String? = null
         for (query in queries) {
             try {
                 val body = musicBrainzGet("$API/recording?query=${enc(query)}&fmt=json&limit=15")
-                val matches = parse(JSONObject(body))
+                val matches = parse(JSONObject(body), song.duration)
                 if (matches.isNotEmpty()) return Result(Status.FOUND, matches)
             } catch (e: Exception) {
                 Log.w(TAG, "search failed: ${e.message}")
@@ -107,9 +108,9 @@ object MusicBrainzClient {
         return null
     }
 
-    private fun parse(root: JSONObject): List<Match> {
+    private fun parse(root: JSONObject, wantedMs: Long): List<Match> {
         val recordings = root.optJSONArray("recordings") ?: return emptyList()
-        class Ranked(val match: Match, val score: Int, val rank: Int, val date: String)
+        class Ranked(val match: Match, val score: Int, val gap: Int, val rank: Int, val date: String)
         val ranked = ArrayList<Ranked>()
         val seenReleases = HashSet<String>()
         for (i in 0 until recordings.length()) {
@@ -118,9 +119,12 @@ object MusicBrainzClient {
             if (score < MIN_SCORE) continue
             val title = text(rec, "title") ?: continue
             val artist = creditName(rec.optJSONArray("artist-credit")) ?: continue
+            // how far this recording's length is from the song's, in steps of 5 s (unknown = a middle value)
+            val recordingMs = if (rec.isNull("length")) 0L else rec.optLong("length", 0L)
+            val gap = if (wantedMs > 0 && recordingMs > 0) minOf(abs(recordingMs - wantedMs) / 5000L, 20L).toInt() else 10
             val releases = rec.optJSONArray("releases")
             if (releases == null || releases.length() == 0) {
-                ranked.add(Ranked(Match(title, artist, null, null, null, null, null, null), score, 9, ""))
+                ranked.add(Ranked(Match(title, artist, null, null, null, null, null, null), score, gap, 9, ""))
                 continue
             }
             for (j in 0 until releases.length()) {
@@ -145,11 +149,11 @@ object MusicBrainzClient {
                 val plain = group?.optJSONArray("secondary-types")?.length().let { it == null || it == 0 }
                 val official = text(rel, "status") == "Official"
                 val rank = (if (isAlbum) 0 else 2) + (if (plain) 0 else 4) + (if (official) 0 else 1)
-                ranked.add(Ranked(match, score, rank, date))
+                ranked.add(Ranked(match, score, gap, rank, date))
             }
         }
         return ranked
-            .sortedWith(compareByDescending<Ranked> { it.score }.thenBy { it.rank }.thenBy { if (it.date.isBlank()) "9999" else it.date })
+            .sortedWith(compareByDescending<Ranked> { it.score }.thenBy { it.gap }.thenBy { it.rank }.thenBy { if (it.date.isBlank()) "9999" else it.date })
             .take(MAX_MATCHES)
             .map { it.match }
     }
@@ -182,27 +186,43 @@ object MusicBrainzClient {
     // optString() would turn a JSON null into the text "null", so nulls are checked first
     private fun text(o: JSONObject, key: String): String? = if (o.isNull(key)) null else o.optString(key).takeIf { it.isNotBlank() }
 
-    /** One MusicBrainz request, at least 1.1 s after the one before. Returns the body; any problem throws an exception. */
+    /**
+     * One MusicBrainz request, at least 1.1 s after the one before. MusicBrainz answers 503 when it is busy or when too many
+     * requests come from one address (a mobile network shares one address between many phones), so a 502/503/504 is tried
+     * again up to two more times, after the pause MusicBrainz asks for (Retry-After) or 2 s. Returns the body; any other
+     * problem throws an exception.
+     */
     private fun musicBrainzGet(url: String): String {
-        synchronized(gate) {
-            val wait = lastMusicBrainzCall + 1100L - System.currentTimeMillis()
-            if (wait > 0) Thread.sleep(wait)
-            lastMusicBrainzCall = System.currentTimeMillis()
-        }
-        val connection = URL(url).openConnection() as HttpURLConnection
-        try {
-            connection.connectTimeout = 8000
-            connection.readTimeout = 15000
-            connection.setRequestProperty("User-Agent", USER_AGENT)
-            connection.setRequestProperty("Accept", "application/json")
-            if (connection.responseCode != 200) {
-                Log.w(TAG, "MusicBrainz answered HTTP ${connection.responseCode}")
-                throw IOException("HTTP ${connection.responseCode}")
+        var lastCode = 0
+        var pauseMs = 2000L
+        for (attempt in 1..3) {
+            synchronized(gate) {
+                val wait = lastMusicBrainzCall + 1100L - System.currentTimeMillis()
+                if (wait > 0) Thread.sleep(wait)
+                lastMusicBrainzCall = System.currentTimeMillis()
             }
-            return connection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
-        } finally {
-            connection.disconnect()
+            val connection = URL(url).openConnection() as HttpURLConnection
+            try {
+                connection.connectTimeout = 8000
+                connection.readTimeout = 15000
+                connection.setRequestProperty("User-Agent", USER_AGENT)
+                connection.setRequestProperty("Accept", "application/json")
+                val code = connection.responseCode
+                if (code == 200) {
+                    return connection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+                }
+                lastCode = code
+                Log.w(TAG, "MusicBrainz answered HTTP $code (attempt $attempt of 3)")
+                DiagnosticLogger.note("MUSICBRAINZ answered HTTP $code (attempt $attempt of 3)")
+                if (code != 502 && code != 503 && code != 504) throw IOException("HTTP $code")
+                val asked = connection.getHeaderField("Retry-After")?.trim()?.toLongOrNull()
+                pauseMs = (asked ?: 2L).coerceIn(1L, 6L) * 1000L
+            } finally {
+                connection.disconnect()
+            }
+            if (attempt < 3) Thread.sleep(pauseMs)
         }
+        throw IOException("HTTP $lastCode")
     }
 
     /**
