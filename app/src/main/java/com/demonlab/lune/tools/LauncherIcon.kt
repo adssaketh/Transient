@@ -38,8 +38,8 @@ object LauncherIcon {
         val opaque = cover or 0xFF000000.toInt()
         c.drawColor(ColorUtils.blendARGB(opaque, 0xFF000000.toInt(), 0.84f))
         val k = sizePx / 108f
-        // same place as the real launcher icon: grid point 50,50 in the middle, 0.72 dp per grid unit, pictures cover 6..94
-        fun at(g: Float) = (54f + (g - 50f) * 0.72f) * k
+        // same place as the real launcher icon: grid point 50,50 in the middle, 0.62 dp per grid unit, pictures cover 6..94
+        fun at(g: Float) = (54f + (g - 50f) * 0.62f) * k
         val dst = RectF(at(6f), at(6f), at(94f), at(94f))
         val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG or Paint.DITHER_FLAG)
         fun layer(id: Int, tint: Int?) {
