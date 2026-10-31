@@ -615,6 +615,18 @@
 
     <!-- USB volume -->
     <string name="usb_software_volume">USB volume control</string>
+    <string name="autoeq_section_title">Headphone EQ (AutoEq)</string>
+    <string name="autoeq_switch">Headphone EQ</string>
+    <string name="autoeq_switch_desc_none">Import a profile first. It works on the USB DAC output.</string>
+    <string name="autoeq_switch_desc">%1$s, on the USB DAC output. Not bit-perfect while it is on.</string>
+    <string name="autoeq_import">Import AutoEq profile</string>
+    <string name="autoeq_import_desc">Choose a ParametricEQ.txt file, or the zip you downloaded from AutoEq.</string>
+    <string name="autoeq_import_ok">Profile imported: %1$s</string>
+    <string name="autoeq_import_bad">That file has no usable AutoEq filters</string>
+    <string name="autoeq_strength">Strength</string>
+    <string name="autoeq_strength_desc">%1$d%% of the profile. Tap to change.</string>
+    <string name="usb_verdict_eq">Headphone EQ on</string>
+    <string name="usb_verdict_eq_desc">The headphone EQ is changing the sound, so it is not bit-for-bit. Turn it off in Audio settings for bit-perfect output.</string>
     <string name="usb_software_volume_desc">Use the phone\'s volume buttons to set the volume of USB output. At maximum volume the output stays bit-perfect; below it the samples are scaled digitally.</string>
     <string name="usb_verdict_volume">Digital volume</string>
     <string name="usb_verdict_volume_desc">Your phone\'s volume is below maximum, so the samples are scaled digitally. Set it to maximum for bit-perfect output.</string>

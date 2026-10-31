@@ -7,6 +7,11 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import com.demonlab.lune.tools.eq.AutoEqEngine
+import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.FileDownload
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
@@ -120,6 +125,23 @@ fun AudioSettingsScreen(onBack: () -> Unit) {
         usbAvailability == UsbDacSupport.Availability.NO_DAC -> stringResource(R.string.usb_status_no_dac)
         usbAvailability == UsbDacSupport.Availability.NEEDS_PERMISSION -> stringResource(R.string.usb_status_permission)
         else -> stringResource(R.string.usb_status_off)
+    }
+
+    // ── Headphone EQ (AutoEq) ──
+    var autoEqEnabled by remember { mutableStateOf(settingsManager.isAutoEqEnabled) }
+    var autoEqName by remember { mutableStateOf(settingsManager.autoEqProfileName) }
+    var autoEqStrength by remember { mutableStateOf(settingsManager.autoEqStrength) }
+    val autoEqPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            val imported = AutoEqEngine.importFromUri(context, uri)
+            if (imported != null) {
+                autoEqName = imported
+                autoEqEnabled = true
+                Toast.makeText(context, context.getString(R.string.autoeq_import_ok, imported), Toast.LENGTH_LONG).show()
+            } else {
+                Toast.makeText(context, R.string.autoeq_import_bad, Toast.LENGTH_LONG).show()
+            }
+        }
     }
 
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
@@ -350,6 +372,65 @@ fun AudioSettingsScreen(onBack: () -> Unit) {
                     icon = Icons.Default.GraphicEq,
                     position = SectionPosition.LAST,
                     onClick = { context.startActivity(Intent(context, SignalPathActivity::class.java)) }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            SettingsSection(title = stringResource(R.string.autoeq_section_title)) {
+                SettingsPreferenceItem(
+                    headlineText = stringResource(R.string.autoeq_switch),
+                    supportingText = if (autoEqName.isBlank()) {
+                        stringResource(R.string.autoeq_switch_desc_none)
+                    } else {
+                        stringResource(R.string.autoeq_switch_desc, autoEqName)
+                    },
+                    icon = Icons.Default.Equalizer,
+                    position = SectionPosition.FIRST,
+                    trailingContent = {
+                        BouncySwitch(
+                            checked = autoEqEnabled && autoEqName.isNotBlank(),
+                            enabled = autoEqName.isNotBlank(),
+                            onCheckedChange = { enabled ->
+                                autoEqEnabled = enabled
+                                settingsManager.isAutoEqEnabled = enabled
+                                AutoEqEngine.reload(context)
+                            },
+                            thumbContent = {
+                                Icon(
+                                    imageVector = if (autoEqEnabled && autoEqName.isNotBlank()) Icons.Default.Check else Icons.Default.Close,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(SwitchDefaults.IconSize)
+                                )
+                            }
+                        )
+                    }
+                )
+
+                SettingsPreferenceItem(
+                    headlineText = stringResource(R.string.autoeq_import),
+                    supportingText = stringResource(R.string.autoeq_import_desc),
+                    icon = Icons.Default.FileDownload,
+                    position = SectionPosition.MIDDLE,
+                    onClick = { autoEqPicker.launch(arrayOf("*/*")) }
+                )
+
+                SettingsPreferenceItem(
+                    headlineText = stringResource(R.string.autoeq_strength),
+                    supportingText = stringResource(R.string.autoeq_strength_desc, autoEqStrength),
+                    icon = Icons.Default.Tune,
+                    position = SectionPosition.LAST,
+                    onClick = {
+                        val next = when {
+                            autoEqStrength > 75 -> 75
+                            autoEqStrength > 50 -> 50
+                            autoEqStrength > 25 -> 25
+                            else -> 100
+                        }
+                        autoEqStrength = next
+                        settingsManager.autoEqStrength = next
+                        AutoEqEngine.reload(context)
+                    }
                 )
             }
         }

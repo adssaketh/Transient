@@ -289,6 +289,12 @@ private fun HeroCard(state: PathState, verdict: Verdict?, output: UsbOutputStatu
             title = stringResource(R.string.usb_verdict_volume)
             description = stringResource(R.string.usb_verdict_volume_desc)
         }
+        state == PathState.ACTIVE && verdict == Verdict.EQUALIZED -> {
+            container = scheme.tertiaryContainer; content = scheme.onTertiaryContainer
+            icon = Icons.Filled.Usb
+            title = stringResource(R.string.usb_verdict_eq)
+            description = stringResource(R.string.usb_verdict_eq_desc)
+        }
         state == PathState.ACTIVE && verdict == Verdict.DIRECT_DECODED -> {
             container = scheme.secondaryContainer; content = scheme.onSecondaryContainer
             icon = Icons.Filled.Usb

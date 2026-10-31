@@ -106,6 +106,24 @@ class SettingsManager(context: Context) {
         get() = prefs.getBoolean("usb_software_volume", true)
         set(value) = prefs.edit().putBoolean("usb_software_volume", value).apply()
 
+    /** Headphone EQ (AutoEq) on the USB DAC output: switched on, the saved profile text and its name, and how strong it is. */
+    var isAutoEqEnabled: Boolean
+        get() = prefs.getBoolean("autoeq_enabled", false)
+        set(value) = prefs.edit().putBoolean("autoeq_enabled", value).apply()
+
+    var autoEqProfileText: String
+        get() = prefs.getString("autoeq_profile_text", "") ?: ""
+        set(value) = prefs.edit().putString("autoeq_profile_text", value).apply()
+
+    var autoEqProfileName: String
+        get() = prefs.getString("autoeq_profile_name", "") ?: ""
+        set(value) = prefs.edit().putString("autoeq_profile_name", value).apply()
+
+    /** 0-100: how much of the profile is applied (100 = exactly as AutoEq made it). */
+    var autoEqStrength: Int
+        get() = prefs.getInt("autoeq_strength", 100).coerceIn(0, 100)
+        set(value) = prefs.edit().putInt("autoeq_strength", value.coerceIn(0, 100)).apply()
+
     /** Columns of the All songs grid (2-4); pinching to a single column switches back to the list. */
     var songGridColumns: Int
         get() = prefs.getInt("song_grid_columns", 2).coerceIn(2, 4)

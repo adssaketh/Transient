@@ -35,7 +35,10 @@ object UsbSignalPathStore {
         DIGITAL_VOLUME,
 
         /** Something does not line up (rate mismatch, source deeper than the DAC, clock not locked). */
-        CHECK
+        CHECK,
+
+        /** The headphone EQ (AutoEq) is changing the sound, so it is not the original bits. */
+        EQUALIZED
     }
 
     private val _active = MutableStateFlow(false)
@@ -95,6 +98,7 @@ object UsbSignalPathStore {
         val depthOk = fileDepth == null || fileDepth <= out.usbBitDepth
         val clockOk = out.clockLocked != false
         if (!rateOk || !depthOk || !clockOk) return Verdict.CHECK
+        if (com.demonlab.lune.tools.eq.AutoEqEngine.isShapingSound) return Verdict.EQUALIZED
         if (gain < 0.9999f) return Verdict.DIGITAL_VOLUME
         return if (isLossless(source, song)) Verdict.BIT_PERFECT else Verdict.DIRECT_DECODED
     }

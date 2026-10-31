@@ -325,7 +325,10 @@ class UsbPlaybackEngine(
                     .setEnableFloatOutput(false)
                     .setAudioCapabilities(AudioCapabilities.getCapabilities(context))
                     .build()
-                return UsbAudioSink(delegate, context).also { usbSink = it }
+                val usb = UsbAudioSink(delegate, context).also { usbSink = it }
+                // The headphone EQ (AutoEq) runs in front of the USB sink. It does nothing unless it is switched on.
+                com.demonlab.lune.tools.eq.AutoEqEngine.reload(context)
+                return com.demonlab.lune.tools.eq.AutoEqAudioSink(usb)
             }
         }
         // The built-in MediaCodec decoders truncate 24-bit sources to 16-bit; FFmpeg does not.
