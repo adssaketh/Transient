@@ -221,6 +221,12 @@ class MusicService : MediaLibraryService() {
     private val audioFocusListener = AudioManager.OnAudioFocusChangeListener { focusChange ->
         Log.i("TransientTrace", "audio focus change=${focusChangeName(focusChange)} playing=${isPlaying()} usbEngine=${usbEngine != null}")
         DiagnosticLogger.note("FOCUS ${focusChangeName(focusChange)} playing=${isPlaying()} usb=${usbEngine != null}")
+        // Who else is making sound right now, and is it still going 2 s later? (usage: 1 media, 2 call, 5 notification, 13 touch/keyboard sound, 14 game)
+        DiagnosticLogger.note("FOCUS audio playing at that moment: ${describeActivePlayback()}")
+        serviceScope.launch {
+            delay(2000)
+            DiagnosticLogger.note("FOCUS 2 s later, audio playing: ${describeActivePlayback()}")
+        }
         when (focusChange) {
             AudioManager.AUDIOFOCUS_LOSS -> {
                 // Permanent focus loss (another app claimed audio): pause
@@ -262,6 +268,18 @@ class MusicService : MediaLibraryService() {
                     resumeInternal()
                 }
             }
+        }
+    }
+
+    /** For the trace: the sounds Android says are playing right now (ours included), as "usage/content type" pairs. */
+    private fun describeActivePlayback(): String {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return "not available on this Android version"
+        return try {
+            val manager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            val players = manager.activePlaybackConfigurations
+            if (players.isEmpty()) "nothing" else players.joinToString(", ") { "usage=${it.audioAttributes.usage} type=${it.audioAttributes.contentType}" }
+        } catch (e: Throwable) {
+            "unavailable (${e.javaClass.simpleName})"
         }
     }
 

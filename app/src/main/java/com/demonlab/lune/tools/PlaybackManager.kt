@@ -1473,6 +1473,9 @@ class PlaybackManager private constructor(private val context: Context) {
 
     fun updatePlayingState(playing: Boolean) {
         isPlaying = playing
+        // For the trace: while music plays, a small thread shows whether the whole app was frozen during a dropout.
+        // It used to run only on the DAC path. It does nothing when logging is switched off in Settings.
+        if (playing) ProcessHeartbeat.start() else ProcessHeartbeat.stop()
     }
 
     var isInAnyPlaylist by mutableStateOf(false)
