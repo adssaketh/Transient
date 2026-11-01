@@ -487,6 +487,14 @@
     <string name="lyrics_found_check_save">Lyrics found. Check them, then tap Save</string>
     <string name="lyrics_plain_check_save">Only lyrics without timing were found. Check them, then tap Save</string>
     <string name="find_tags_online">Find tags &amp; cover online</string>
+    <string name="apple_artwork_find">Find Apple Music artwork</string>
+    <string name="apple_artwork_title">Apple Music artwork</string>
+    <string name="apple_artwork_search_hint">Album or artist</string>
+    <string name="apple_artwork_search">Search</string>
+    <string name="apple_artwork_none">No artwork found on Apple Music</string>
+    <string name="apple_artwork_no_connection">Could not reach Apple Music. Check your internet connection</string>
+    <string name="apple_artwork_failed">Could not download that artwork</string>
+    <string name="apple_artwork_added">Artwork added. Tap Save to keep it</string>
     <string name="finding_tags">Searching…</string>
     <string name="match_pick_title">Pick the right match</string>
     <string name="match_none">No match found on MusicBrainz</string>

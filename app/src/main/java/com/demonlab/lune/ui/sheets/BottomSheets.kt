@@ -1351,6 +1351,7 @@ fun EditSongBottomSheet(
     // "Find tags & cover online": MusicBrainz + Cover Art Archive. It only fills the fields below; nothing is written until Save.
     var onlineBusy by remember { mutableStateOf(false) }
     var onlineChoices by remember { mutableStateOf<List<MusicBrainzClient.Match>?>(null) }
+    var showAppleArtwork by remember { mutableStateOf(false) }
     fun toast(message: Int) = Toast.makeText(context, context.getString(message), Toast.LENGTH_LONG).show()
     fun findOnline() {
         if (onlineBusy) return
@@ -1403,6 +1404,18 @@ fun EditSongBottomSheet(
         focusedLabelColor = blurColors.primaryTint,
         unfocusedLabelColor = blurColors.textSecondaryColor
     )
+
+    if (showAppleArtwork) {
+        val firstArtist = com.demonlab.lune.tools.ArtistNames.singers(artist).firstOrNull() ?: artist
+        AppleArtworkDialog(
+            initialQuery = listOf(firstArtist, album.ifBlank { title }).filter { it.isNotBlank() }.joinToString(" "),
+            onPicked = { file ->
+                selectedCoverUri = Uri.fromFile(file)
+                showAppleArtwork = false
+            },
+            onDismiss = { showAppleArtwork = false }
+        )
+    }
 
     onlineChoices?.let { choices ->
         AlertDialog(
@@ -1572,6 +1585,22 @@ fun EditSongBottomSheet(
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = stringResource(if (onlineBusy) R.string.finding_tags else R.string.find_tags_online),
+                        fontWeight = FontWeight.SemiBold,
+                        color = blurColors.textColor
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                OutlinedButton(
+                    onClick = { showAppleArtwork = true },
+                    enabled = !onlineBusy && !saving,
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp), tint = blurColors.primaryTint)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = stringResource(R.string.apple_artwork_find),
                         fontWeight = FontWeight.SemiBold,
                         color = blurColors.textColor
                     )

@@ -65,6 +65,7 @@ fun EditPlaylistSheet(
     }
 
     var isSaving by remember { mutableStateOf(false) }
+    var showAppleArtwork by remember { mutableStateOf(false) }
 
     // Pick visual media (Photo Picker / Gallery)
     val photoPickerLauncher = rememberLauncherForActivityResult(
@@ -104,6 +105,17 @@ fun EditPlaylistSheet(
 
     val screenHeight = LocalConfiguration.current.screenHeightDp.dp
     val isSmallHeight = screenHeight < 680.dp
+
+    if (showAppleArtwork) {
+        AppleArtworkDialog(
+            initialQuery = name,
+            onPicked = { file ->
+                currentCovers = (currentCovers + Uri.fromFile(file).toString()).distinct()
+                showAppleArtwork = false
+            },
+            onDismiss = { showAppleArtwork = false }
+        )
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -292,6 +304,16 @@ fun EditPlaylistSheet(
                         }
                     }
                 }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                AppleArtworkButton(
+                    onClick = { showAppleArtwork = true },
+                    container = blurColors.itemContainerColor,
+                    border = blurColors.itemBorderColor,
+                    tint = blurColors.primaryTint,
+                    textColor = blurColors.textColor
+                )
 
                 Spacer(modifier = Modifier.height(14.dp))
 

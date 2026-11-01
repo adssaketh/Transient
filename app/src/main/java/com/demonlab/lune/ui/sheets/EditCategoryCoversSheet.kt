@@ -64,6 +64,7 @@ fun EditCategoryCoversSheet(
     }
 
     var isSaving by remember { mutableStateOf(false) }
+    var showAppleArtwork by remember { mutableStateOf(false) }
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickMultipleVisualMedia(),
@@ -98,6 +99,17 @@ fun EditCategoryCoversSheet(
         "GENRES" -> Icons.Default.Category
         "FOLDERS" -> Icons.Default.Folder
         else -> Icons.Default.Album
+    }
+
+    if (showAppleArtwork) {
+        AppleArtworkDialog(
+            initialQuery = title,
+            onPicked = { file ->
+                currentCovers = (currentCovers + android.net.Uri.fromFile(file).toString()).distinct()
+                showAppleArtwork = false
+            },
+            onDismiss = { showAppleArtwork = false }
+        )
     }
 
     ModalBottomSheet(
@@ -287,6 +299,16 @@ fun EditCategoryCoversSheet(
                         }
                     }
                 }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                AppleArtworkButton(
+                    onClick = { showAppleArtwork = true },
+                    container = blurColors.itemContainerColor,
+                    border = blurColors.itemBorderColor,
+                    tint = blurColors.primaryTint,
+                    textColor = blurColors.textColor
+                )
 
                 Spacer(modifier = Modifier.height(16.dp))
 
