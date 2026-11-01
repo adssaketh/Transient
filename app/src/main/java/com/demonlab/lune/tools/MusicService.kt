@@ -283,12 +283,36 @@ class MusicService : MediaLibraryService() {
         }
     }
 
+    /**
+     * Drops a crossfade that is still running (pause, short focus loss): the current track carries on,
+     * the half-faded-in next one is discarded. Without this the cancelled crossfade used to fall into its
+     * error handler, which started the next song even though the user had just paused or a call came in.
+     */
+    private fun abandonCrossfade() {
+        crossfadeJob?.cancel()
+        crossfadeJob = null
+        if (!isCrossfading) return
+        isCrossfading = false
+        PlaybackManager.getInstance(applicationContext).isTransitioning = false
+        try {
+            secondaryPlayer?.setOnCompletionListener(null)
+            secondaryPlayer?.setOnErrorListener(null)
+            secondaryPlayer?.release()
+        } catch (_: Exception) {}
+        secondaryPlayer = null
+        isSecondaryPrepared = false
+        try {
+            // The fade-out may have stopped half way: bring the current track back to full volume.
+            if (isPlayerPrepared) mediaPlayer?.setVolume(1f, 1f)
+        } catch (_: Exception) {}
+        DiagnosticLogger.note("CROSSFADE abandoned (pause or focus loss)")
+    }
+
     /** Like pause(), but for a short interruption: no stop timer, and the notification stays as a foreground one. */
     private fun pauseForTransientFocusLoss() {
         DiagnosticLogger.note("PAUSE (transient focus loss)")
         pauseTimeoutJob?.cancel()
-        crossfadeJob?.cancel()
-        crossfadeJob = null
+        abandonCrossfade()
         try {
             if (isPlayerPrepared) mediaPlayer?.pause()
             if (isSecondaryPrepared) secondaryPlayer?.pause()
@@ -427,20 +451,24 @@ class MusicService : MediaLibraryService() {
     }
 
     private fun setupAudioFx(sessionId: Int, isSecondary: Boolean = false) {
-        if (isSecondary) {
-            secondaryEqualizer?.release()
-            secondaryBassBoost?.release()
-            secondaryVirtualizer?.release()
-            loudnessEffect?.release(true)
-            reverbEffect?.release(true)
-            dynamicsEffect?.release(true)
-        } else {
-            equalizer?.release()
-            bassBoost?.release()
-            virtualizer?.release()
-            loudnessEffect?.release(false)
-            reverbEffect?.release(false)
-            dynamicsEffect?.release(false)
+        try {
+            if (isSecondary) {
+                secondaryEqualizer?.release()
+                secondaryBassBoost?.release()
+                secondaryVirtualizer?.release()
+                loudnessEffect?.release(true)
+                reverbEffect?.release(true)
+                dynamicsEffect?.release(true)
+            } else {
+                equalizer?.release()
+                bassBoost?.release()
+                virtualizer?.release()
+                loudnessEffect?.release(false)
+                reverbEffect?.release(false)
+                dynamicsEffect?.release(false)
+            }
+        } catch (t: Throwable) {
+            Log.e("MusicService", "Releasing previous audio effects failed", t)
         }
 
         try {
@@ -1388,12 +1416,16 @@ class MusicService : MediaLibraryService() {
                 isPlayerPrepared = isSecondaryPrepared
                 isSecondaryPrepared = false
 
-                equalizer?.release()
-                bassBoost?.release()
-                virtualizer?.release()
-                loudnessEffect?.release(false)
-                reverbEffect?.release(false)
-                dynamicsEffect?.release(false)
+                try {
+                    equalizer?.release()
+                    bassBoost?.release()
+                    virtualizer?.release()
+                    loudnessEffect?.release(false)
+                    reverbEffect?.release(false)
+                    dynamicsEffect?.release(false)
+                } catch (t: Throwable) {
+                    Log.e("MusicService", "Releasing audio effects after crossfade failed", t)
+                }
 
                 val newSessionId = mediaPlayer?.audioSessionId ?: 0
                 if (newSessionId != 0) {
@@ -1430,12 +1462,21 @@ class MusicService : MediaLibraryService() {
                 updatePlaybackState()
                 showNotification(nextSong, true, art)
             } catch (e: Exception) {
+                // Cancelled on purpose (pause, focus loss, another track): not a failure, so never skip ahead here.
+                if (e is CancellationException) throw e
                 Log.e("MusicService", "Crossfade failed: ${nextSong.title}", e)
                 secondaryPlayer?.setOnCompletionListener(null)
                 secondaryPlayer?.setOnErrorListener(null)
-                secondaryPlayer?.release()
+                try {
+                    secondaryPlayer?.release()
+                } catch (_: Exception) {}
                 secondaryPlayer = null
-                playSong(nextSong)
+                isSecondaryPrepared = false
+                if (isCrossfading) {
+                    isCrossfading = false
+                    playbackManager.isTransitioning = false
+                    playSong(nextSong)
+                }
             } finally {
                 isCrossfading = false
                 playbackManager.isTransitioning = false
@@ -1535,8 +1576,7 @@ class MusicService : MediaLibraryService() {
             stopSelf()
         }
 
-        crossfadeJob?.cancel()
-        crossfadeJob = null
+        abandonCrossfade()
         try {
             if (isPlayerPrepared) mediaPlayer?.pause()
             if (isSecondaryPrepared) secondaryPlayer?.pause()
