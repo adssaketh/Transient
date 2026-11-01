@@ -788,6 +788,10 @@ fun AlbumDetailView(
         }
     }
 
+    val allCovers = remember(customCovers, defaultCovers) {
+        if (customCovers.isNotEmpty()) customCovers else defaultCovers
+    }
+
     var currentCoverIndex by remember(allCovers) { mutableIntStateOf(0) }
 
     LaunchedEffect(allCovers) {
@@ -964,9 +968,9 @@ fun AlbumDetailView(
                             }
                             if (isCurrentPlayingInSelection) {
                                 if (isPlaying) playbackManager.pause() else playbackManager.resume()
-                            } else if (currentPlaylistSongs.isNotEmpty()) {
-                                val songToPlay = if (playbackManager.isShuffle) currentPlaylistSongs.random() else currentPlaylistSongs[0]
-                                onSongClick(songToPlay, currentPlaylistSongs)
+                            } else if (sortedSongs.isNotEmpty()) {
+                                val songToPlay = if (playbackManager.isShuffle) sortedSongs.random() else sortedSongs[0]
+                                onSongClick(songToPlay, sortedSongs)
                             }
                         }
 
@@ -1502,10 +1506,6 @@ fun FolderDetailView(
         }.values.mapNotNull { group ->
             group.firstOrNull()?.let { it.coverUrl ?: it.albumArtUri ?: it.uri }
         }
-    }
-
-    val allCovers = remember(customCovers, defaultCovers) {
-        if (customCovers.isNotEmpty()) customCovers else defaultCovers
     }
 
     val allCovers = remember(customCovers, defaultCovers) {
