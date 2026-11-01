@@ -1643,6 +1643,7 @@ fun MainScreen(
                                     if (viewStyle == 0) {
                                         AlbumGrid(
                                             albums = artistsList,
+                                            category = "ARTISTS",
                                             indexLetter = { it.name },
                                             onAlbumClick = { selectedAlbum = it },
                                             bottomPadding = bottomPadding,
@@ -1704,6 +1705,7 @@ fun MainScreen(
                                     if (viewStyle == 0) {
                                         AlbumGrid(
                                             albums = genresList,
+                                            category = "GENRES",
                                             indexLetter = { it.name },
                                             onAlbumClick = { selectedAlbum = it },
                                             bottomPadding = bottomPadding,
@@ -2491,6 +2493,7 @@ fun MainScreen(
                     useCustomControlsColor = useCustomControlsColor,
                     controlsColorPalette = controlsColorPalette,
                     isArtistView = (if (selectedFolder == "GENRES") "GENRES" else if (selectedFolder == "ARTISTS") "ARTISTS" else "ALBUMS") == "ARTISTS" || (!isAlbumView && albumRender.artist.isEmpty() && selectedFolder != "GENRES"),
+                    category = if (selectedFolder == "GENRES") "GENRES" else if (selectedFolder == "ARTISTS") "ARTISTS" else "ALBUMS",
                     moreByArtist = if (albumRender.artist.isNotEmpty()) {
                         albumsList.filter {
                             it.id != albumRender.id && it.artist.trim().equals(albumRender.artist.trim(), ignoreCase = true)

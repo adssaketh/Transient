@@ -99,8 +99,8 @@ class AudioThumbnailFetcher(
     private fun systemThumbnail(): FetchResult? {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || uri.scheme != "content") return null
         val thumbnail = runCatching {
-            val width = options.size.width.pxOrElse { 512 }
-            val height = options.size.height.pxOrElse { 512 }
+            val width = options.size.width.pxOrElse { 1024 }
+            val height = options.size.height.pxOrElse { 1024 }
             context.contentResolver.loadThumbnail(uri, android.util.Size(width, height), null)
         }.getOrNull() ?: return null
         return DrawableResult(
