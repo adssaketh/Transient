@@ -91,6 +91,9 @@ class MusicService : MediaLibraryService() {
     private var aiffPlainFailedId = -1L
     // Non-AIFF song MediaPlayer rejected; retried once through ExoPlayer (+FFmpeg) before being skipped.
     private var exoFallbackSongId = -1L
+
+    /** The MediaPlayer whose failure was already handled: it calls the error listener 3-4 times for one failure. */
+    private var errorReportedFor: MediaPlayer? = null
     /** After repeated failures USB stays off for the session (until the DAC is re-plugged). */
     private var usbSuppressed = false
     private var mediaSession: MediaLibrarySession? = null
@@ -1169,7 +1172,13 @@ class MusicService : MediaLibraryService() {
                 setOnErrorListener { _, what, extra ->
                     Log.e("MusicService", "MediaPlayer error in playSong: what=$what, extra=$extra")
                     DiagnosticLogger.note("MEDIAPLAYER error (playSong) what=$what extra=$extra ${songInfo(song)}")
-                    if (what == -38) {
+                    // One failing player reports the same failure several times in a row. Acting on each report skipped
+                    // the song that the ExoPlayer fallback had just started, and then the next ones as well.
+                    val repeatedReport = what != -38 && errorReportedFor === player
+                    if (what != -38) errorReportedFor = player
+                    if (repeatedReport) {
+                        true
+                    } else if (what == -38) {
                         // 'Invalid operation': something asked an unprepared player for its position. Not a real failure -
                         // treating it as one used to push almost every song onto the fallback player.
                         true
@@ -1896,7 +1905,13 @@ class MusicService : MediaLibraryService() {
                 setOnErrorListener { _, what, extra ->
                     Log.e("MusicService", "MediaPlayer error in restorePlayback: what=$what, extra=$extra")
                     DiagnosticLogger.note("MEDIAPLAYER error (restorePlayback) what=$what extra=$extra ${songInfo(song)}")
-                    if (what == -38) {
+                    // One failing player reports the same failure several times in a row. Acting on each report skipped
+                    // the song that the ExoPlayer fallback had just started, and then the next ones as well.
+                    val repeatedReport = what != -38 && errorReportedFor === player
+                    if (what != -38) errorReportedFor = player
+                    if (repeatedReport) {
+                        true
+                    } else if (what == -38) {
                         true
                     } else if (what == MediaPlayer.MEDIA_ERROR_SERVER_DIED) {
                         isPlayerPrepared = false
@@ -2489,8 +2504,20 @@ class MusicService : MediaLibraryService() {
         return "song=${song.id} path=${song.path} size=$size uri=${song.uri}"
     }
 
+    /**
+     * Formats Android's MediaPlayer fails on here (ALAC and other MP4/M4A audio: it reports error 1 / -2147483648 and the
+     * track used to bounce through a fallback). These go straight to ExoPlayer with the FFmpeg decoder instead.
+     * Everything else still starts on MediaPlayer, because the ExoPlayer route has no equalizer/effects, balance or crossfade.
+     */
+    private val ffmpegFirstFormats = setOf("m4a", "m4b", "mp4", "alac")
+
+    private fun prefersFfmpegEngine(song: Song): Boolean {
+        val ext = song.path.substringAfterLast('.', "").lowercase()
+        return ext in ffmpegFirstFormats || song.format.lowercase() in ffmpegFirstFormats
+    }
+
     private fun shouldUsePlainAiffEngine(song: Song): Boolean =
-        (AiffSupport.isAiff(song) || song.id == exoFallbackSongId) && song.id != aiffPlainFailedId &&
+        (AiffSupport.isAiff(song) || song.id == exoFallbackSongId || prefersFfmpegEngine(song)) && song.id != aiffPlainFailedId &&
             !NativeCrashGuard.isQuarantined(applicationContext, song.id)
 
     private fun startPlainAiffPlayback(song: Song, positionMs: Long, andPlay: Boolean) {
