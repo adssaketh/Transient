@@ -238,13 +238,25 @@ fun AlbumCard(
                     shape = coverShape,
                     color = MaterialTheme.colorScheme.secondaryContainer
                 ) {
-                    Crossfade(
-                        targetState = currentCover,
-                        animationSpec = tween(durationMillis = 600),
-                        label = "albumCardCoverCrossfade"
-                    ) { cover ->
+                    if (activeCovers.size > 1) {
+                        // Only tiles that really rotate between covers pay for the cross-fade.
+                        Crossfade(
+                            targetState = currentCover,
+                            animationSpec = tween(durationMillis = 600),
+                            label = "albumCardCoverCrossfade"
+                        ) { cover ->
+                            SongCoverImage(
+                                coverUrl = cover,
+                                contentDescription = null,
+                                modifier = Modifier.fillMaxSize(),
+                                shape = coverShape,
+                                iconScale = 0.68f
+                            )
+                        }
+                    } else {
+                        // The usual single cover: drawn directly, as before the custom-covers merge.
                         SongCoverImage(
-                            coverUrl = cover,
+                            coverUrl = currentCover,
                             contentDescription = null,
                             modifier = Modifier.fillMaxSize(),
                             shape = coverShape,
