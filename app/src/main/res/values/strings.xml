@@ -667,4 +667,23 @@
     <string name="restore_default_covers">Restore default covers</string>
     <string name="edit_covers">Edit Covers</string>
     <string name="using_default_covers">Using original song covers</string>
+
+    <!-- Spectrogram -->
+    <string name="spectrogram">Spectrogram</string>
+    <string name="spectrogram_building">Building spectrogram… %1$d%%</string>
+    <string name="spectrogram_error">This file can\'t be decoded on this device, so no spectrogram can be built.</string>
+    <string name="spectrogram_hint">Pinch to zoom (spread sideways for time, up and down for frequency), drag to move, tap to measure, double-tap to change colors.</string>
+    <string name="spectrogram_mono">Mono</string>
+    <string name="spectrogram_stereo">Stereo</string>
+    <string name="spectrogram_channels">%1$d channels</string>
+    <string name="spectrogram_channel">Channel</string>
+    <string name="spectrogram_mix">Mix</string>
+    <string name="spectrogram_colors">Colors</string>
+    <string name="spectrogram_range">Range</string>
+    <string name="spectrogram_resolution">FFT size</string>
+    <string name="spectrogram_reset_zoom">Reset zoom</string>
+    <string name="spectrogram_palette_spectrum">Spectrum</string>
+    <string name="spectrogram_palette_blue">Blue</string>
+    <string name="spectrogram_palette_red">Red</string>
+    <string name="spectrogram_palette_mono">Mono</string>
 </resources>
