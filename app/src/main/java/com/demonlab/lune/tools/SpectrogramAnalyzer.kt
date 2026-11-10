@@ -107,10 +107,13 @@ object SpectrogramAnalyzer {
                 else -> 0L
             }
 
-            // Ask for float output where the decoder supports it, so 24-bit sources keep their precision.
-            try {
-                inFormat.setInteger(MediaFormat.KEY_PCM_ENCODING, AudioFormat.ENCODING_PCM_FLOAT)
-            } catch (_: Exception) {
+            // Float output only from real decoders. The raw/PCM path (WAV, AIFF) is a pass-through:
+            // forcing float there makes it report float while the bytes are still integer PCM.
+            if (mime != "audio/raw") {
+                try {
+                    inFormat.setInteger(MediaFormat.KEY_PCM_ENCODING, AudioFormat.ENCODING_PCM_FLOAT)
+                } catch (_: Exception) {
+                }
             }
 
             val dec = try {
@@ -196,7 +199,7 @@ object SpectrogramAnalyzer {
             }
 
             val b = bank ?: throw UnsupportedAudioException("The file contains no decodable audio")
-            return b.finish(mime)
+            return b.finish("$mime enc=$pcmEncoding")
         } finally {
             try { codec?.stop() } catch (_: Exception) {}
             try { codec?.release() } catch (_: Exception) {}
@@ -304,7 +307,8 @@ object SpectrogramAnalyzer {
             val out = ByteArray(bins)
             val scale = 2f / windowSum
             for (k in 0 until bins) {
-                val mag = sqrt(re[k] * re[k] + im[k] * im[k]) * scale
+                val rawMag = sqrt(re[k] * re[k] + im[k] * im[k]) * scale
+                val mag = if (rawMag.isNaN()) 0f else rawMag
                 val db = 20f * log10(max(mag, 1e-9f))
                 val q = ((db - FLOOR_DB) / -FLOOR_DB * 255f).toInt().coerceIn(0, 255)
                 out[k] = q.toByte()
